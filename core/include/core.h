@@ -13,7 +13,7 @@ namespace autocalib {
   * See datails in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
   * \param kps Images keypoints vector.
-  * \param matcher Mapping between view indices pairs and matches keypoint indices.
+  * \param matches Mapping between view indices pairs and matches keypoint indices.
   * \param K Output camera intrinsics.
   */
 void calibRotationalCamera(const std::vector<cv::Mat> &kps,
