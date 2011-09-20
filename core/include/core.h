@@ -1,5 +1,5 @@
-#ifndef AUTOCALIB_H_
-#define AUTOCALIB_H_
+#ifndef AUTOCALIB_CORE_H_
+#define AUTOCALIB_CORE_H_
 
 #include <vector>
 #include <map>
@@ -22,4 +22,4 @@ void calibRotationalCamera(const std::vector<cv::Mat> &kps,
 
 } // namespace autocalib
 
-#endif // AUTOCALIB_H_
+#endif // AUTOCALIB_CORE_H_
