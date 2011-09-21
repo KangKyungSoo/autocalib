@@ -10,15 +10,17 @@ namespace autocalib {
 
 /** Calculates rotational camera intrinsics.
   *
-  * See datails in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
+  * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
-  * \param kps Images keypoints vector.
-  * \param matches Mapping between view indices pairs and matches keypoint indices.
-  * \param K Output camera intrinsics.
+  * \param keypoints Images keypoints
+  * \param matches Mapping between view indices pairs and matches keypoint indices
+  * \param K Output camera intrinsics
+  * \param mask Mask identifying intrinsic parameters to be estimated
   */
-void calibRotationalCamera(const std::vector<cv::Mat> &kps,
+void CalibRotationalCamera(cv::InputArrayOfArrays keypoints,
                            const std::map<std::pair<int, int>, cv::Mat> &matches,
-                           cv::Mat &K);
+                           cv::InputOutputArray K,
+                           cv::InputArray mask = cv::Mat::ones(3, 3, CV_8U));
 
 } // namespace autocalib
 
