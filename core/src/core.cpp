@@ -6,8 +6,10 @@ using namespace cv;
 
 namespace autocalib {
 
-void calibRotationalCamera(const vector<Mat> &kps, const map<pair<int, int>, Mat> &matches,
-                           Mat &K)
+void calibRotationalCamera(cv::InputArrayOfArrays keypoints,
+                           const std::map<std::pair<int, int>, cv::Mat> &matches,
+                           cv::InputOutputArray K,
+                           cv::InputArray mask)
 {
 }
 
