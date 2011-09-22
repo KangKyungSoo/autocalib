@@ -33,7 +33,7 @@ bool DecomposeCholesky(cv::InputArray src, cv::OutputArray L);
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
-  * \param Hs Homographies (64F).
+  * \param Hs Projective plane homographies (64F).
   * \return Camera intrinsics (64F).
   */
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
