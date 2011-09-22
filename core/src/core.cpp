@@ -37,24 +37,24 @@ Mat Antidiag(int rows, int cols, int type) {
 }
 
 
-bool DecomposeCholesky(InputArray src, OutputArray L) {
+Mat DecomposeCholesky(InputArray src) {
     Mat src_ = src.getMat();
     CV_Assert(src_.rows == src_.cols && src_.type() == CV_64F);
 
-    Mat &L_ = L.getMatRef();
-    src_.copyTo(L_);
+    Mat L;
+    src_.copyTo(L);
 
-    if (!Cholesky(L_.ptr<double>(), L_.step, L_.cols, 0, 0, 0))
-        return false;
+    if (!Cholesky(L.ptr<double>(), L.step, L.cols, 0, 0, 0))
+        return Mat();
 
-    for (int i = 0; i < L_.cols; ++i)
-        for (int j = i + 1; j < L_.rows; ++j)
-            L_.at<double>(i, j) = 0;
+    for (int i = 0; i < L.cols; ++i)
+        for (int j = i + 1; j < L.rows; ++j)
+            L.at<double>(i, j) = 0;
 
-    for (int i = 0; i < L_.cols; ++i)
-        L_.at<double>(i, i) = 1. / L_.at<double>(i, i);
+    for (int i = 0; i < L.cols; ++i)
+        L.at<double>(i, i) = 1. / L.at<double>(i, i);
 
-    return true;
+    return L;
 }
 
 
@@ -103,9 +103,8 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     KK(1, 1) = x(3, 0); KK(1, 2) = x(4, 0);
 
     // Do U * U.t() decomposition
-    Mat K_flipped;
     Mat adiag = Antidiag(3, 3, CV_64F);
-    DecomposeCholesky(adiag * KK * adiag, K_flipped);
+    Mat K_flipped = DecomposeCholesky(adiag * KK * adiag);
     return adiag * K_flipped * adiag;
 }
 
