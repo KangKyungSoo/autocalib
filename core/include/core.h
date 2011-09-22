@@ -8,19 +8,35 @@
 
 namespace autocalib {
 
-/** Calculates rotational camera intrinsics.
+/**
+  * Constructs anti-diagonal matrix of ones.
+  *
+  * \param rows Number of rows.
+  * \param cols Number of cols.
+  * \param type Matrix type.
+  * \return Anti-diagonal matrix.
+  */
+cv::Mat Antidiag(int rows, int cols, int type);
+
+
+/**
+  * Performs Cholesky decomposition.
+  *
+  * \param src Symmetric positive-definite matrix (64F).
+  * \param L Lower traingular matrix (64F), such as L * L.t() == src.
+  * \return true if succeded, false otherwise.
+  */
+bool DecomposeCholesky(cv::InputArray src, cv::OutputArray L);
+
+
+/** Calculates rotational camera intrinsics using linear algorithm.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
-  * \param keypoints Images keypoints
-  * \param matches Mapping between view indices pairs and matches keypoint indices
-  * \param K Output camera intrinsics
-  * \param mask Mask identifying intrinsic parameters to be estimated
+  * \param Hs Homographies (64F).
+  * \return Camera intrinsics (64F).
   */
-void CalibRotationalCamera(cv::InputArrayOfArrays keypoints,
-                           const std::map<std::pair<int, int>, cv::Mat> &matches,
-                           cv::InputOutputArray K,
-                           cv::InputArray mask = cv::Mat::ones(3, 3, CV_8U));
+cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
 
 } // namespace autocalib
 
