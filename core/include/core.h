@@ -23,10 +23,10 @@ cv::Mat Antidiag(int rows, int cols, int type);
   * Performs Cholesky decomposition.
   *
   * \param src Symmetric positive-definite matrix (64F).
-  * \param L Lower traingular matrix (64F), such as L * L.t() == src.
-  * \return true if succeded, false otherwise.
+  * \return Lower traingular matrix L (64F), such as L * L.t() == src,
+            or empty matrix if decomposition doesn't exist.
   */
-bool DecomposeCholesky(cv::InputArray src, cv::OutputArray L);
+cv::Mat DecomposeCholesky(cv::InputArray src);
 
 
 /** Calculates rotational camera intrinsics using linear algorithm.

@@ -21,9 +21,9 @@ TEST(DecomposeCholesky, CanDecomposeSmallMatrix) {
     L(1, 0) = 2; L(1, 1) = 3;
     L(2, 0) = 4; L(2, 1) = 5; L(2, 2) = 6;
 
-    Mat src = L * L.t(), dst;
+    Mat dst = DecomposeCholesky(L * L.t());
 
-    ASSERT_TRUE(DecomposeCholesky(src, dst));
+    ASSERT_TRUE(!dst.empty());
     ASSERT_LT(norm(dst, L, NORM_INF), 1e-3);
 }
 
@@ -34,7 +34,5 @@ TEST(DecomposeCholesky, CanNotDecomposeNegativeDefiniteMatrix) {
     L(1, 0) = 2; L(1, 1) = 3;
     L(2, 0) = 4; L(2, 1) = 5; L(2, 2) = 6;
 
-    Mat src = -L * L.t(), dst;
-
-    ASSERT_FALSE(DecomposeCholesky(src, dst));
+    ASSERT_TRUE(DecomposeCholesky(-L * L.t()).empty());
 }
