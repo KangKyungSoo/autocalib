@@ -11,10 +11,10 @@ namespace autocalib {
 /**
   * Constructs anti-diagonal matrix of ones.
   *
-  * \param rows Number of rows.
-  * \param cols Number of cols.
-  * \param type Matrix type.
-  * \return Anti-diagonal matrix.
+  * \param rows Number of rows
+  * \param cols Number of cols
+  * \param type Matrix type
+  * \return Anti-diagonal matrix
   */
 cv::Mat Antidiag(int rows, int cols, int type);
 
@@ -22,9 +22,9 @@ cv::Mat Antidiag(int rows, int cols, int type);
 /**
   * Performs Cholesky decomposition.
   *
-  * \param src Symmetric positive-definite matrix (64F).
+  * \param src Symmetric positive-definite matrix (64F)
   * \return Lower traingular matrix L (64F), such as L * L.t() == src,
-            or empty matrix if decomposition doesn't exist.
+            or empty matrix if decomposition doesn't exist
   */
 cv::Mat DecomposeCholesky(cv::InputArray src);
 
@@ -33,8 +33,8 @@ cv::Mat DecomposeCholesky(cv::InputArray src);
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
-  * \param Hs Projective plane homographies (64F).
-  * \return Camera intrinsics (64F).
+  * \param Hs Projective plane homographies (64F)
+  * \return Camera intrinsics (64F)
   */
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
 
