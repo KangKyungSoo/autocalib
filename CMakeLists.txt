@@ -9,4 +9,5 @@ include_directories(".")
 
 add_subdirectory(core)
 add_subdirectory(core_tests)
+add_subdirectory(core_evaluation)
 add_subdirectory(evaluation)
