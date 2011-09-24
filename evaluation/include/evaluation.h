@@ -32,12 +32,27 @@ public:
 
 protected:
 
-    /** \return true if the point is visible from the given origin. */
+    /** Checks point visibility.
+      *
+      *\return true if the point is visible from the given origin, false otherwise. */
     virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const = 0;
 };
 
 
+/** Describes synthetic sphere scene. */
+class SphereScene : public SyntheticScene {
+public:
 
+    /** Creates sphere scene.
+      *
+      * \param num_points Number of points on the sphere
+      * \param seed RNG seed, pass -1 if seeding isn't needed
+      */
+    SphereScene(int num_points, int seed = -1);
+
+private:
+    virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const;
+};
 
 } // namespace autocalib
 
