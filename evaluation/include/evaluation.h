@@ -34,7 +34,7 @@ protected:
 
     /** Checks point visibility.
       *
-      *\return true if the point is visible from the given origin, false otherwise. */
+      * \return true if the point is visible from the given origin, false otherwise */
     virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const = 0;
 };
 
