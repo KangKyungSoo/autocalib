@@ -8,6 +8,9 @@
 
 namespace autocalib {
 
+//============================================================================
+// Cameras
+
 /** General projective camera interface. */
 class IProjectiveCamera {
 public:
@@ -64,13 +67,53 @@ public:
     }
 
     const cv::Mat& K() const { return K_; }
-    const cv::Mat& R() const { return K_; }
-    const cv::Mat& T() const { return K_; }
+    const cv::Mat& R() const { return R_; }
+    const cv::Mat& T() const { return T_; }
 
 private:
     cv::Mat K_, R_, T_;
 };
 
+
+//============================================================================
+// Optimization
+
+
+/** Describes an optimization method verbosity. */
+enum OptVerbose {
+    OptVerboseNo,
+    OptVerboseSummary,
+    OptVerboseMax
+};
+
+
+/** Minimizes a function using the Levenberg-Marquardt algorithm.
+  *
+  * \param func Function to be minimized
+  * \param args Function arguments
+  * \param verbose Verbosity level
+  * \return Found minimum value
+  * \see OptVerbose
+  */
+template <typename Func>
+double Minimize(Func func, cv::InputOutputArray args, OptVerbose verbose = OptVerboseNo);
+
+
+//============================================================================
+// Autocalibration
+
+/** Calculates rotational camera intrinsics using linear algorithm.
+  *
+  * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
+  *
+  * \param Hs Projective plane homographies (64F)
+  * \return Camera intrinsics (64F)
+  */
+cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
+
+
+//============================================================================
+// Other
 
 /** Constructs anti-diagonal matrix of ones.
   *
@@ -90,16 +133,8 @@ cv::Mat Antidiag(int rows, int cols, int type);
   */
 cv::Mat DecomposeCholesky(cv::InputArray src);
 
-
-/** Calculates rotational camera intrinsics using linear algorithm.
-  *
-  * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
-  *
-  * \param Hs Projective plane homographies (64F)
-  * \return Camera intrinsics (64F)
-  */
-cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
-
 } // namespace autocalib
+
+#include "core_inl.h"
 
 #endif // AUTOCALIB_CORE_H_
