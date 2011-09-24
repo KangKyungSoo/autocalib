@@ -39,7 +39,7 @@ protected:
 };
 
 
-/** Describes synthetic sphere scene. */
+/** Describes a synthetic sphere scene. */
 class SphereScene : public SyntheticScene {
 public:
 
