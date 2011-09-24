@@ -1,3 +1,5 @@
+#include <cstdlib>
+#include <cmath>
 #include <include/evaluation.h>
 
 using namespace std;
@@ -45,6 +47,25 @@ Ptr<detail::ImageFeatures> SyntheticScene::TakeShot(const RigidCamera &camera, R
     }
 
     return features;
+}
+
+
+SphereScene::SphereScene(int num_points, int seed) {
+    if (seed != -1)
+        srand(seed);
+    points.resize(num_points);
+    for (int i = 0; i < num_points; ++i) {
+        double phi = rand() / (double)RAND_MAX * 2. * CV_PI;
+        double psi = rand() / (double)RAND_MAX * CV_PI;
+        points[i].x = cos(phi) * sin(psi);
+        points[i].y = sin(phi) * sin(psi);
+        points[i].z = cos(psi);
+    }
+}
+
+
+bool SphereScene::IsVisible(const Point3d &point, const Point3d &origin) const {
+    return point.x * origin.x + point.y * origin.y + point.z * origin.z > 0;
 }
 
 } // namespace autocalib
