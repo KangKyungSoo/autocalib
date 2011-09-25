@@ -1,7 +1,6 @@
 #ifndef AUTOCALIB_CORE_INL_H_
 #define AUTOCALIB_CORE_INL_H_
 
-#include <iostream>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/core/core_c.h>
 #include "core.h"
@@ -11,7 +10,7 @@ namespace autocalib {
 template <typename Func>
 double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts) {
     cv::Mat arg_ = arg.getMatRef();
-    CV_Assert(arg_.type() == CV_64F && arg_.rows == 1 && arg_.isContinuous());
+    CV_Assert(arg_.type() == CV_64F && arg_.rows == 1 && arg_.isContinuous());   
 
     int err_dim = func.dimension;
     int arg_dim = arg_.cols;
@@ -52,14 +51,14 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts) {
             cvCopy(&tmp, solver_jac);
             num_iters++;
             if (opts.verbose() & MinimizeOpts::VerboseIter)
-                std::cout << "MinimizeLevMarq: iter=" << num_iters
-                          << ", err=" << err_norm << std::endl;
+                LOG(std::cout << "MinimizeLevMarq: iter=" << num_iters
+                              << ", err=" << err_norm << std::endl);
         }
     }
 
     if (opts.verbose() & MinimizeOpts::VerboseSummary)
-        std::cout << "MinimizeLevMarq summary: start_err=" << init_err_norm
-                  << ", final_err=" << err_norm << ", num_iters=" << num_iters << std::endl;
+        LOG(std::cout << "MinimizeLevMarq summary: start_err=" << init_err_norm
+                      << ", final_err=" << err_norm << ", num_iters=" << num_iters << std::endl);
 
     return err_norm;
 }

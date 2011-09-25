@@ -10,10 +10,8 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     vector<Mat> Hs_;
     Hs.getMatVector(Hs_);
     int num_Hs = (int)Hs_.size();
-    if (num_Hs < 1) {
-        cout << "Need at least one homography\n";
-        return Mat();
-    }
+    if (num_Hs < 1)
+        throw runtime_error("Need at least one homography");
 
     // Ensure all homographies has unit determinant
     vector<Mat> Hs_normed(num_Hs);
@@ -62,7 +60,7 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     Mat adiag = Antidiag(3, 3, CV_64F);
     Mat K_flipped = DecomposeCholesky(adiag * KK * adiag);
     if (K_flipped.empty())
-        return Mat();
+        throw runtime_error("K * K.t() isn't positive definite");
     return adiag * K_flipped * adiag;
 }
 
