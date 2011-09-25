@@ -128,8 +128,7 @@ private:
   *
   * \param func Function to be minimized
   * \param arg Function arguments
-  * \param crit Termination criteria
-  * \param verbose Verbosity level
+  * \param opts Minimization method options
   * \return L2 norm of optimal value
   * \see MinimizeOpts
   */
