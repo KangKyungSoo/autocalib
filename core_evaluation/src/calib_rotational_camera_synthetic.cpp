@@ -18,6 +18,9 @@ Mat_<double> K_gold;
 Mat_<double> camera_center;
 double max_angle = 0.1;
 bool create_images = false;
+double H_est_thresh = 3;
+bool add_noise = false;
+double noise_stddev = 1;
 
 int main(int argc, char **argv) {    
     try {
@@ -38,6 +41,7 @@ int main(int argc, char **argv) {
                 K_gold(0, 2) = atof(argv[i + 3]);
                 K_gold(1, 1) = atof(argv[i + 4]);
                 K_gold(1, 2) = atof(argv[i + 5]);
+                i += 5;
             }
             else if (string(argv[i]) == "--camera-center") {
                 camera_center = Mat::zeros(3, 1, CV_64F);
@@ -50,8 +54,14 @@ int main(int argc, char **argv) {
                 max_angle = atof(argv[++i]);
             else if (string(argv[i]) == "--create-images")
                 create_images = atoi(argv[++i]);
+            else if (string(argv[i]) == "--H-est-thresh")
+                H_est_thresh = atof(argv[++i]);
+            else if (string(argv[i]) == "--add-noise")
+                add_noise = atoi(argv[++i]);
+            else if (string(argv[i]) == "--noise-stddev")
+                noise_stddev = atof(argv[++i]);
             else
-                throw runtime_error("Can't parse CLI args");
+                throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
         }
         if (K_gold.empty()) {
             K_gold = Mat::eye(3, 3, CV_64F);
@@ -68,7 +78,7 @@ int main(int argc, char **argv) {
         vector<RigidCamera> cameras(num_cameras);
         vector<Ptr<detail::ImageFeatures> > features(num_cameras);
 
-        // Generate cameras
+        // Generate cameras and shots
         for (int i = 0; i < num_cameras; ++i) {
             Mat rvec = Mat::zeros(3, 1, CV_64F);
             randu(rvec, -1, 1);
@@ -89,7 +99,22 @@ int main(int argc, char **argv) {
             }
         }
 
-        // Find homographies
+        if (add_noise) {
+            cout << "Adding noise...\n";
+            for (int i = 0; i < num_cameras; ++i) {
+                Mat_<float> noise(1, 2 * features[i]->keypoints.size());
+                randn(noise, 0, noise_stddev);
+                double total_noise = 0;
+                for (size_t j = 0; j < features[i]->keypoints.size(); ++j) {
+                    features[i]->keypoints[j].pt.x += noise(0, 2 * j);
+                    features[i]->keypoints[j].pt.y += noise(0, 2 * j + 1);
+                    total_noise += noise(0, 2 * j) * noise(0, 2 * j) + noise(0, 2 * j + 1) * noise(0, 2 * j + 1);
+                }
+                cout << "Shot " << i << " noise RMS: " << sqrt(total_noise / features[i]->keypoints.size()) << endl;
+            }
+        }
+
+        cout << "Finding homographies...\n";
         vector<Mat> Hs;
         Mat kps1, kps2;
         vector<DMatch> matches;
@@ -97,13 +122,12 @@ int main(int argc, char **argv) {
             for (int j = i + 1; j < num_cameras; ++j) {
                 MatchSyntheticShots((*features[i]), (*features[j]), matches);
                 ExtractMatchedKeypoints((*features[i]), (*features[j]), matches, kps1, kps2);
-                Mat_<double> H = findHomography(kps1, kps2);
+
+                Mat_<double> H = findHomography(kps1, kps2, cv::RANSAC, H_est_thresh);
                 if (H.empty())
                     cout << "Can't find H from " << i << " to " << j << endl;
                 else {
                     Hs.push_back(H);
-
-                    // Calcuate reprojection error
                     double err = 0;
                     for (size_t k = 0; k < matches.size(); ++k) {
                         Point2f kp1 = kps1.at<Point2f>(0, k);
@@ -125,7 +149,7 @@ int main(int argc, char **argv) {
         cout << "K_final:\n" << K_final << endl;
     }
     catch (const exception &e) {
-        cout << "Error: '" << e.what() << "'\n";
+        cout << "Error: " << e.what() << "\n";
     }
 
     return 0;
