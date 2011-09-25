@@ -5,6 +5,7 @@
 #include <map>
 #include <utility>
 #include <opencv2/core/core.hpp>
+#include <opencv2/stitching/detail/matchers.hpp>
 
 namespace autocalib {
 
@@ -42,15 +43,6 @@ private:
 class RigidCamera : public IProjectiveCamera {
 public:
 
-    /** Creates an eye camera.
-      *
-      * \return Camera object
-      */
-    static RigidCamera Eye() {
-        return RigidCamera(cv::Mat::eye(3, 3, CV_64F), cv::Mat::eye(3, 3, CV_64F),
-                           cv::Mat::zeros(3, 1, CV_64F));
-    }
-
     /** Creates a camera from intrinsics and mapping from local to world coordinates.
       *
       * \param K Intrinsics matrix
@@ -61,6 +53,13 @@ public:
     static RigidCamera LocalToWorld(const cv::Mat &K, const cv::Mat &R, const cv::Mat &center) {
         cv::Mat R_inv = R.inv();
         return RigidCamera(K, R_inv, -R_inv * center);
+    }
+
+    /** Default constructor. Creates an eye camara. */
+    RigidCamera() {
+        K_ = cv::Mat::eye(3, 3, CV_64F);
+        R_ = cv::Mat::eye(3, 3, CV_64F);
+        T_ = cv::Mat::zeros(3, 1, CV_64F);
     }
 
     /** Constructs a camera from intrinsics and mapping from world to local coordinates
@@ -192,6 +191,20 @@ cv::Mat Antidiag(int rows, int cols, int type);
             or empty matrix if decomposition doesn't exist
   */
 cv::Mat DecomposeCholesky(cv::InputArray src);
+
+
+/** Extracts matched keypoints.
+  *
+  * \param f1 First image features
+  * \param f2 Second image features
+  * \param matches Matches vector
+  * \param kps1 First image keypoints
+  * \param kps2 Second image keypoints
+  */
+void ExtractMatchedKeypoints(const cv::detail::ImageFeatures &f1,
+                             const cv::detail::ImageFeatures &f2,
+                             const std::vector<cv::DMatch> &matches,
+                             cv::OutputArray kps1, cv::OutputArray kps2);
 
 } // namespace autocalib
 

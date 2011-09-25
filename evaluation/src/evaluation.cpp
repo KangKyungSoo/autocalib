@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <cmath>
+#include <opencv2/features2d/features2d.hpp>
 #include <include/evaluation.h>
 
 using namespace std;
@@ -66,6 +67,21 @@ SphereScene::SphereScene(int num_points, int seed) {
 
 bool SphereScene::IsVisible(const Point3d &point, const Point3d &origin) const {
     return point.x * origin.x + point.y * origin.y + point.z * origin.z > 0;
+}
+
+
+void MatchSyntheticShots(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
+                         vector<DMatch> &matches)
+{
+    vector<DMatch> matches_;
+    BruteForceMatcher<L2<int> > matcher;
+    matcher.match(f1.descriptors, f2.descriptors, matches_);
+
+    matches.clear();
+    for (size_t i = 0; i < matches_.size(); ++i)
+        if (f1.descriptors.at<int>(matches_[i].queryIdx) ==
+            f2.descriptors.at<int>(matches_[i].trainIdx))
+            matches.push_back(matches_[i]);
 }
 
 } // namespace autocalib
