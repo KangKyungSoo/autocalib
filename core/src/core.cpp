@@ -108,4 +108,20 @@ Mat DecomposeCholesky(InputArray src) {
     return L;
 }
 
+
+void ExtractMatchedKeypoints(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
+                             const vector<DMatch> &matches, OutputArray kps1, OutputArray kps2)
+{
+    Mat &kps1_ = kps1.getMatRef();
+    Mat &kps2_ = kps2.getMatRef();
+
+    kps1_.create(1, (int)matches.size(), CV_32FC2);
+    kps2_.create(1, (int)matches.size(), CV_32FC2);
+
+    for (size_t i = 0; i < matches.size(); ++i) {
+        kps1_.at<Point2f>(0, i) = f1.keypoints[matches[i].queryIdx].pt;
+        kps2_.at<Point2f>(0, i) = f2.keypoints[matches[i].trainIdx].pt;
+    }
+}
+
 } // namespace autocalib

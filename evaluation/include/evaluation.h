@@ -59,6 +59,16 @@ private:
     virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const;
 };
 
+
+/** Matches two synthetic scene shots.
+  *
+  * \param f0 First shot features
+  * \param f1 Second shot features
+  * \param matches Found matches
+  */
+void MatchSyntheticShots(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
+                         std::vector<cv::DMatch> &matches);
+
 } // namespace autocalib
 
 #endif // AUTOCALIB_EVALUATION_H_

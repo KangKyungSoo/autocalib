@@ -16,7 +16,7 @@ Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> camera_center;
 double max_angle = 0.1;
-bool create_images = true;
+bool create_images = false;
 
 int main(int argc, char **argv) {    
     for (int i = 1; i < argc; ++i) {
@@ -65,8 +65,10 @@ int main(int argc, char **argv) {
     }
 
     Ptr<SyntheticScene> scene = new SphereScene(num_points);
+    vector<RigidCamera> cameras(num_cameras);
     vector<Ptr<detail::ImageFeatures> > features(num_cameras);
 
+    // Generate cameras
     for (int i = 0; i < num_cameras; ++i) {
         Mat rvec = Mat::zeros(3, 1, CV_64F);
         randu(rvec, -1, 1);
@@ -74,16 +76,39 @@ int main(int argc, char **argv) {
 
         Mat R;
         Rodrigues(rvec, R);
-        RigidCamera camera = RigidCamera::LocalToWorld(K_gold, R, camera_center);
+        cameras[i] = RigidCamera::LocalToWorld(K_gold, R, camera_center);
 
         if (!create_images)
-            features[i] = scene->TakeShot(camera, viewport);
+            features[i] = scene->TakeShot(cameras[i], viewport);
         else {
             Mat image;
-            features[i] = scene->TakeShot(camera, viewport, &image);
+            features[i] = scene->TakeShot(cameras[i], viewport, &image);
             stringstream name;
             name << "camera" << i << ".jpg";
             imwrite(name.str(), image);
+        }
+    }
+
+    // Find homographies
+    Mat kps1, kps2;
+    vector<DMatch> matches;
+    for (int i = 0; i < num_cameras - 1; ++i) {
+        for (int j = i + 1; j < num_cameras; ++j) {
+            MatchSyntheticShots((*features[i]), (*features[j]), matches);
+            ExtractMatchedKeypoints((*features[i]), (*features[j]), matches, kps1, kps2);
+            Mat_<double> H = findHomography(kps1, kps2);
+
+            // Calcuate reprojection error
+            double err = 0;
+            for (size_t k = 0; k < matches.size(); ++k) {
+                Point2f kp1 = kps1.at<Point2f>(0, k);
+                Point2f kp2 = kps2.at<Point2f>(0, k);
+                double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
+                double y = H(1, 0) * kp1.x + H(1, 1) * kp1.y + H(1, 2);
+                double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);
+                err += (kp2.x - x / z) * (kp2.x - x / z) + (kp2.y - y / z) * (kp2.y - y / z);
+            }
+            cout << "H from " << i << " to " << j << " RMS error: " << sqrt(err / matches.size()) << endl;
         }
     }
 
