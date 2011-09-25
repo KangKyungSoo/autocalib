@@ -90,6 +90,7 @@ int main(int argc, char **argv) {
     }
 
     // Find homographies
+    vector<Mat> Hs;
     Mat kps1, kps2;
     vector<DMatch> matches;
     for (int i = 0; i < num_cameras - 1; ++i) {
@@ -97,20 +98,31 @@ int main(int argc, char **argv) {
             MatchSyntheticShots((*features[i]), (*features[j]), matches);
             ExtractMatchedKeypoints((*features[i]), (*features[j]), matches, kps1, kps2);
             Mat_<double> H = findHomography(kps1, kps2);
+            if (H.empty())
+                cout << "Can't find H from " << i << " to " << j << endl;
+            else {
+                Hs.push_back(H);
 
-            // Calcuate reprojection error
-            double err = 0;
-            for (size_t k = 0; k < matches.size(); ++k) {
-                Point2f kp1 = kps1.at<Point2f>(0, k);
-                Point2f kp2 = kps2.at<Point2f>(0, k);
-                double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
-                double y = H(1, 0) * kp1.x + H(1, 1) * kp1.y + H(1, 2);
-                double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);
-                err += (kp2.x - x / z) * (kp2.x - x / z) + (kp2.y - y / z) * (kp2.y - y / z);
+                // Calcuate reprojection error
+                double err = 0;
+                for (size_t k = 0; k < matches.size(); ++k) {
+                    Point2f kp1 = kps1.at<Point2f>(0, k);
+                    Point2f kp2 = kps2.at<Point2f>(0, k);
+                    double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
+                    double y = H(1, 0) * kp1.x + H(1, 1) * kp1.y + H(1, 2);
+                    double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);
+                    err += (kp2.x - x / z) * (kp2.x - x / z) + (kp2.y - y / z) * (kp2.y - y / z);
+                }
+                cout << "H from " << i << " to " << j << " RMS error: " << sqrt(err / matches.size()) << endl;
             }
-            cout << "H from " << i << " to " << j << " RMS error: " << sqrt(err / matches.size()) << endl;
         }
     }
+
+    cout << "Linear calibrating...\n";
+    Mat_<double> K_final = CalibRotationalCameraLinear(Hs);
+
+    cout << "K_gold:\n" << K_gold << endl;
+    cout << "K_final:\n" << K_final << endl;
 
     return 0;
 }
