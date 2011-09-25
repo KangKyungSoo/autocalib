@@ -7,7 +7,7 @@ using namespace cv;
 
 namespace autocalib {
 
-Ptr<detail::ImageFeatures> SyntheticScene::TakeShot(const RigidCamera &camera, Rect roi,
+Ptr<detail::ImageFeatures> SyntheticScene::TakeShot(const RigidCamera &camera, Rect viewport,
                                                     Mat *img)
 {
     Mat R_inv = camera.R().inv();
@@ -24,8 +24,8 @@ Ptr<detail::ImageFeatures> SyntheticScene::TakeShot(const RigidCamera &camera, R
             double y = P(1, 0) * pt.x + P(1, 1) * pt.y + P(1, 2) * pt.z + P(1, 3);
             double z = P(2, 0) * pt.x + P(2, 1) * pt.y + P(2, 2) * pt.z + P(2, 3);
             Point2f kp(float(x / z), float(y / z));
-            if (kp.x > (float)roi.x && kp.x < float(roi.width - 1) &&
-                kp.y > (float)roi.y && kp.y < float(roi.height - 1))
+            if (kp.x > (float)viewport.x && kp.x < float(viewport.width - 1) &&
+                kp.y > (float)viewport.y && kp.y < float(viewport.height - 1))
             {
                 visible_points.push_back(i);
                 features->keypoints.push_back(KeyPoint(kp, 1.f));
@@ -37,10 +37,10 @@ Ptr<detail::ImageFeatures> SyntheticScene::TakeShot(const RigidCamera &camera, R
     for (size_t i = 0; i < visible_points.size(); ++i)
         features->descriptors.at<int>(i ,0) = visible_points[i];
 
-    features->img_size = roi.size();
+    features->img_size = viewport.size();
 
     if (img) {
-        img->create(roi.size(), CV_8U);
+        img->create(viewport.size(), CV_8U);
         img->setTo(0);
         for (size_t i = 0; i < visible_points.size(); ++i)
             circle(*img, features->keypoints[i].pt, 1, Scalar::all(255), 2);

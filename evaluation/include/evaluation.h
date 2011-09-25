@@ -22,12 +22,14 @@ public:
 
     /** Takes a shot of the scene.
       *
+      * Descriptor of each returned feature is its pre-image point index from point cloud.
+      *
       * \param camera Rigid camera parameters
-      * \param roi Result image ROI
+      * \param viewport Viewing region
       * \param img Output image pointer, pass 0 if image isn't needed
       * \return Result image features
       */
-    cv::Ptr<cv::detail::ImageFeatures> TakeShot(const RigidCamera &camera, cv::Rect roi,
+    cv::Ptr<cv::detail::ImageFeatures> TakeShot(const RigidCamera &camera, cv::Rect viewport,
                                                 cv::Mat *img = 0);
 
 protected:
@@ -39,7 +41,10 @@ protected:
 };
 
 
-/** Describes a synthetic sphere scene. */
+/** Describes a synthetic sphere scene.
+  *
+  * Created sphere has unit radius and center in the origin.
+  */
 class SphereScene : public SyntheticScene {
 public:
 
