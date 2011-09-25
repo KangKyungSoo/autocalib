@@ -42,7 +42,29 @@ private:
 class RigidCamera : public IProjectiveCamera {
 public:
 
-    /** Construct a rigid camera from intrinsic and extrinsic parameters.
+    /** Creates an eye camera.
+      *
+      * \return Camera object
+      */
+    static RigidCamera Eye() {
+        return RigidCamera(cv::Mat::eye(3, 3, CV_64F), cv::Mat::eye(3, 3, CV_64F),
+                           cv::Mat::zeros(3, 1, CV_64F));
+    }
+
+    /** Creates a camera from intrinsics and mapping from local to world coordinates.
+      *
+      * \param K Intrinsics matrix
+      * \param R Rotation matrix
+      * \param center Camera center
+      * \return Camera object
+      */
+    static RigidCamera LocalToWorld(const cv::Mat &K, const cv::Mat &R, const cv::Mat &center) {
+        cv::Mat R_inv = R.inv();
+        return RigidCamera(K, R_inv, -R_inv * center);
+    }
+
+    /** Constructs a camera from intrinsics and mapping from world to local coordinates
+      * (extrinsics).
       *
       * \param K Intrinsics matrix
       * \param R Rotation matrix
@@ -70,7 +92,8 @@ public:
     const cv::Mat& R() const { return R_; }
     const cv::Mat& T() const { return T_; }
 
-private:
+private:    
+
     cv::Mat K_, R_, T_;
 };
 

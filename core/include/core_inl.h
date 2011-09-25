@@ -1,9 +1,7 @@
 #ifndef AUTOCALIB_CORE_INL_H_
 #define AUTOCALIB_CORE_INL_H_
 
-// TODO add log stream into MinimizeOpts
 #include <iostream>
-
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/core/core_c.h>
 #include "core.h"
