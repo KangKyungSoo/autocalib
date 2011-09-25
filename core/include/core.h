@@ -78,25 +78,63 @@ private:
 //============================================================================
 // Optimization
 
+/** Minimization method options. */
+class MinimizeOpts {
+public:
 
-/** Describes an optimization method verbosity. */
-enum OptVerbose {
-    OptVerboseNo,
-    OptVerboseSummary,
-    OptVerboseMax
+    /** Verbosity level. */
+    enum Verbose {
+        VerboseNo = 0,
+        VerboseSummary = 1,
+        VerboseIter = 2
+    };
+
+    /** \param crit Termination criteria
+      * \param verbose Verbosity level
+      * \see Verbose
+      */
+    MinimizeOpts(cv::TermCriteria crit = DefaultCrit(), Verbose verbose = VerboseNo) {
+        Init(crit, verbose);
+    }
+
+    /** Constructs options using the default termination criteria.
+      *
+      * \param verbose Verbosity level
+      * \see Verbose
+      */
+    MinimizeOpts(Verbose verbose) { Init(DefaultCrit(), verbose); }
+
+    /** \return Default termination criteria. */
+    static cv::TermCriteria DefaultCrit() {
+        return cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS,
+                                100, 1e-3);
+    }
+
+    const Verbose verbose() const { return verbose_; }
+    const cv::TermCriteria& crit() const { return crit_; }
+
+private:
+    void Init(cv::TermCriteria term_crit, Verbose verbose) {
+        crit_ = term_crit;
+        verbose_ = verbose;
+    }
+
+    Verbose verbose_;
+    cv::TermCriteria crit_;
 };
 
 
 /** Minimizes a function using the Levenberg-Marquardt algorithm.
   *
   * \param func Function to be minimized
-  * \param args Function arguments
+  * \param arg Function arguments
+  * \param crit Termination criteria
   * \param verbose Verbosity level
-  * \return Found minimum value
-  * \see OptVerbose
+  * \return L2 norm of optimal value
+  * \see MinimizeOpts
   */
 template <typename Func>
-double Minimize(Func func, cv::InputOutputArray args, OptVerbose verbose = OptVerboseNo);
+double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts = MinimizeOpts());
 
 
 //============================================================================
