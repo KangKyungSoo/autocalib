@@ -9,7 +9,11 @@ namespace autocalib {
 Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     vector<Mat> Hs_;
     Hs.getMatVector(Hs_);
-    int num_Hs = static_cast<int>(Hs_.size());
+    int num_Hs = (int)Hs_.size();
+    if (num_Hs < 1) {
+        cout << "Need at least one homography\n";
+        return Mat();
+    }
 
     // Ensure all homographies has unit determinant
     vector<Mat> Hs_normed(num_Hs);
@@ -30,15 +34,16 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
         for (int r1 = 0; r1 < 3; ++r1) {
             for (int r2 = r1; r2 < 3; ++r2) {
                 A(eq_idx, 0) = H(r1, 0) * H(r2, 0);
-                A(eq_idx, 1) = H(r1, 0) * H(r2, 1) * 2;
-                A(eq_idx, 2) = H(r1, 0) * H(r2, 2) * 2;
+                A(eq_idx, 1) = H(r1, 0) * H(r2, 1) + H(r1, 1) * H(r2, 0);
+                A(eq_idx, 2) = H(r1, 0) * H(r2, 2) + H(r1, 2) * H(r2, 0);
                 A(eq_idx, 3) = H(r1, 1) * H(r2, 1);
-                A(eq_idx, 4) = H(r1, 1) * H(r2, 2) * 2;
-                A(eq_idx, 5) = H(r1, 2) * H(r2, 2);
-                if (r1 != 2 && r1 != 2)
+                A(eq_idx, 4) = H(r1, 1) * H(r2, 2) + H(r1, 2) * H(r2, 1);
+                if (r1 != 2 && r1 != 2) {
                     A(eq_idx, lut[r1][r2]) -= 1;
+                    b(eq_idx, 0) = -H(r1, 2) * H(r2, 2);
+                }
                 else
-                    b(eq_idx, 5) = 1;
+                    b(eq_idx, 0) = 1 - H(r1, 2) * H(r2, 2);
                 eq_idx++;
             }
         }
@@ -47,12 +52,17 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     Mat_<double> x;
     solve(A, b, x, DECOMP_SVD);
     Mat_<double> KK = Mat::eye(3, 3, CV_64F);
-    KK(0, 0) = x(0, 0); KK(0, 1) = x(1, 0); KK(0, 2) = x(2, 0);
-    KK(1, 1) = x(3, 0); KK(1, 2) = x(4, 0);
+    KK(0, 0) = x(0, 0);
+    KK(0, 1) = KK(1, 0) = x(1, 0);
+    KK(0, 2) = KK(2, 0) = x(2, 0);
+    KK(1, 1) = x(3, 0);
+    KK(1, 2) = KK(2, 1) = x(4, 0);
 
     // Do U * U.t() decomposition
     Mat adiag = Antidiag(3, 3, CV_64F);
     Mat K_flipped = DecomposeCholesky(adiag * KK * adiag);
+    if (K_flipped.empty())
+        return Mat();
     return adiag * K_flipped * adiag;
 }
 
