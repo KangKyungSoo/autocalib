@@ -8,14 +8,14 @@ using namespace cv;
 
 namespace autocalib {
 
-Ptr<detail::ImageFeatures> SyntheticScene::TakeShot(const RigidCamera &camera, Rect viewport,
-                                                    Mat *img)
+void SyntheticScene::TakeShotImpl(const RigidCamera &camera, Rect viewport,
+                                  bool create_img, Mat &img, detail::ImageFeatures &features)
 {
     Mat R_inv = camera.R().inv();
     Point3d origin = Mat(-R_inv * camera.T()).at<Point3d>(0, 0);
 
     vector<int> visible_points;
-    Ptr<detail::ImageFeatures> features = new detail::ImageFeatures;
+    features.keypoints.clear();
 
     Mat_<double> P = camera.P();
     for (size_t i = 0; i < points.size(); ++i) {
@@ -29,25 +29,23 @@ Ptr<detail::ImageFeatures> SyntheticScene::TakeShot(const RigidCamera &camera, R
                 kp.y > (float)viewport.y && kp.y < float(viewport.height - 1))
             {
                 visible_points.push_back(i);
-                features->keypoints.push_back(KeyPoint(kp, 1.f));
+                features.keypoints.push_back(KeyPoint(kp, 1.f));
             }
         }
     }
 
-    features->descriptors.create(visible_points.size(), 1, CV_32S);
+    features.descriptors.create(visible_points.size(), 1, CV_32S);
     for (size_t i = 0; i < visible_points.size(); ++i)
-        features->descriptors.at<int>(i ,0) = visible_points[i];
+        features.descriptors.at<int>(i ,0) = visible_points[i];
 
-    features->img_size = viewport.size();
+    features.img_size = viewport.size();
 
-    if (img) {
-        img->create(viewport.size(), CV_8U);
-        img->setTo(0);
+    if (create_img) {
+        img.create(viewport.size(), CV_8U);
+        img.setTo(0);
         for (size_t i = 0; i < visible_points.size(); ++i)
-            circle(*img, features->keypoints[i].pt, 1, Scalar::all(255), 2);
+            circle(img, features.keypoints[i].pt, 1, Scalar::all(255), 2);
     }
-
-    return features;
 }
 
 

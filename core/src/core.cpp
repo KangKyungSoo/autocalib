@@ -4,16 +4,17 @@
 using namespace std;
 using namespace cv;
 
+namespace autocalib {
 namespace {
 
 class ReprojErrorFixedKR {
 public:
-    ReprojErrorFixedKR(const vector<detail::ImageFeatures> &features,
-                       const map<pair<int, int>, vector<DMatch> > &matches)
-            : features_(&features), matches_(&matches), step_(1e-3)
+    ReprojErrorFixedKR(const FeaturesCollection &features,
+                       const MatchesCollection &matches)
+            : features_(&features), matches_(&matches), step_(1e-4)
     {
         num_matches_ = 0;
-        for (map<pair<int, int>, vector<DMatch> >::const_iterator view = matches_->begin();
+        for (MatchesCollection::const_iterator view = matches_->begin();
              view != matches_->end(); ++view)
             num_matches_ += (int)view->second.size();
     }
@@ -24,8 +25,8 @@ public:
     int dimension() const { return num_matches_ * 2; }
 
 private:
-    const vector<detail::ImageFeatures> *features_;
-    const map<pair<int, int>, vector<DMatch> > *matches_;
+    const FeaturesCollection *features_;
+    const MatchesCollection *matches_;
     int num_matches_;
 
     const double step_;
@@ -41,10 +42,10 @@ void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
 
     Mat_<double> K = Mat::eye(3, 3, CV_64F);
     K(0, 0) = arg_(0, 0);
-    K(1, 0) = arg_(1, 0);
-    K(2, 0) = arg_(2, 0);
-    K(3, 0) = arg_(3, 0);
-    K(4, 0) = arg_(4, 0);
+    K(0, 1) = arg_(0, 1);
+    K(0, 2) = arg_(0, 2);
+    K(1, 1) = arg_(0, 3);
+    K(1, 2) = arg_(0, 4);
     Mat K_inv = K.inv();
 
     int pos = 0;
@@ -53,11 +54,11 @@ void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
     {
         int img_from = view->first.first;
         const vector<KeyPoint> &kps_from = (*features_)[img_from].keypoints;
-        Mat_<double> rvec_from(3, 1);
+        Mat_<double> rvec_from(1, 3);
         if (img_from) {
-            rvec_from(0, 0) = arg_(6 + 3 * (img_from - 1), 0);
-            rvec_from(1, 0) = arg_(6 + 3 * (img_from - 1) + 1, 0);
-            rvec_from(2, 0) = arg_(6 + 3 * (img_from - 1) + 2, 0);
+            rvec_from(0, 0) = arg_(0, 5 + 3 * (img_from - 1));
+            rvec_from(0, 1) = arg_(0, 5 + 3 * (img_from - 1) + 1);
+            rvec_from(0, 2) = arg_(0, 5 + 3 * (img_from - 1) + 2);
         }
         else
             rvec_from.setTo(0);
@@ -66,11 +67,11 @@ void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
 
         int img_to = view->first.second;
         const vector<KeyPoint> &kps_to = (*features_)[img_to].keypoints;
-        Mat_<double> rvec_to(3, 1);
+        Mat_<double> rvec_to(1, 3);
         if (img_to) {
-            rvec_to(0, 0) = arg_(6 + 3 * (img_to - 1), 0);
-            rvec_to(1, 0) = arg_(6 + 3 * (img_to - 1) + 1, 0);
-            rvec_to(2, 0) = arg_(6 + 3 * (img_to - 1) + 2, 0);
+            rvec_to(0, 0) = arg_(0, 5 + 3 * (img_to - 1));
+            rvec_to(0, 1) = arg_(0, 5 + 3 * (img_to - 1) + 1);
+            rvec_to(0, 2) = arg_(0, 5 + 3 * (img_to - 1) + 2);
         }
         else
             rvec_to.setTo(0);
@@ -78,6 +79,7 @@ void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
         Rodrigues(rvec_to, R_to);
 
         Mat_<double> M = K * R_from * R_to.t() * K_inv;
+
         const vector<DMatch> &matches = view->second;
         for (size_t i = 0; i < matches.size(); ++i, ++pos) {
             const Point2f &p1 = kps_from[matches[i].queryIdx].pt;
@@ -92,32 +94,31 @@ void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
 }
 
 
+// TODO calculate analytically
 void ReprojErrorFixedKR::Jacobian(const Mat &arg, Mat &jac) {
-    Mat_<double> arg_(arg);
+    Mat_<double> arg_(arg.clone());
 
     jac.create(dimension(), arg_.cols, CV_64F);
     Mat_<double> jac_(jac);
 
     for (int i = 0; i < arg_.cols; ++i) {
-        double val = arg_(i, 0);
+        double val = arg_(0, i);
 
-        arg_(i, 0) += step_;
-        Mat tmp = jac_.row(i);
+        arg_(0, i) += step_;
+        Mat tmp = jac_.col(i);
         (*this)(arg_, tmp);
 
-        arg_(i, 0) = val - step_;
+        arg_(0, i) = val - step_;
         (*this)(arg_, err_);
-        arg_(i, 0) = val;
+        arg_(0, i) = val;
 
         for (int j = 0; j < dimension(); ++j)
             jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
-    }
+    }    
 }
 
 } // namespace
 
-
-namespace autocalib {
 
 Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     vector<Mat> Hs_;
@@ -178,11 +179,48 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
 }
 
 
-void RefineRigidCameras(vector<RigidCamera> &cameras,
-                        const vector<detail::ImageFeatures> &features,
-                        const map<pair<int, int>, vector<DMatch> > &matches)
+void RefineRigidCamera(InputOutputArray K, InputOutputArrayOfArrays Rs,
+                       const FeaturesCollection &features, const MatchesCollection &matches)
 {
+    CV_Assert(K.getMatRef().size() == Size(3, 3) && K.getMatRef().type() == CV_64F);
+    Mat_<double> K_(K.getMatRef());
 
+    vector<Mat> Rs_;
+    Rs.getMatVector(Rs_);
+    for (size_t i = 0; i < Rs_.size(); ++i) {
+        CV_Assert(Rs_[i].size() == Size(3, 3) && Rs_[i].type() == CV_64F);
+        Rs_[i] = Rs_[0].t() * Rs_[i];
+    }
+
+    Mat_<double> arg(1, 5 + 3 * (int)Rs_.size());
+    arg(0, 0) = K_(0, 0);
+    arg(0, 1) = K_(0, 1);
+    arg(0, 2) = K_(0, 2);
+    arg(0, 3) = K_(1, 1);
+    arg(0, 4) = K_(1, 2);
+    for (size_t i = 1; i < Rs_.size(); ++i) {
+        Mat_<double> rvec;
+        Rodrigues(Rs_[i], rvec);
+        arg(0, 5 + 3 * (i - 1)) = rvec(0, 0);
+        arg(0, 5 + 3 * (i - 1) + 1) = rvec(0, 1);
+        arg(0, 5 + 3 * (i - 1) + 2) = rvec(0, 2);
+    }
+
+    ReprojErrorFixedKR func(features, matches);
+    MinimizeLevMarq(func, arg, MinimizeOpts::VerboseSummary);
+
+    K_(0, 0) = arg(0, 0);
+    K_(0, 1) = arg(0, 1);
+    K_(0, 2) = arg(0, 2);
+    K_(1, 1) = arg(0, 3);
+    K_(1, 2) = arg(0, 4);
+    for (size_t i = 1; i < Rs_.size(); ++i) {
+        Mat_<double> rvec(1, 3);
+        rvec(0, 0) = arg(0, 5 + 3 * (i - 1));
+        rvec(0, 1) = arg(0, 5 + 3 * (i - 1) + 1);
+        rvec(0, 2) = arg(0, 5 + 3 * (i - 1) + 2);
+        Rodrigues(rvec, Rs_[i]);
+    }
 }
 
 
