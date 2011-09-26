@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <sstream>
 #include <stdexcept>
@@ -21,6 +22,7 @@ bool create_images = false;
 double H_est_thresh = 3;
 bool add_noise = false;
 double noise_stddev = 1;
+string log_path;
 
 int main(int argc, char **argv) {    
     try {
@@ -59,7 +61,9 @@ int main(int argc, char **argv) {
             else if (string(argv[i]) == "--add-noise")
                 add_noise = atoi(argv[++i]);
             else if (string(argv[i]) == "--noise-stddev")
-                noise_stddev = atof(argv[++i]) / sqrt(2);
+                noise_stddev = atof(argv[++i]);
+            else if (string(argv[i]) == "--log-path")
+                log_path = argv[++i];
             else
                 throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
         }
@@ -106,7 +110,11 @@ int main(int argc, char **argv) {
             cout << "Adding noise...\n";
             for (int i = 0; i < num_cameras; ++i) {
                 Mat_<float> noise(1, 2 * features[i].keypoints.size());
-                randn(noise, 0, noise_stddev);
+
+                // Final noise RMS is determined by sqrt(noise_x^2 + noise_y^2),
+                // so we split by sqrt(2) to get desired noise
+                randn(noise, 0, noise_stddev / sqrt(2));
+
                 double total_noise = 0;
                 for (size_t j = 0; j < features[i].keypoints.size(); ++j) {
                     features[i].keypoints[j].pt.x += noise(0, 2 * j);
@@ -182,7 +190,7 @@ int main(int argc, char **argv) {
         Rs[0] = Mat::eye(3, 3, CV_64F);
         for (int i = 1; i < num_cameras; ++i)
             Rs[i] = K_linear.inv() * Hs_from_0[i - 1] * K_linear;
-        Mat K_refined = K_linear.clone();
+        Mat_<double> K_refined = K_linear.clone();
         RefineRigidCamera(K_refined, Rs, features, matches);
         cout << "K_refined:\n" << K_refined << endl;
 
@@ -190,6 +198,17 @@ int main(int argc, char **argv) {
         cout << "K_gold:\n" << K_gold << endl;
         cout << "K_linear:\n" << K_linear << endl;
         cout << "K_refined:\n" << K_refined << endl;
+
+        if (!log_path.empty()) {
+            ofstream f(log_path.c_str(), ios_base::app);
+            if (!f.is_open())
+                throw runtime_error("Can't open log file: " + log_path);
+            f << noise_stddev << " ";
+            f << K_gold(0, 0) << " " << K_gold(1, 1) << " " << K_gold(0, 2) << " " << K_gold(1, 2) << " " << K_gold(0, 1) << " ";
+            f << K_linear(0, 0) << " " << K_linear(1, 1) << " " << K_linear(0, 2) << " " << K_linear(1, 2) << " " << K_linear(0, 1) << " ";
+            f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
+            f << endl;
+        }
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << "\n";
