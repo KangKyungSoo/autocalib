@@ -4,6 +4,119 @@
 using namespace std;
 using namespace cv;
 
+namespace {
+
+class ReprojErrorFixedKR {
+public:
+    ReprojErrorFixedKR(const vector<detail::ImageFeatures> &features,
+                       const map<pair<int, int>, vector<DMatch> > &matches)
+            : features_(&features), matches_(&matches), step_(1e-3)
+    {
+        num_matches_ = 0;
+        for (map<pair<int, int>, vector<DMatch> >::const_iterator view = matches_->begin();
+             view != matches_->end(); ++view)
+            num_matches_ += (int)view->second.size();
+    }
+
+    void operator()(const Mat &arg, Mat &err);
+    void Jacobian(const Mat &arg, Mat &jac);
+
+    int dimension() const { return num_matches_ * 2; }
+
+private:
+    const vector<detail::ImageFeatures> *features_;
+    const map<pair<int, int>, vector<DMatch> > *matches_;
+    int num_matches_;
+
+    const double step_;
+    Mat_<double> err_;
+};
+
+
+void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
+    Mat_<double> arg_(arg);
+
+    err.create(dimension(), 1, CV_64F);
+    Mat_<double> err_(err);
+
+    Mat_<double> K = Mat::eye(3, 3, CV_64F);
+    K(0, 0) = arg_(0, 0);
+    K(1, 0) = arg_(1, 0);
+    K(2, 0) = arg_(2, 0);
+    K(3, 0) = arg_(3, 0);
+    K(4, 0) = arg_(4, 0);
+    Mat K_inv = K.inv();
+
+    int pos = 0;
+    for (map<pair<int, int>, vector<DMatch> >::const_iterator view = matches_->begin();
+         view != matches_->end(); ++view)
+    {
+        int img_from = view->first.first;
+        const vector<KeyPoint> &kps_from = (*features_)[img_from].keypoints;
+        Mat_<double> rvec_from(3, 1);
+        if (img_from) {
+            rvec_from(0, 0) = arg_(6 + 3 * (img_from - 1), 0);
+            rvec_from(1, 0) = arg_(6 + 3 * (img_from - 1) + 1, 0);
+            rvec_from(2, 0) = arg_(6 + 3 * (img_from - 1) + 2, 0);
+        }
+        else
+            rvec_from.setTo(0);
+        Mat R_from;
+        Rodrigues(rvec_from, R_from);
+
+        int img_to = view->first.second;
+        const vector<KeyPoint> &kps_to = (*features_)[img_to].keypoints;
+        Mat_<double> rvec_to(3, 1);
+        if (img_to) {
+            rvec_to(0, 0) = arg_(6 + 3 * (img_to - 1), 0);
+            rvec_to(1, 0) = arg_(6 + 3 * (img_to - 1) + 1, 0);
+            rvec_to(2, 0) = arg_(6 + 3 * (img_to - 1) + 2, 0);
+        }
+        else
+            rvec_to.setTo(0);
+        Mat R_to;
+        Rodrigues(rvec_to, R_to);
+
+        Mat_<double> M = K * R_from * R_to.t() * K_inv;
+        const vector<DMatch> &matches = view->second;
+        for (size_t i = 0; i < matches.size(); ++i, ++pos) {
+            const Point2f &p1 = kps_from[matches[i].queryIdx].pt;
+            const Point2f &p2 = kps_to[matches[i].trainIdx].pt;
+            double x = M(0, 0) * p2.x + M(0, 1) * p2.y + M(0, 2);
+            double y = M(1, 0) * p2.x + M(1, 1) * p2.y + M(1, 2);
+            double z = M(2, 0) * p2.x + M(2, 1) * p2.y + M(2, 2);
+            err_(2 * pos, 0) = p1.x - x / z;
+            err_(2 * pos + 1, 0) = p1.y - y / z;
+        }
+    }
+}
+
+
+void ReprojErrorFixedKR::Jacobian(const Mat &arg, Mat &jac) {
+    Mat_<double> arg_(arg);
+
+    jac.create(dimension(), arg_.cols, CV_64F);
+    Mat_<double> jac_(jac);
+
+    for (int i = 0; i < arg_.cols; ++i) {
+        double val = arg_(i, 0);
+
+        arg_(i, 0) += step_;
+        Mat tmp = jac_.row(i);
+        (*this)(arg_, tmp);
+
+        arg_(i, 0) = val - step_;
+        (*this)(arg_, err_);
+        arg_(i, 0) = val;
+
+        for (int j = 0; j < dimension(); ++j)
+            jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
+    }
+}
+
+} // namespace
+
+
 namespace autocalib {
 
 Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
@@ -62,6 +175,14 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     if (K_flipped.empty())
         throw runtime_error("K * K.t() isn't positive definite");
     return adiag * K_flipped * adiag;
+}
+
+
+void RefineRigidCameras(vector<RigidCamera> &cameras,
+                        const vector<detail::ImageFeatures> &features,
+                        const map<pair<int, int>, vector<DMatch> > &matches)
+{
+
 }
 
 

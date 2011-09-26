@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
             else if (string(argv[i]) == "--add-noise")
                 add_noise = atoi(argv[++i]);
             else if (string(argv[i]) == "--noise-stddev")
-                noise_stddev = atof(argv[++i]);
+                noise_stddev = atof(argv[++i]) / sqrt(2);
             else
                 throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
         }
