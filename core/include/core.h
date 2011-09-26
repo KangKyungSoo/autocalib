@@ -11,7 +11,9 @@
 #endif
 
 #include <vector>
+#include <map>
 #include <string>
+#include <utility>
 #include <opencv2/core/core.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
 
@@ -123,7 +125,7 @@ public:
       * \param verbose Verbosity level
       * \see Verbose
       */
-    MinimizeOpts(cv::TermCriteria crit = DefaultCrit(), Verbose verbose = VerboseNo) {
+    MinimizeOpts(cv::TermCriteria crit = crit_default(), Verbose verbose = VerboseNo) {
         Init(crit, verbose);
     }
 
@@ -132,10 +134,10 @@ public:
       * \param verbose Verbosity level
       * \see Verbose
       */
-    MinimizeOpts(Verbose verbose) { Init(DefaultCrit(), verbose); }
+    MinimizeOpts(Verbose verbose) { Init(crit_default(), verbose); }
 
     /** \return Default termination criteria. */
-    static cv::TermCriteria DefaultCrit() {
+    static cv::TermCriteria crit_default() {
         return cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS,
                                 100, 1e-3);
     }
@@ -177,6 +179,17 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts = 
   * \return Camera intrinsics (64F)
   */
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
+
+
+/** Refines rigid cameras paramers by minimizing overal reprojection error.
+  *
+  * \param cameras Rigid cameras to be refined
+  * \param features Features collection
+  * \param matches Matches collection
+  */
+void RefineRigidCameras(std::vector<RigidCamera> &cameras,
+                        const std::vector<cv::detail::ImageFeatures> &features,
+                        const std::map<std::pair<int, int>, std::vector<cv::DMatch> > &matches);
 
 
 //============================================================================

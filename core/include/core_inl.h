@@ -12,7 +12,7 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts) {
     cv::Mat arg_ = arg.getMatRef();
     CV_Assert(arg_.type() == CV_64F && arg_.rows == 1 && arg_.isContinuous());   
 
-    int err_dim = func.dimension;
+    int err_dim = func.dimension();
     int arg_dim = arg_.cols;
 
     CvLevMarq solver(arg_dim, err_dim, opts.crit());
