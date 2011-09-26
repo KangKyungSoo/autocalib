@@ -139,7 +139,7 @@ public:
     /** \return Default termination criteria. */
     static cv::TermCriteria crit_default() {
         return cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS,
-                                100, 1e-3);
+                                100, std::numeric_limits<double>::epsilon());
     }
 
     const Verbose verbose() const { return verbose_; }
@@ -171,6 +171,9 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts = 
 //============================================================================
 // Autocalibration
 
+typedef std::vector<cv::detail::ImageFeatures> FeaturesCollection;
+typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollection;
+
 /** Calculates rotational camera intrinsics using linear algorithm.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
@@ -181,15 +184,15 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts = 
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
 
 
-/** Refines rigid cameras paramers by minimizing overal reprojection error.
+/** Refines rigid camera parameters by minimizing overal reprojection error.
   *
-  * \param cameras Rigid cameras to be refined
+  * \param K Camera intrinsics
+  * \param Rs Camera positions vector
   * \param features Features collection
   * \param matches Matches collection
   */
-void RefineRigidCameras(std::vector<RigidCamera> &cameras,
-                        const std::vector<cv::detail::ImageFeatures> &features,
-                        const std::map<std::pair<int, int>, std::vector<cv::DMatch> > &matches);
+void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
+                       const FeaturesCollection &features, const MatchesCollection &matches);
 
 
 //============================================================================

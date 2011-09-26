@@ -26,18 +26,37 @@ public:
       *
       * \param camera Rigid camera parameters
       * \param viewport Viewing region
-      * \param img Output image pointer, pass 0 if image isn't needed
-      * \return Result image features
+      * \param img Output image pointer
+      * \param features Result image features
       */
-    cv::Ptr<cv::detail::ImageFeatures> TakeShot(const RigidCamera &camera, cv::Rect viewport,
-                                                cv::Mat *img = 0);
+    void TakeShot(const RigidCamera &camera, cv::Rect viewport, cv::Mat &img,
+                  cv::detail::ImageFeatures &features)
+        { TakeShotImpl(camera, viewport, true, img, features); }
+
+    /** Takes a shot of the scene.
+      *
+      * \param camera Rigid camera parameters
+      * \param viewport Viewing region
+      * \param features Result image features
+      * \see TakeShot()
+      */
+    void TakeShot(const RigidCamera &camera, cv::Rect viewport,
+                  cv::detail::ImageFeatures &features)
+    {
+        cv::Mat mock;
+        TakeShotImpl(camera, viewport, false, mock, features);
+    }
 
 protected:
 
     /** Checks point visibility.
       *
-      * \return true if the point is visible from the given origin, false otherwise */
+      * \return true if the point is visible from the given origin, false otherwise */        
     virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const = 0;
+
+private:
+    void TakeShotImpl(const RigidCamera &camera, cv::Rect viewport, bool create_img, cv::Mat &img,
+                      cv::detail::ImageFeatures &features);
 };
 
 

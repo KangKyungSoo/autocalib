@@ -68,15 +68,18 @@ int main(int argc, char **argv) {
             K_gold(0, 0) = K_gold(1, 1) = viewport.width + viewport.height;
             K_gold(0, 2) = viewport.width * 0.5;
             K_gold(1, 2) = viewport.height * 0.5;
+            cout << "K_gold:\n" << K_gold << endl;
         }
         if (camera_center.empty()) {
             camera_center = Mat::zeros(3, 1, CV_64F);
             camera_center(2, 0) = -10;
         }
 
+        // Generate synthetic scene points
         Ptr<SyntheticScene> scene = new SphereScene(num_points);
+
         vector<RigidCamera> cameras(num_cameras);
-        vector<Ptr<detail::ImageFeatures> > features(num_cameras);
+        FeaturesCollection features(num_cameras);
 
         // Generate cameras and shots
         for (int i = 0; i < num_cameras; ++i) {
@@ -89,10 +92,10 @@ int main(int argc, char **argv) {
             cameras[i] = RigidCamera::LocalToWorld(K_gold, R, camera_center);
 
             if (!create_images)
-                features[i] = scene->TakeShot(cameras[i], viewport);
+                scene->TakeShot(cameras[i], viewport, features[i]);
             else {
                 Mat image;
-                features[i] = scene->TakeShot(cameras[i], viewport, &image);
+                scene->TakeShot(cameras[i], viewport, image, features[i]);
                 stringstream name;
                 name << "camera" << i << ".jpg";
                 imwrite(name.str(), image);
@@ -102,51 +105,91 @@ int main(int argc, char **argv) {
         if (add_noise) {
             cout << "Adding noise...\n";
             for (int i = 0; i < num_cameras; ++i) {
-                Mat_<float> noise(1, 2 * features[i]->keypoints.size());
+                Mat_<float> noise(1, 2 * features[i].keypoints.size());
                 randn(noise, 0, noise_stddev);
                 double total_noise = 0;
-                for (size_t j = 0; j < features[i]->keypoints.size(); ++j) {
-                    features[i]->keypoints[j].pt.x += noise(0, 2 * j);
-                    features[i]->keypoints[j].pt.y += noise(0, 2 * j + 1);
+                for (size_t j = 0; j < features[i].keypoints.size(); ++j) {
+                    features[i].keypoints[j].pt.x += noise(0, 2 * j);
+                    features[i].keypoints[j].pt.y += noise(0, 2 * j + 1);
                     total_noise += noise(0, 2 * j) * noise(0, 2 * j) + noise(0, 2 * j + 1) * noise(0, 2 * j + 1);
                 }
-                cout << "Shot " << i << " noise RMS: " << sqrt(total_noise / features[i]->keypoints.size()) << endl;
+                cout << "Shot " << i << " noise RMS: " << sqrt(total_noise / features[i].keypoints.size()) << endl;
             }
         }
 
-        cout << "Finding homographies...\n";
         vector<Mat> Hs;
+        vector<Mat> Hs_from_0;
         Mat kps1, kps2;
-        vector<DMatch> matches;
-        for (int i = 0; i < num_cameras - 1; ++i) {
-            for (int j = i + 1; j < num_cameras; ++j) {
-                MatchSyntheticShots((*features[i]), (*features[j]), matches);
-                ExtractMatchedKeypoints((*features[i]), (*features[j]), matches, kps1, kps2);
+        vector<DMatch> pair_matches;
+        vector<DMatch> inlier_pair_matches;
+        MatchesCollection matches;
 
-                Mat_<double> H = findHomography(kps1, kps2, cv::RANSAC, H_est_thresh);
+        cout << "Finding homographies...\n";        
+        for (int from = 0; from < num_cameras - 1; ++from) {
+            for (int to = from + 1; to < num_cameras; ++to) {
+                MatchSyntheticShots(features[from], features[to], pair_matches);
+                ExtractMatchedKeypoints(features[from], features[to], pair_matches, kps1, kps2);
+
+                Mat_<uchar> mask;
+                Mat_<double> H = findHomography(kps1, kps2, mask, cv::RANSAC, H_est_thresh);
+
                 if (H.empty())
-                    cout << "Can't find H from " << i << " to " << j << endl;
+                    cout << "Can't find H from " << from << " to " << to << endl;
                 else {
+
+                    // Put inlier matches into matches collection
+                    inlier_pair_matches.clear();
+                    for (size_t i = 0; i < pair_matches.size(); ++i)
+                        if (mask(0, i))
+                            inlier_pair_matches.push_back(pair_matches[i]);
+                    MatchesCollection::iterator iter;
+                    iter = matches.insert(make_pair(make_pair(from, to), vector<DMatch>())).first;
+                    iter->second.swap(inlier_pair_matches);
+
                     Hs.push_back(H);
+                    if (from == 0) {
+                        cout << H << endl;
+                        Hs_from_0.push_back(H.clone());
+                    }
+
+                    // Compute homography reprojection error
                     double err = 0;
-                    for (size_t k = 0; k < matches.size(); ++k) {
-                        Point2f kp1 = kps1.at<Point2f>(0, k);
-                        Point2f kp2 = kps2.at<Point2f>(0, k);
+                    for (size_t i = 0; i < pair_matches.size(); ++i) {
+                        Point2f kp1 = kps1.at<Point2f>(0, i);
+                        Point2f kp2 = kps2.at<Point2f>(0, i);
                         double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
                         double y = H(1, 0) * kp1.x + H(1, 1) * kp1.y + H(1, 2);
                         double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);
                         err += (kp2.x - x / z) * (kp2.x - x / z) + (kp2.y - y / z) * (kp2.y - y / z);
                     }
-                    cout << "H from " << i << " to " << j << " RMS error: " << sqrt(err / matches.size()) << endl;
+                    cout << "H from " << from << " to " << to << " RMS error: " << sqrt(err / pair_matches.size()) << endl;
                 }
             }
-        }
+        }                
 
         cout << "Linear calibrating...\n";
-        Mat_<double> K_final = CalibRotationalCameraLinear(Hs);
+        Mat_<double> K_linear = CalibRotationalCameraLinear(Hs);
+        cout << "K_linear:\n" << K_linear << endl;
 
+        cout << "Refining camera...\n";
+        if (Hs_from_0.size() != num_cameras - 1) {
+            stringstream msg;
+            msg << "Refinement requires Hs between first and other images, "
+                << "but only " << Hs_from_0.size() << " were/was found";
+            throw runtime_error(msg.str());
+        }
+        vector<Mat> Rs(num_cameras);
+        Rs[0] = Mat::eye(3, 3, CV_64F);
+        for (int i = 1; i < num_cameras; ++i)
+            Rs[i] = K_linear.inv() * Hs_from_0[i - 1] * K_linear;
+        Mat K_refined = K_linear.clone();
+        RefineRigidCamera(K_refined, Rs, features, matches);
+        cout << "K_refined:\n" << K_refined << endl;
+
+        cout << "SUMMARY\n";
         cout << "K_gold:\n" << K_gold << endl;
-        cout << "K_final:\n" << K_final << endl;
+        cout << "K_linear:\n" << K_linear << endl;
+        cout << "K_refined:\n" << K_refined << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << "\n";
