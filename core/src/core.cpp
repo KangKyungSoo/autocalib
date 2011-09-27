@@ -163,7 +163,7 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
 
     Mat_<double> x;
     solve(A, b, x, DECOMP_SVD);
-    LOG(cout << "solve() mean sq err: " << norm(A * x - b) / b.rows << endl);
+    LOG(cout << "solve() mean sq err = " << norm(A * x - b) / b.rows << endl);
 
     Mat_<double> KK = Mat::eye(3, 3, CV_64F);
     KK(0, 0) = x(0, 0);
@@ -174,9 +174,9 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
 
     LOG(Mat evals; Mat evecs;
         eigen(KK, evals, evecs);
-        cout << "K * K.t():\n" << KK << endl;
-        cout << "K * K.t() evecs:\n" << evecs << endl;
-        cout << "K * K.t() evals:\n" << evals << endl);
+        cout << "K * K.t() = \n" << KK << endl;
+        cout << "K * K.t() evecs = \n" << evecs << endl;
+        cout << "K * K.t() evals = \n" << evals << endl);
 
     // Do U * U.t() decomposition
     Mat adiag = Antidiag(3, 3, CV_64F);

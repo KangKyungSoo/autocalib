@@ -65,14 +65,14 @@ int main(int argc, char **argv) {
             else if (string(argv[i]) == "--log-path")
                 log_path = argv[++i];
             else
-                throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
+                throw runtime_error(string("Can't parse command line arg = ") + argv[i]);
         }
         if (K_gold.empty()) {
             K_gold = Mat::eye(3, 3, CV_64F);
             K_gold(0, 0) = K_gold(1, 1) = viewport.width + viewport.height;
             K_gold(0, 2) = viewport.width * 0.5;
             K_gold(1, 2) = viewport.height * 0.5;
-            cout << "K_gold:\n" << K_gold << endl;
+            cout << "K_gold =\n" << K_gold << endl;
         }
         if (camera_center.empty()) {
             camera_center = Mat::zeros(3, 1, CV_64F);
@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
                     features[i].keypoints[j].pt.y += noise(0, 2 * j + 1);
                     total_noise += noise(0, 2 * j) * noise(0, 2 * j) + noise(0, 2 * j + 1) * noise(0, 2 * j + 1);
                 }
-                cout << "Shot " << i << " noise RMS: " << sqrt(total_noise / features[i].keypoints.size()) << endl;
+                cout << "Shot " << i << " noise RMS = " << sqrt(total_noise / features[i].keypoints.size()) << endl;
             }
         }
 
@@ -172,14 +172,14 @@ int main(int argc, char **argv) {
                         double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);
                         err += (kp2.x - x / z) * (kp2.x - x / z) + (kp2.y - y / z) * (kp2.y - y / z);
                     }
-                    cout << "H from " << from << " to " << to << " RMS error: " << sqrt(err / pair_matches.size()) << endl;
+                    cout << "H from " << from << " to " << to << " RMS error = " << sqrt(err / pair_matches.size()) << endl;
                 }
             }
         }                
 
         cout << "Linear calibrating...\n";
         Mat_<double> K_linear = CalibRotationalCameraLinear(Hs);
-        cout << "K_linear:\n" << K_linear << endl;
+        cout << "K_linear =\n" << K_linear << endl;
 
         cout << "Refining camera...\n";
         if (Hs_from_0.size() != num_cameras - 1) {
@@ -194,17 +194,17 @@ int main(int argc, char **argv) {
             Rs[i] = K_linear.inv() * Hs_from_0[i - 1] * K_linear;
         Mat_<double> K_refined = K_linear.clone();
         RefineRigidCamera(K_refined, Rs, features, matches);
-        cout << "K_refined:\n" << K_refined << endl;
+        cout << "K_refined =\n" << K_refined << endl;
 
         cout << "SUMMARY\n";
-        cout << "K_gold:\n" << K_gold << endl;
-        cout << "K_linear:\n" << K_linear << endl;
-        cout << "K_refined:\n" << K_refined << endl;
+        cout << "K_gold =\n" << K_gold << endl;
+        cout << "K_linear =\n" << K_linear << endl;
+        cout << "K_refined =\n" << K_refined << endl;
 
         if (!log_path.empty()) {
             ofstream f(log_path.c_str(), ios_base::app);
             if (!f.is_open())
-                throw runtime_error("Can't open log file: " + log_path);
+                throw runtime_error("Can't open log file = " + log_path);
             f << noise_stddev << " ";
             f << K_linear(0, 0) << " " << K_linear(1, 1) << " " << K_linear(0, 2) << " " << K_linear(1, 2) << " " << K_linear(0, 1) << " ";
             f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
         }
     }
     catch (const exception &e) {
-        cout << "Error: " << e.what() << "\n";
+        cout << "Error = " << e.what() << "\n";
     }
 
     return 0;
