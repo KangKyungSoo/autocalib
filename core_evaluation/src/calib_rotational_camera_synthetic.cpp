@@ -55,11 +55,11 @@ int main(int argc, char **argv) {
             else if (string(argv[i]) == "--max-angle")
                 max_angle = atof(argv[++i]);
             else if (string(argv[i]) == "--create-images")
-                create_images = atoi(argv[++i]);
+                create_images = (bool)atoi(argv[++i]);
             else if (string(argv[i]) == "--H-est-thresh")
                 H_est_thresh = atof(argv[++i]);
             else if (string(argv[i]) == "--add-noise")
-                add_noise = atoi(argv[++i]);
+                add_noise = (bool)atoi(argv[++i]);
             else if (string(argv[i]) == "--noise-stddev")
                 noise_stddev = atof(argv[++i]);
             else if (string(argv[i]) == "--log-path")
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
 
                 // Final noise RMS is determined by sqrt(noise_x^2 + noise_y^2),
                 // so we split by sqrt(2) to get desired noise
-                randn(noise, 0, noise_stddev / sqrt(2));
+                randn(noise, 0, noise_stddev / sqrt(2.));
 
                 double total_noise = 0;
                 for (size_t j = 0; j < features[i].keypoints.size(); ++j) {
@@ -204,9 +204,9 @@ int main(int argc, char **argv) {
             if (!f.is_open())
                 throw runtime_error("Can't open log file: " + log_path);
             f << noise_stddev << " ";
-            f << K_gold(0, 0) << " " << K_gold(1, 1) << " " << K_gold(0, 2) << " " << K_gold(1, 2) << " " << K_gold(0, 1) << " ";
             f << K_linear(0, 0) << " " << K_linear(1, 1) << " " << K_linear(0, 2) << " " << K_linear(1, 2) << " " << K_linear(0, 1) << " ";
             f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
+            f << K_gold(0, 0) << " " << K_gold(1, 1) << " " << K_gold(0, 2) << " " << K_gold(1, 2) << " " << K_gold(0, 1) << " ";
             f << endl;
         }
     }
