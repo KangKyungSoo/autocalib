@@ -16,13 +16,12 @@ int num_points = 1000;
 int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
-int seed = NO_SEED;
+int seed = -1; // No seed
 Mat_<double> camera_center;
 double max_angle = 0.1;
 bool create_images = false;
 double H_est_thresh = 3;
-bool add_noise = false;
-double noise_stddev = 1;
+double noise_stddev = -1; // No noise
 string log_path;
 
 int main(int argc, char **argv) {    
@@ -61,8 +60,6 @@ int main(int argc, char **argv) {
                 create_images = (bool)atoi(argv[++i]);
             else if (string(argv[i]) == "--H-est-thresh")
                 H_est_thresh = atof(argv[++i]);
-            else if (string(argv[i]) == "--add-noise")
-                add_noise = (bool)atoi(argv[++i]);
             else if (string(argv[i]) == "--noise-stddev")
                 noise_stddev = atof(argv[++i]);
             else if (string(argv[i]) == "--log-path")
@@ -83,7 +80,7 @@ int main(int argc, char **argv) {
         }
 
         RNG rng;
-        if (seed != NO_SEED)
+        if (seed >= 0)
             rng.state = seed;
 
         // Generate synthetic scene points
@@ -113,7 +110,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        if (add_noise) {
+        if (noise_stddev >= 0) {
             cout << "Adding noise...\n";
             for (int i = 0; i < num_cameras; ++i) {
                 Mat_<float> noise(1, 2 * features[i].keypoints.size());
