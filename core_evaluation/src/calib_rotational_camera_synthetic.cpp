@@ -204,7 +204,7 @@ int main(int argc, char **argv) {
         if (!log_path.empty()) {
             ofstream f(log_path.c_str(), ios_base::app);
             if (!f.is_open())
-                throw runtime_error("Can't open log file = " + log_path);
+                throw runtime_error("Can't open log file: " + log_path);
             f << noise_stddev << " ";
             f << K_linear(0, 0) << " " << K_linear(1, 1) << " " << K_linear(0, 2) << " " << K_linear(1, 2) << " " << K_linear(0, 1) << " ";
             f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
         }
     }
     catch (const exception &e) {
-        cout << "Error = " << e.what() << "\n";
+        cout << "Error: " << e.what() << "\n";
     }
 
     return 0;
