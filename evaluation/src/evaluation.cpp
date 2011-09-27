@@ -49,13 +49,11 @@ void SyntheticScene::TakeShotImpl(const RigidCamera &camera, Rect viewport,
 }
 
 
-SphereScene::SphereScene(int num_points, int seed) {
-    if (seed != -1)
-        srand(seed);
+SphereScene::SphereScene(int num_points, RNG &rng) {
     points.resize(num_points);
     for (int i = 0; i < num_points; ++i) {
-        double phi = rand() / (double)RAND_MAX * 2. * CV_PI;
-        double psi = rand() / (double)RAND_MAX * CV_PI;
+        double phi = (double)rng * 2. * CV_PI;
+        double psi = (double)rng * CV_PI;
         points[i].x = cos(phi) * sin(psi);
         points[i].y = sin(phi) * sin(psi);
         points[i].z = cos(psi);

@@ -60,6 +60,9 @@ private:
 };
 
 
+enum { NO_SEED = -1 };
+
+
 /** Describes a synthetic sphere scene.
   *
   * Created sphere has unit radius and center in the origin.
@@ -70,9 +73,9 @@ public:
     /** Creates sphere scene.
       *
       * \param num_points Number of points on the sphere
-      * \param seed RNG seed, pass -1 if seeding isn't needed
+      * \param rng Pseudo random number generator
       */
-    SphereScene(int num_points, int seed = -1);
+    SphereScene(int num_points, cv::RNG &rng);
 
 private:
     virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const;

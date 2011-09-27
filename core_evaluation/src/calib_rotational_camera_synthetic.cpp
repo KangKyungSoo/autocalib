@@ -16,6 +16,7 @@ int num_points = 1000;
 int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
+int seed = NO_SEED;
 Mat_<double> camera_center;
 double max_angle = 0.1;
 bool create_images = false;
@@ -45,6 +46,8 @@ int main(int argc, char **argv) {
                 K_gold(1, 2) = atof(argv[i + 5]);
                 i += 5;
             }
+            else if (string(argv[i]) == "--seed")
+                seed = atoi(argv[++i]);
             else if (string(argv[i]) == "--camera-center") {
                 camera_center = Mat::zeros(3, 1, CV_64F);
                 camera_center(0, 0) = atof(argv[i + 1]);
@@ -79,8 +82,12 @@ int main(int argc, char **argv) {
             camera_center(2, 0) = -10;
         }
 
+        RNG rng;
+        if (seed != NO_SEED)
+            rng.state = seed;
+
         // Generate synthetic scene points
-        Ptr<SyntheticScene> scene = new SphereScene(num_points);
+        Ptr<SyntheticScene> scene = new SphereScene(num_points, rng);
 
         vector<RigidCamera> cameras(num_cameras);
         FeaturesCollection features(num_cameras);
@@ -88,8 +95,8 @@ int main(int argc, char **argv) {
         // Generate cameras and shots
         for (int i = 0; i < num_cameras; ++i) {
             Mat rvec = Mat::zeros(3, 1, CV_64F);
-            randu(rvec, -1, 1);
-            rvec /= norm(rvec) / (rand() / (double)RAND_MAX * max_angle);
+            rng.fill(rvec, RNG::UNIFORM, -1, 1);
+            rvec /= norm(rvec) / ((double)rng * max_angle);
 
             Mat R;
             Rodrigues(rvec, R);
@@ -113,7 +120,7 @@ int main(int argc, char **argv) {
 
                 // Final noise RMS is determined by sqrt(noise_x^2 + noise_y^2),
                 // so we split by sqrt(2) to get desired noise
-                randn(noise, 0, noise_stddev / sqrt(2.));
+                rng.fill(noise, RNG::NORMAL, 0, noise_stddev / sqrt(2.));
 
                 double total_noise = 0;
                 for (size_t j = 0; j < features[i].keypoints.size(); ++j) {
@@ -155,10 +162,8 @@ int main(int argc, char **argv) {
                     iter->second.swap(inlier_pair_matches);
 
                     Hs.push_back(H);
-                    if (from == 0) {
-                        cout << H << endl;
+                    if (from == 0)
                         Hs_from_0.push_back(H.clone());
-                    }
 
                     // Compute homography reprojection error
                     double err = 0;
