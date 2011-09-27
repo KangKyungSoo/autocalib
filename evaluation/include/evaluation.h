@@ -60,9 +60,6 @@ private:
 };
 
 
-enum { NO_SEED = -1 };
-
-
 /** Describes a synthetic sphere scene.
   *
   * Created sphere has unit radius and center in the origin.
