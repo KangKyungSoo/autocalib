@@ -51,14 +51,15 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts) {
             cvCopy(&tmp, solver_jac);
             num_iters++;
             if (opts.verbose() & MinimizeOpts::VerboseIter)
-                LOG(std::cout << "MinimizeLevMarq: iter=" << num_iters
-                              << ", mean_sq_err=" << mean_err << std::endl);
+                LOG(std::cout << "iter: " << num_iters
+                              << ", mean sq err: " << mean_err << std::endl);
         }
     }
 
     if (opts.verbose() & MinimizeOpts::VerboseSummary)
-        LOG(std::cout << "MinimizeLevMarq: start_mean_sq_err=" << init_mean_err
-                      << ", final_mean_sq_err=" << mean_err << ", num_iters=" << num_iters << std::endl);
+        LOG(std::cout << "start mean sq err: " << init_mean_err
+                      << ", final mean sq err: " << mean_err
+                      << ", num iters: " << num_iters << std::endl);
 
     return mean_err;
 }
