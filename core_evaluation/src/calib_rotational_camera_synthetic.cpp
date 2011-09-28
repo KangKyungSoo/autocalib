@@ -211,6 +211,10 @@ int main(int argc, char **argv) {
             Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
         Mat_<double> K_refined = K_init.clone();
         RefineRigidCamera(K_refined, Rs, features, matches);
+        for (size_t i = 0; i < Rs.size(); ++i) {
+            cout << i << " " << determinant(Rs[i]) << endl;
+            cout << Rs[i] << endl;
+        }
         cout << "K_refined =\n" << K_refined << endl;
 
         cout << "SUMMARY\n";
