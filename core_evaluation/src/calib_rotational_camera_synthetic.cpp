@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
         if (K_init.empty()) {
             cout << "Linear calibrating...\n";
             K_init = CalibRotationalCameraLinear(Hs);
-            cout << "Linear calibration results are used as K_init\n";
+            cout << "Linear calibration result'll be used as K_init\n";
         }
         cout << "K_init =\n" << K_init << endl;
         
