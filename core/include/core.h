@@ -1,7 +1,7 @@
 #ifndef AUTOCALIB_CORE_H_
 #define AUTOCALIB_CORE_H_
 
-// TODO put it into separated header
+// TODO put project defines into separated header
 #define LOGGING_ENABLED 1
 
 #if LOGGING_ENABLED
