@@ -216,7 +216,7 @@ void RefineRigidCamera(InputOutputArray K, InputOutputArrayOfArrays Rs,
     }
 
     ReprojErrorFixedKR func(features, matches);
-    MinimizeLevMarq(func, arg, MinimizeOpts::VerboseSummary | MinimizeOpts::VerboseIter);
+    MinimizeLevMarq(func, arg, MinimizeOpts::VerboseSummary);
 
     K_(0, 0) = arg(0, 0);
     K_(0, 1) = arg(0, 1);
