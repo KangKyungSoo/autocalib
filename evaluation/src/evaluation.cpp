@@ -8,8 +8,8 @@ using namespace cv;
 
 namespace autocalib {
 
-void SyntheticScene::TakeShotImpl(const RigidCamera &camera, Rect viewport,
-                                  bool create_img, Mat &img, detail::ImageFeatures &features)
+void SyntheticScene::TakeShot(const RigidCamera &camera, Rect viewport,
+                              detail::ImageFeatures &features)
 {
     Mat R_inv = camera.R().inv();
     Point3d origin = Mat(-R_inv * camera.T()).at<Point3d>(0, 0);
@@ -39,13 +39,6 @@ void SyntheticScene::TakeShotImpl(const RigidCamera &camera, Rect viewport,
         features.descriptors.at<int>(i ,0) = visible_points[i];
 
     features.img_size = viewport.size();
-
-    if (create_img) {
-        img.create(viewport.size(), CV_8U);
-        img.setTo(0);
-        for (size_t i = 0; i < visible_points.size(); ++i)
-            circle(img, features.keypoints[i].pt, 1, Scalar::all(255), 2);
-    }
 }
 
 
@@ -78,6 +71,15 @@ void MatchSyntheticShots(const detail::ImageFeatures &f1, const detail::ImageFea
         if (f1.descriptors.at<int>(matches_[i].queryIdx) ==
             f2.descriptors.at<int>(matches_[i].trainIdx))
             matches.push_back(matches_[i]);
+}
+
+
+void CreateImage(const detail::ImageFeatures &features, OutputArray img) {
+    Mat &img_ = img.getMatRef();
+    img_.create(features.img_size, CV_8U);
+    img_.setTo(0);
+    for (size_t i = 0; i < features.keypoints.size(); ++i)
+        circle(img_, features.keypoints[i].pt, 1, Scalar::all(255), 2);
 }
 
 } // namespace autocalib

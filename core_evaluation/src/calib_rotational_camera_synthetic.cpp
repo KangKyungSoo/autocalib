@@ -17,7 +17,7 @@ int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
-int seed = -1; // No seed
+int seed = 0; // No seed
 Mat_<double> camera_center;
 double max_angle = 0.1;
 bool create_images = false;
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
         }
 
         RNG rng;
-        if (seed >= 0)
+        if (seed > 0)
             rng.state = seed;
 
         // Generate synthetic scene points
@@ -109,18 +109,10 @@ int main(int argc, char **argv) {
             Rodrigues(rvec, R);
             cameras[i] = RigidCamera::LocalToWorld(K_gold, R, camera_center);
 
-            if (!create_images)
-                scene->TakeShot(cameras[i], viewport, features[i]);
-            else {
-                Mat image;
-                scene->TakeShot(cameras[i], viewport, image, features[i]);
-                stringstream name;
-                name << "camera" << i << ".jpg";
-                imwrite(name.str(), image);
-            }
+            scene->TakeShot(cameras[i], viewport, features[i]);
         }
 
-        if (noise_stddev >= 0) {
+        if (noise_stddev > 0) {
             cout << "Adding noise...\n";
             for (int i = 0; i < num_cameras; ++i) {
                 Mat_<float> noise(1, 2 * features[i].keypoints.size());
@@ -136,6 +128,15 @@ int main(int argc, char **argv) {
                     total_noise += noise(0, 2 * j) * noise(0, 2 * j) + noise(0, 2 * j + 1) * noise(0, 2 * j + 1);
                 }
                 cout << "Shot " << i << " noise RMS error = " << sqrt(total_noise / features[i].keypoints.size()) << endl;
+
+                if (create_images) {
+                    Mat img;
+                    CreateImage(features[i], img);
+                    stringstream name;
+                    name << "camera" << i << ".jpg";
+                    imwrite(name.str(), img);
+                }
+
             }
         }
 
@@ -173,16 +174,19 @@ int main(int argc, char **argv) {
                         Hs_from_0.push_back(H.clone());
 
                     // Compute homography reprojection error
-                    double err = 0;
+                    double rms_err = 0;
                     for (size_t i = 0; i < pair_matches.size(); ++i) {
                         Point2f kp1 = kps1.at<Point2f>(0, i);
                         Point2f kp2 = kps2.at<Point2f>(0, i);
                         double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
                         double y = H(1, 0) * kp1.x + H(1, 1) * kp1.y + H(1, 2);
                         double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);
-                        err += (kp2.x - x / z) * (kp2.x - x / z) + (kp2.y - y / z) * (kp2.y - y / z);
+                        rms_err += (kp2.x - x / z) * (kp2.x - x / z) + (kp2.y - y / z) * (kp2.y - y / z);
                     }
-                    cout << "H from " << from << " to " << to << " RMS error = " << sqrt(err / pair_matches.size()) << endl;
+                    cout << "H from " << from << " to " << to
+                         << " RMS error = " << sqrt(rms_err / pair_matches.size())
+                         << " = sqrt(2) * " << sqrt(rms_err / pair_matches.size()) / sqrt(2.) << endl;
+
                 }
             }
         }                
