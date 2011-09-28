@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
                     features[i].keypoints[j].pt.y += noise(0, 2 * j + 1);
                     total_noise += noise(0, 2 * j) * noise(0, 2 * j) + noise(0, 2 * j + 1) * noise(0, 2 * j + 1);
                 }
-                cout << "Shot " << i << " noise RMS = " << sqrt(total_noise / features[i].keypoints.size()) << endl;
+                cout << "Shot " << i << " noise RMS error = " << sqrt(total_noise / features[i].keypoints.size()) << endl;
             }
         }
 
