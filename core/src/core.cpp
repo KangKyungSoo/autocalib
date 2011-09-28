@@ -163,7 +163,8 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
 
     Mat_<double> x;
     solve(A, b, x, DECOMP_SVD);
-    LOG(cout << "solve() mean sq err = " << norm(A * x - b) / b.rows << endl);
+    Mat err = A * x - b;
+    LOG(cout << "solve() RMS error = " << sqrt(err.dot(err) / err.rows) << endl);
 
     Mat_<double> KK = Mat::eye(3, 3, CV_64F);
     KK(0, 0) = x(0, 0);
