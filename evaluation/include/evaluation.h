@@ -67,6 +67,7 @@ private:
 class SphereScene : public SyntheticScene {
 public:
 
+    // TODO put rng param into base class
     /** Creates sphere scene.
       *
       * \param num_points Number of points on the sphere
