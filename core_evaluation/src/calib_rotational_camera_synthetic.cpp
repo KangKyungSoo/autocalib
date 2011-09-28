@@ -16,6 +16,7 @@ int num_points = 1000;
 int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
+Mat_<double> K_init;
 int seed = -1; // No seed
 Mat_<double> camera_center;
 double max_angle = 0.1;
@@ -45,6 +46,15 @@ int main(int argc, char **argv) {
                 K_gold(1, 2) = atof(argv[i + 5]);
                 i += 5;
             }
+            else if (string(argv[i]) == "--K-init") {
+                K_init = Mat::eye(3, 3, CV_64F);
+                K_init(0, 0) = atof(argv[i + 1]);
+                K_init(0, 1) = atof(argv[i + 2]);
+                K_init(0, 2) = atof(argv[i + 3]);
+                K_init(1, 1) = atof(argv[i + 4]);
+                K_init(1, 2) = atof(argv[i + 5]);
+                i += 5;
+            }
             else if (string(argv[i]) == "--seed")
                 seed = atoi(argv[++i]);
             else if (string(argv[i]) == "--camera-center") {
@@ -72,8 +82,8 @@ int main(int argc, char **argv) {
             K_gold(0, 0) = K_gold(1, 1) = viewport.width + viewport.height;
             K_gold(0, 2) = viewport.width * 0.5;
             K_gold(1, 2) = viewport.height * 0.5;
-            cout << "K_gold =\n" << K_gold << endl;
         }
+        cout << "K_gold =\n" << K_gold << endl;
         if (camera_center.empty()) {
             camera_center = Mat::zeros(3, 1, CV_64F);
             camera_center(2, 0) = -10;
@@ -177,10 +187,13 @@ int main(int argc, char **argv) {
             }
         }                
 
-        cout << "Linear calibrating...\n";
-        Mat_<double> K_linear = CalibRotationalCameraLinear(Hs);
-        cout << "K_linear =\n" << K_linear << endl;
-
+        if (K_init.empty()) {
+            cout << "Linear calibrating...\n";
+            K_init = CalibRotationalCameraLinear(Hs);
+            cout << "Linear calibration results are used as K_init\n";
+        }
+        cout << "K_init =\n" << K_init << endl;
+        
         cout << "Refining camera...\n";
         if (Hs_from_0.size() != num_cameras - 1) {
             stringstream msg;
@@ -191,14 +204,14 @@ int main(int argc, char **argv) {
         vector<Mat> Rs(num_cameras);
         Rs[0] = Mat::eye(3, 3, CV_64F);
         for (int i = 1; i < num_cameras; ++i)
-            Rs[i] = K_linear.inv() * Hs_from_0[i - 1] * K_linear;
-        Mat_<double> K_refined = K_linear.clone();
+            Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
+        Mat_<double> K_refined = K_init.clone();
         RefineRigidCamera(K_refined, Rs, features, matches);
         cout << "K_refined =\n" << K_refined << endl;
 
         cout << "SUMMARY\n";
         cout << "K_gold =\n" << K_gold << endl;
-        cout << "K_linear =\n" << K_linear << endl;
+        cout << "K_init =\n" << K_init << endl;
         cout << "K_refined =\n" << K_refined << endl;
 
         if (!log_path.empty()) {
@@ -206,7 +219,7 @@ int main(int argc, char **argv) {
             if (!f.is_open())
                 throw runtime_error("Can't open log file: " + log_path);
             f << noise_stddev << " ";
-            f << K_linear(0, 0) << " " << K_linear(1, 1) << " " << K_linear(0, 2) << " " << K_linear(1, 2) << " " << K_linear(0, 1) << " ";
+            f << K_init(0, 0) << " " << K_init(1, 1) << " " << K_init(0, 2) << " " << K_init(1, 2) << " " << K_init(0, 1) << " ";
             f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
             f << K_gold(0, 0) << " " << K_gold(1, 1) << " " << K_gold(0, 2) << " " << K_gold(1, 2) << " " << K_gold(0, 1) << " ";
             f << endl;
