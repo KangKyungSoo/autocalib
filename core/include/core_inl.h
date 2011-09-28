@@ -19,12 +19,12 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts) {
     CvMat arg_c = arg_.reshape(0, arg_dim);
     cvCopy(&arg_c, solver.param);
 
-    double mean_err;
+    double rms_err;
     cv::Mat err(err_dim, 1, CV_64F);
     cv::Mat jac(err_dim, arg_dim, CV_64F);
 
     func(arg_, err);
-    double init_mean_err = err.dot(err) / func.dimension();
+    double init_rms_err = sqrt(err.dot(err) / func.dimension());
 
     int num_iters = 0;
     while (true) {
@@ -42,7 +42,7 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts) {
             func(arg_, err);
             CvMat tmp = err;
             cvCopy(&tmp, solver_err);
-            mean_err = err.dot(err) / func.dimension();
+            rms_err = sqrt(err.dot(err) / func.dimension());
         }
 
         if (solver_jac) {
@@ -52,16 +52,16 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts) {
             num_iters++;
             if (opts.verbose() & MinimizeOpts::VerboseIter)
                 LOG(std::cout << "iter = " << num_iters
-                              << ", mean sq err = " << mean_err << std::endl);
+                              << ", RMS error = " << rms_err << std::endl);
         }
     }
 
     if (opts.verbose() & MinimizeOpts::VerboseSummary)
-        LOG(std::cout << "start mean sq err = " << init_mean_err
-                      << ", final mean sq err = " << mean_err
+        LOG(std::cout << "start RMS error = " << init_rms_err
+                      << ", final RMS error = " << rms_err
                       << ", num iters = " << num_iters << std::endl);
 
-    return mean_err;
+    return rms_err;
 }
 
 } // namespace autocalib
