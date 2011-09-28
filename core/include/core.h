@@ -126,7 +126,7 @@ public:
       * \param verbose Verbosity level
       * \see Verbose
       */
-    MinimizeOpts(cv::TermCriteria crit = crit_default(), Verbose verbose = VerboseNo) {
+    MinimizeOpts(cv::TermCriteria crit = crit_default(), int verbose = VerboseNo) {
         Init(crit, verbose);
     }
 
@@ -135,7 +135,7 @@ public:
       * \param verbose Verbosity level
       * \see Verbose
       */
-    MinimizeOpts(Verbose verbose) { Init(crit_default(), verbose); }
+    MinimizeOpts(int verbose) { Init(crit_default(), verbose); }
 
     /** \return Default termination criteria. */
     static cv::TermCriteria crit_default() {
@@ -143,17 +143,17 @@ public:
                                 1000, std::numeric_limits<double>::epsilon());
     }
 
-    const Verbose verbose() const { return verbose_; }
+    const int verbose() const { return verbose_; }
     const cv::TermCriteria& crit() const { return crit_; }
 
 private:
-    void Init(cv::TermCriteria term_crit, Verbose verbose) {
+    void Init(cv::TermCriteria term_crit, int verbose) {
         crit_ = term_crit;
         verbose_ = verbose;
     }
 
-    Verbose verbose_;
     cv::TermCriteria crit_;
+    int verbose_;
 };
 
 
