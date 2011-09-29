@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
             else if (string(argv[i]) == "--log-path")
                 log_path = argv[++i];
             else
-                throw runtime_error(string("Can't parse command line arg = ") + argv[i]);
+                throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
         }
         if (K_gold.empty()) {
             K_gold = Mat::eye(3, 3, CV_64F);
