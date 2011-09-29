@@ -180,7 +180,7 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
         cout << "DIAC evecs = \n" << evecs << endl;
         cout << "DIAC evals = \n" << evals << endl);
 
-    Mat K = DecomposeCholeskyUpper(diac);
+    Mat K = DecomposeUUt(diac);
     if (K.empty())
         throw runtime_error("DIAC isn't positive definite");
     return K;
@@ -352,7 +352,7 @@ Mat DecomposeCholesky(InputArray src) {
 }
 
 
-Mat DecomposeCholeskyUpper(InputArray src) {
+Mat DecomposeUUt(InputArray src) {
     Mat src_ = src.getMat();
     CV_Assert(src_.rows == src_.cols && src_.type() == CV_64F);
 
