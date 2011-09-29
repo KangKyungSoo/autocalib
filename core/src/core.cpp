@@ -127,7 +127,7 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     if (num_Hs < 1)
         throw runtime_error("Need at least one homography");
 
-    // Ensure all homographies has unit determinant
+    // Normalize homographies
     vector<Mat> Hs_normed(num_Hs);
     for (int i = 0; i < num_Hs; ++i) {
         CV_Assert(Hs_[i].size() == Size(3, 3) && Hs_[i].type() == CV_64F);
@@ -150,7 +150,7 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
                 A(eq_idx, 2) = H(r1, 0) * H(r2, 2) + H(r1, 2) * H(r2, 0);
                 A(eq_idx, 3) = H(r1, 1) * H(r2, 1);
                 A(eq_idx, 4) = H(r1, 1) * H(r2, 2) + H(r1, 2) * H(r2, 1);
-                if (r1 != 2 && r1 != 2) {
+                if (r1 != 2 && r2 != 2) {
                     A(eq_idx, lut[r1][r2]) -= 1;
                     b(eq_idx, 0) = -H(r1, 2) * H(r2, 2);
                 }
@@ -164,28 +164,95 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     Mat_<double> x;
     solve(A, b, x, DECOMP_SVD);
     Mat err = A * x - b;
-    LOG(cout << "solve() RMS error = " << sqrt(err.dot(err) / err.rows) << endl);
+    LOG(cout << "solve() norm(A*x - b) / norm(b) = " << sqrt(err.dot(err) / b.dot(b)) << endl);
 
-    Mat_<double> KK = Mat::eye(3, 3, CV_64F);
-    KK(0, 0) = x(0, 0);
-    KK(0, 1) = KK(1, 0) = x(1, 0);
-    KK(0, 2) = KK(2, 0) = x(2, 0);
-    KK(1, 1) = x(3, 0);
-    KK(1, 2) = KK(2, 1) = x(4, 0);
+    // Dual Image of the Absolute Conic == K * K.t()
+    Mat_<double> diac = Mat::eye(3, 3, CV_64F);
+    diac(0, 0) = x(0, 0);
+    diac(0, 1) = diac(1, 0) = x(1, 0);
+    diac(0, 2) = diac(2, 0) = x(2, 0);
+    diac(1, 1) = x(3, 0);
+    diac(1, 2) = diac(2, 1) = x(4, 0);
 
     LOG(Mat evals; Mat evecs;
-        eigen(KK, evals, evecs);
-        cout << "K * K.t() = \n" << KK << endl;
-        cout << "K * K.t() evecs = \n" << evecs << endl;
-        cout << "K * K.t() evals = \n" << evals << endl);
+        eigen(diac, evals, evecs);
+        cout << "DIAC = K * K.t() = \n" << diac << endl;
+        cout << "DIAC evecs = \n" << evecs << endl;
+        cout << "DIAC evals = \n" << evals << endl);
 
-    // Do U * U.t() decomposition
-    Mat adiag = Antidiag(3, 3, CV_64F);
-    Mat K_flipped = DecomposeCholesky(adiag * KK * adiag);
-    if (K_flipped.empty())
-        throw runtime_error("K * K.t() isn't positive definite");
-    return adiag * K_flipped * adiag;
+    Mat K = DecomposeCholeskyUpper(diac);
+    if (K.empty())
+        throw runtime_error("DIAC isn't positive definite");
+    return K;
 }
+
+
+Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs) {
+    vector<Mat> Hs_;
+    Hs.getMatVector(Hs_);
+    int num_Hs = (int)Hs_.size();
+    if (num_Hs < 1)
+        throw runtime_error("Need at least one homography");
+
+    // Normalize and transpose homographies
+    vector<Mat> Hs_normed_t(num_Hs);
+    for (int i = 0; i < num_Hs; ++i) {
+        CV_Assert(Hs_[i].size() == Size(3, 3) && Hs_[i].type() == CV_64F);
+        Hs_normed_t[i] = (Hs_[i] / pow(determinant(Hs_[i]), 1. / 3.)).t();
+    }
+
+    Mat_<double> A(6 * num_Hs, 4);
+    Mat_<double> b(6 * num_Hs, 1);
+    b.setTo(0);
+
+    static const int lut[][3] = {{0, 1, 2}, {-1, 3, 4}, {-1, -1, -1}};
+
+    int eq_idx = 0;
+    for (int H_idx = 0; H_idx < num_Hs; ++H_idx) {
+        Mat_<double> Ht = Hs_normed_t[H_idx];
+        for (int r1 = 0; r1 < 3; ++r1) {
+            for (int r2 = r1; r2 < 3; ++r2) {
+                A(eq_idx, 0) = Ht(r1, 0) * Ht(r2, 0);
+                A(eq_idx, 1) = Ht(r1, 0) * Ht(r2, 2) + Ht(r1, 2) * Ht(r2, 0);
+                A(eq_idx, 2) = Ht(r1, 1) * Ht(r2, 1);
+                A(eq_idx, 3) = Ht(r1, 1) * Ht(r2, 2) + Ht(r1, 2) * Ht(r2, 1);
+                if (r1 == 2 && r2 == 2)
+                    b(eq_idx, 0) = 1 - Ht(r1, 2) * Ht(r2, 2);
+                else if (r1 == 0 && r2 == 1)
+                    b(eq_idx, 0) = -Ht(r1, 2) * Ht(r2, 2);
+                else {
+                    A(eq_idx, lut[r1][r2]) -= 1;
+                    b(eq_idx, 0) = -Ht(r1, 2) * Ht(r2, 2);
+                }
+                eq_idx++;
+            }
+        }
+    }
+
+    Mat_<double> x;
+    solve(A, b, x, DECOMP_SVD);
+    Mat err = A * x - b;
+    LOG(cout << "solve() norm(A*x - b) / norm(b) = " << sqrt(err.dot(err) / b.dot(b)) << endl);
+
+    // Image of the Absolute Conic == (K * K.t()).inv()
+    Mat_<double> iac = Mat::eye(3, 3, CV_64F);
+    iac(0, 0) = x(0, 0);
+    iac(0, 2) = iac(2, 0) = x(1, 0);
+    iac(1, 1) = x(2, 0);
+    iac(1, 2) = iac(2, 1) = x(3, 0);
+
+    LOG(Mat evals; Mat evecs;
+        eigen(iac, evals, evecs);
+        cout << "IAC = (K * K.t()).inv() =\n" << iac << endl;
+        cout << "IAC evecs = \n" << evecs << endl;
+        cout << "IAC evals = \n" << evals << endl);
+
+    Mat K_inv_t = DecomposeCholesky(iac);
+    if (K_inv_t.empty())
+        throw runtime_error("IAC isn't positive definite");
+    return K_inv_t.inv().t();
+}
+
 
 
 void RefineRigidCamera(InputOutputArray K, InputOutputArrayOfArrays Rs,
@@ -282,6 +349,19 @@ Mat DecomposeCholesky(InputArray src) {
         L.at<double>(i, i) = 1. / L.at<double>(i, i);
 
     return L;
+}
+
+
+Mat DecomposeCholeskyUpper(InputArray src) {
+    Mat src_ = src.getMat();
+    CV_Assert(src_.rows == src_.cols && src_.type() == CV_64F);
+
+    Mat adiag = Antidiag(3, 3, CV_64F);
+    Mat U_flipped = DecomposeCholesky(adiag * src_ * adiag);
+    if (U_flipped.empty())
+        return Mat();
+
+    return adiag * U_flipped * adiag;
 }
 
 

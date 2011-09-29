@@ -17,6 +17,7 @@ int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
+bool no_skew;
 int seed = 0; // No seed
 Mat_<double> camera_center;
 double max_angle = 0.1;
@@ -55,6 +56,8 @@ int main(int argc, char **argv) {
                 K_init(1, 2) = atof(argv[i + 5]);
                 i += 5;
             }
+            else if (string(argv[i]) == "--no-skew")
+                no_skew = atoi(argv[++i]);
             else if (string(argv[i]) == "--seed")
                 seed = atoi(argv[++i]);
             else if (string(argv[i]) == "--camera-center") {
@@ -193,7 +196,10 @@ int main(int argc, char **argv) {
 
         if (K_init.empty()) {
             cout << "Linear calibrating...\n";
-            K_init = CalibRotationalCameraLinear(Hs);
+            if (no_skew)
+                K_init = CalibRotationalCameraLinearNoSkew(Hs);
+            else
+                K_init = CalibRotationalCameraLinear(Hs);
             cout << "Linear calibration result'll be used as K_init\n";
         }
         cout << "K_init =\n" << K_init << endl;

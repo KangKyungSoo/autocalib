@@ -185,6 +185,16 @@ typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollectio
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
 
 
+/** Calculates rotational camera intrinsics using linear algorithm with the zero skew assumption.
+  *
+  * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
+  *
+  * \param Hs Projective plane homographies (64F)
+  * \return Camera intrinsics (64F), where skew is zero
+  */
+cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs);
+
+
 /** Refines rigid camera parameters by minimizing overal reprojection error.
   *
   * \param K Camera intrinsics
@@ -216,6 +226,15 @@ cv::Mat Antidiag(int rows, int cols, int type);
             or empty matrix if decomposition doesn't exist
   */
 cv::Mat DecomposeCholesky(cv::InputArray src);
+
+
+/** Performs Cholesky decomposition.
+  *
+  * \param src Symmetric positive-definite matrix
+  * \return Upper traingular matrix U, such as U * U.t() == src,
+            or empty matrix if decomposition doesn't exist
+  */
+cv::Mat DecomposeCholeskyUpper(cv::InputArray src);
 
 
 /** Extracts matched keypoints.
