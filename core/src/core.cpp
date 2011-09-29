@@ -104,6 +104,7 @@ void ReprojErrorFixedKR::Jacobian(const Mat &arg, Mat &jac) {
 
     jac.create(dimension(), arg_.cols, CV_64F);
     Mat_<double> jac_(jac);
+    jac_.setTo(0);
 
     // Maps argument index to the respective intrinsic parameter
     static const int flags_tbl[] = {RefineFlag_Fx, RefineFlag_Skew, RefineFlag_PPx,
