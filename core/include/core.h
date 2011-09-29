@@ -175,7 +175,7 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts = 
 typedef std::vector<cv::detail::ImageFeatures> FeaturesCollection;
 typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollection;
 
-/** Calculates rotational camera intrinsics using linear algorithm.
+/** Calculates rotational camera intrinsics using a linear algorithm.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
@@ -185,7 +185,7 @@ typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollectio
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
 
 
-/** Calculates rotational camera intrinsics using linear algorithm with the zero skew assumption.
+/** Calculates rotational camera intrinsics using a linear algorithm with the zero skew assumption.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
@@ -219,22 +219,22 @@ void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
 cv::Mat Antidiag(int rows, int cols, int type);
 
 
-/** Performs Cholesky decomposition.
+/** Finds the Cholesky decomposition.
   *
   * \param src Symmetric positive-definite matrix
   * \return Lower traingular matrix L, such as L * L.t() == src,
-            or empty matrix if decomposition doesn't exist
+            or empty matrix if the decomposition doesn't exist
   */
 cv::Mat DecomposeCholesky(cv::InputArray src);
 
 
-/** Performs Cholesky decomposition.
+/** Finds a decomposition of a matrix into the product of an upper triangular and its transpose.
   *
   * \param src Symmetric positive-definite matrix
   * \return Upper traingular matrix U, such as U * U.t() == src,
-            or empty matrix if decomposition doesn't exist
+            or empty matrix if the decomposition doesn't exist
   */
-cv::Mat DecomposeCholeskyUpper(cv::InputArray src);
+cv::Mat DecomposeUUt(cv::InputArray src);
 
 
 /** Extracts matched keypoints.
