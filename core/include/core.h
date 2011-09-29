@@ -1,22 +1,13 @@
 #ifndef AUTOCALIB_CORE_H_
 #define AUTOCALIB_CORE_H_
 
-// TODO put project defines into separated header
-#define LOGGING_ENABLED 1
-
-#if LOGGING_ENABLED
-    #include <iostream>
-    #define LOG(x) x
-#else
-    #define LOG(x)
-#endif
-
 #include <vector>
 #include <map>
 #include <string>
 #include <utility>
 #include <opencv2/core/core.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
+#include <config.h>
 
 namespace autocalib {
 
@@ -117,16 +108,16 @@ public:
 
     /** Verbosity level. */
     enum Verbose {
-        VerboseNo = 0,
-        VerboseSummary = 1,
-        VerboseIter = 2
+        Verbose_No = 0,
+        Verbose_Summary = 1,
+        Verbose_Iter = 2
     };
 
     /** \param crit Termination criteria
       * \param verbose Verbosity level
       * \see Verbose
       */
-    MinimizeOpts(cv::TermCriteria crit = crit_default(), int verbose = VerboseNo) {
+    MinimizeOpts(cv::TermCriteria crit = crit_default(), int verbose = Verbose_No) {
         Init(crit, verbose);
     }
 
@@ -195,15 +186,29 @@ cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
 cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs);
 
 
+/** Rigid camera refinement method flags. */
+enum RefineFlag {
+    RefineFlag_Fx = 1,
+    RefineFlag_Fy = 2,
+    RefineFlag_PPx = 4,
+    RefineFlag_PPy = 8,
+    RefineFlag_Skew = 16,
+    RefineFlag_All = 31
+};
+
+
 /** Refines rigid camera parameters by minimizing overal reprojection error.
   *
   * \param K Camera intrinsics
   * \param Rs Camera positions vector
   * \param features Features collection
   * \param matches Matches collection
+  * \param params_to_refine Flags indicating parameters which should be refined
+  * \see RefineFlag
   */
 void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
-                       const FeaturesCollection &features, const MatchesCollection &matches);
+                       const FeaturesCollection &features, const MatchesCollection &matches,
+                       int params_to_refine = RefineFlag_All);
 
 
 //============================================================================
