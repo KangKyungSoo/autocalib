@@ -67,7 +67,7 @@ private:
 void MatchSyntheticShots(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
                          std::vector<cv::DMatch> &matches);
 
-/** Creates image from image features.
+/** Creates an image from image features.
   *
   * \param features Image features
   * \param img Result image
