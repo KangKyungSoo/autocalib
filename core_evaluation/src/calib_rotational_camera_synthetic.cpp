@@ -17,7 +17,8 @@ int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
-bool no_skew;
+bool lin_est_skew = true;
+bool refine_skew = true;
 int seed = 0; // No seed
 Mat_<double> camera_center;
 double max_angle = 0.1;
@@ -56,8 +57,10 @@ int main(int argc, char **argv) {
                 K_init(1, 2) = atof(argv[i + 5]);
                 i += 5;
             }
-            else if (string(argv[i]) == "--no-skew")
-                no_skew = atoi(argv[++i]);
+            else if (string(argv[i]) == "--lin-est-skew")
+                lin_est_skew = atoi(argv[++i]);
+            else if (string(argv[i]) == "--refine-skew")
+                refine_skew = atoi(argv[++i]);
             else if (string(argv[i]) == "--seed")
                 seed = atoi(argv[++i]);
             else if (string(argv[i]) == "--camera-center") {
@@ -195,11 +198,11 @@ int main(int argc, char **argv) {
         }                
 
         if (K_init.empty()) {
-            cout << "Linear calibrating...\n";
-            if (no_skew)
-                K_init = CalibRotationalCameraLinearNoSkew(Hs);
-            else
+            cout << "Linear calibrating...\n";            
+            if (lin_est_skew)
                 K_init = CalibRotationalCameraLinear(Hs);
+            else
+                K_init = CalibRotationalCameraLinearNoSkew(Hs);
             cout << "Linear calibration result'll be used as K_init\n";
         }
         cout << "K_init =\n" << K_init << endl;
@@ -216,7 +219,12 @@ int main(int argc, char **argv) {
         for (int i = 1; i < num_cameras; ++i)
             Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
         Mat_<double> K_refined = K_init.clone();
-        RefineRigidCamera(K_refined, Rs, features, matches);
+        if (refine_skew)
+            RefineRigidCamera(K_refined, Rs, features, matches);
+        else {
+            K_refined(0, 1) = 0;
+            RefineRigidCamera(K_refined, Rs, features, matches, RefineFlag_All & ~RefineFlag_Skew);
+        }
         cout << "K_refined =\n" << K_refined << endl;
 
         cout << "SUMMARY\n";
