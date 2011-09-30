@@ -17,8 +17,8 @@ int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
-bool lin_est_skew = true;
-bool refine_skew = true;
+bool lin_est_skew = false;
+bool refine_skew = false;
 int seed = 0; // No seed
 Mat_<double> camera_center;
 double max_angle = 0.1;
