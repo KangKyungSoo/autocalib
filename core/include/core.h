@@ -186,6 +186,46 @@ cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
 cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs);
 
 
+/** Describes the squared error cost function (not robust). */
+class SquaredCostFunc {
+public:
+    double operator()(double x) const { return x * x; }
+    double SquareRoot(double x) const { return std::abs(x); }
+};
+
+
+/** Describes the Huber robust error cost function. */
+class HuberCostFunction {
+public:
+    HuberCostFunction(double sigma) : sigma_(std::abs(sigma)),
+                                      sigma_sq_(sigma * sigma) {}
+
+    double operator()(double x) const {
+        x = std::abs(x);
+        return x < sigma_ ? x * x : 2 * sigma_ * x - sigma_sq_;
+    }
+
+    double SquareRoot(double x) const { return std::sqrt((*this)(x)); }
+
+private:
+    double sigma_, sigma_sq_;
+};
+
+
+/** Describes the Blake-Zisserman robust error cost function. */
+class BlakeZissermanCostFunc {
+public:
+    BlakeZissermanCostFunc(double sigma) : sigma_(std::abs(sigma)),
+                                           sigma_sq_(sigma * sigma) {}
+
+    double operator()(double x) const { return std::min(x * x, sigma_sq_); }
+    double SquareRoot(double x) const { return std::min(std::abs(x), sigma_); }
+
+private:
+    double sigma_, sigma_sq_;
+};
+
+
 /** Rigid camera refinement method flags. */
 enum RefineFlag {
     RefineFlag_Fx = 1,
@@ -203,8 +243,9 @@ enum RefineFlag {
   * \param Rs Camera positions vector
   * \param features Features collection
   * \param matches Matches collection
+  * \param cost_func Error cost function
   * \param params_to_refine Flags indicating parameters which should be refined
-  * \see RefineFlag
+  * \see SquaredCostFunc, BlakeZissermanCostFunc, RefineFlag
   */
 void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,

@@ -28,6 +28,19 @@ TEST(DecomposeCholesky, CanDecomposeSmallMatrix) {
 }
 
 
+TEST(DecomposeUUt, CanDecomposeSmallMatrix) {
+    Mat_<double> U(3, 3);
+    U(0, 0) = 1; U(0, 1) = 2; U(0, 2) = 3;
+    U(1, 1) = 4; U(1, 2) = 5;
+    U(2, 2) = 6;
+
+    Mat dst = DecomposeUUt(U * U.t());
+
+    ASSERT_TRUE(!dst.empty());
+    ASSERT_LT(norm(dst, U, NORM_INF), 1e-3);
+}
+
+
 TEST(DecomposeCholesky, CanNotDecomposeNegativeDefiniteMatrix) {
     Mat_<double> L(3, 3);
     L(0, 0) = 1;

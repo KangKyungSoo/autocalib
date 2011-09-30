@@ -5,6 +5,7 @@ using namespace std;
 using namespace cv;
 
 namespace autocalib {
+
 namespace {
 
 class ReprojErrorFixedKR {
@@ -21,8 +22,8 @@ public:
             num_matches_ += (int)view->second.size();
     }
 
-    void operator()(const Mat &arg, Mat &err);
-    void Jacobian(const Mat &arg, Mat &jac);
+    void operator()(const cv::Mat &arg, cv::Mat &err);
+    void Jacobian(const cv::Mat &arg, cv::Mat &jac);
 
     int dimension() const { return num_matches_ * 2; }
 
@@ -32,13 +33,12 @@ private:
     int num_matches_;
     int params_to_refine_;
 
-
     const double step_;
-    Mat_<double> err_;
+    cv::Mat_<double> err_;
 };
 
 
-void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
+void ReprojErrorFixedKR::operator()(const cv::Mat &arg, cv::Mat &err) {
     Mat_<double> arg_(arg);
 
     err.create(dimension(), 1, CV_64F);
@@ -53,7 +53,7 @@ void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
     Mat K_inv = K.inv();
 
     int pos = 0;
-    for (map<pair<int, int>, vector<DMatch> >::const_iterator view = matches_->begin();
+    for (MatchesCollection::const_iterator view = matches_->begin();
          view != matches_->end(); ++view)
     {
         int img_from = view->first.first;
@@ -99,7 +99,7 @@ void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
 
 
 // TODO calculate analytically
-void ReprojErrorFixedKR::Jacobian(const Mat &arg, Mat &jac) {
+void ReprojErrorFixedKR::Jacobian(const cv::Mat &arg, cv::Mat &jac) {
     Mat_<double> arg_(arg.clone());
 
     jac.create(dimension(), arg_.cols, CV_64F);
@@ -125,7 +125,7 @@ void ReprojErrorFixedKR::Jacobian(const Mat &arg, Mat &jac) {
             for (int j = 0; j < dimension(); ++j)
                 jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
         }
-    }    
+    }
 }
 
 } // namespace
@@ -265,8 +265,7 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs) {
 }
 
 
-
-void RefineRigidCamera(InputOutputArray K, InputOutputArrayOfArrays Rs,
+void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,
                        int params_to_refine)
 {
@@ -310,6 +309,7 @@ void RefineRigidCamera(InputOutputArray K, InputOutputArrayOfArrays Rs,
         Rodrigues(rvec, Rs_[i]);
     }
 }
+
 
 
 Mat Antidiag(int rows, int cols, int type) {
