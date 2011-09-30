@@ -111,7 +111,7 @@ void ReprojErrorFixedKR::Jacobian(const cv::Mat &arg, cv::Mat &jac) {
                                     RefineFlag_Fy, RefineFlag_PPy};
 
     for (int i = 0; i < arg_.cols; ++i) {
-        if (params_to_refine_ & flags_tbl[i]) {
+        if (i > 4 || (params_to_refine_ & flags_tbl[i])) {
             double val = arg_(0, i);
 
             arg_(0, i) += step_;
