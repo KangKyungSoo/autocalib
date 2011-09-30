@@ -243,9 +243,8 @@ enum RefineFlag {
   * \param Rs Camera positions vector
   * \param features Features collection
   * \param matches Matches collection
-  * \param cost_func Error cost function
   * \param params_to_refine Flags indicating parameters which should be refined
-  * \see SquaredCostFunc, BlakeZissermanCostFunc, RefineFlag
+  * \see RefineFlag
   */
 void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,
