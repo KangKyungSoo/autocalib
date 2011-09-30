@@ -7,11 +7,11 @@ using namespace cv;
 namespace autocalib {
 namespace {
 
-class ReprojErrorFixedKR {
+class ReprojErrorsSharedKR {
 public:
-    ReprojErrorFixedKR(const FeaturesCollection &features,
-                       const MatchesCollection &matches,
-                       int params_to_refine)
+    ReprojErrorsSharedKR(const FeaturesCollection &features,
+                         const MatchesCollection &matches,
+                         int params_to_refine)
             : features_(&features), matches_(&matches), params_to_refine_(params_to_refine),
               step_(1e-4)
     {
@@ -38,7 +38,7 @@ private:
 };
 
 
-void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
+void ReprojErrorsSharedKR::operator()(const Mat &arg, Mat &err) {
     Mat_<double> arg_(arg);
 
     err.create(dimension(), 1, CV_64F);
@@ -99,7 +99,7 @@ void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
 
 
 // TODO calculate analytically
-void ReprojErrorFixedKR::Jacobian(const Mat &arg, Mat &jac) {
+void ReprojErrorsSharedKR::Jacobian(const Mat &arg, Mat &jac) {
     Mat_<double> arg_(arg.clone());
 
     jac.create(dimension(), arg_.cols, CV_64F);
@@ -265,7 +265,6 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs) {
 }
 
 
-
 void RefineRigidCamera(InputOutputArray K, InputOutputArrayOfArrays Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,
                        int params_to_refine)
@@ -294,7 +293,7 @@ void RefineRigidCamera(InputOutputArray K, InputOutputArrayOfArrays Rs,
         arg(0, 5 + 3 * (i - 1) + 2) = rvec(0, 2);
     }
 
-    ReprojErrorFixedKR func(features, matches, params_to_refine);
+    ReprojErrorsSharedKR func(features, matches, params_to_refine);
     MinimizeLevMarq(func, arg, MinimizeOpts::Verbose_Summary);
 
     K_(0, 0) = arg(0, 0);
