@@ -7,6 +7,7 @@
 #include <core/include/core.h>
 
 namespace autocalib {
+namespace evaluation {
 
 /** Describes a point cloud. */
 class PointCloud {
@@ -46,7 +47,7 @@ class SphereScene : public SyntheticScene {
 public:
 
     // TODO put rng param into base class
-    /** Creates sphere scene.
+    /** Creates a sphere scene.
       *
       * \param num_points Number of points on the sphere
       * \param rng Pseudo random number generator
@@ -70,10 +71,11 @@ void MatchSyntheticShots(const cv::detail::ImageFeatures &f1, const cv::detail::
 /** Creates an image from image features.
   *
   * \param features Image features
-  * \param img Result image
+  * \param image Result image
   */
-void CreateImage(const cv::detail::ImageFeatures &features, cv::OutputArray img);
+void CreateImage(const cv::detail::ImageFeatures &features, cv::OutputArray image);
 
+} // namespace evaluation
 } // namespace autocalib
 
 #endif // AUTOCALIB_EVALUATION_H_

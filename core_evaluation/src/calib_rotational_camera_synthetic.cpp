@@ -11,6 +11,7 @@
 using namespace std;
 using namespace cv;
 using namespace autocalib;
+using namespace autocalib::evaluation;
 
 int num_points = 1000;
 int num_cameras = 5;
