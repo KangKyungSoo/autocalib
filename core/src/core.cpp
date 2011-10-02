@@ -131,7 +131,7 @@ void ReprojErrorFixedKR::Jacobian(const cv::Mat &arg, cv::Mat &jac) {
 } // namespace
 
 
-Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
+Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, Interval evals_interval) {
     vector<Mat> Hs_;
     Hs.getMatVector(Hs_);
     int num_Hs = (int)Hs_.size();
@@ -185,6 +185,8 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
     diac(1, 1) = x(3, 0);
     diac(1, 2) = diac(2, 1) = x(4, 0);
 
+    diac = TruncEigenvals(diac, evals_interval);
+
     LOG(Mat evals; Mat evecs;
         eigen(diac, evals, evecs);
         cout << "DIAC = K * K.t() = \n" << diac << endl;
@@ -198,7 +200,7 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
 }
 
 
-Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs) {
+Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, Interval evals_interval) {
     vector<Mat> Hs_;
     Hs.getMatVector(Hs_);
     int num_Hs = (int)Hs_.size();
@@ -251,6 +253,8 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs) {
     iac(0, 2) = iac(2, 0) = x(1, 0);
     iac(1, 1) = x(2, 0);
     iac(1, 2) = iac(2, 1) = x(3, 0);
+
+    iac = TruncEigenvals(iac, evals_interval);
 
     LOG(Mat evals; Mat evecs;
         eigen(iac, evals, evecs);
@@ -309,7 +313,6 @@ void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
         Rodrigues(rvec, Rs_[i]);
     }
 }
-
 
 
 Mat Antidiag(int rows, int cols, int type) {
@@ -374,6 +377,32 @@ Mat DecomposeUUt(InputArray src) {
         return Mat();
 
     return adiag * U_flipped * adiag;
+}
+
+
+Mat TruncEigenvals(InputArray src, Interval interval) {
+    Mat src_ = src.getMat();
+    CV_Assert(src_.rows == src_.cols && src_.type() == CV_64F);
+
+    Mat_<double> eigenvals, eigenvecs;
+    eigen(src_, eigenvals, eigenvecs);
+
+    switch (interval.kind()) {
+    case Interval::LEFT:
+        for (int i = 0; i < eigenvals.rows; ++i)
+            eigenvals(i, 0) = max(eigenvals(i, 0), interval.left());
+        break;
+    case Interval::RIGHT:
+        for (int i = 0; i < eigenvals.rows; ++i)
+            eigenvals(i, 0) = min(eigenvals(i, 0), interval.right());
+        break;
+    case Interval::LEFT_RIGHT:
+        for (int i = 0; i < eigenvals.rows; ++i)
+            eigenvals(i, 0) = max(min(eigenvals(i, 0), interval.right()), interval.left());
+        break;
+    }
+
+    return eigenvecs.t() * Mat::diag(eigenvals) * eigenvecs;
 }
 
 

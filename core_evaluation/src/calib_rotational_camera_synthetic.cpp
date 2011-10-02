@@ -18,6 +18,7 @@ int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
+Interval evals_interval = Interval::All();
 bool lin_est_skew = false;
 bool refine_skew = false;
 int seed = 0; // No seed
@@ -58,6 +59,14 @@ int main(int argc, char **argv) {
                 K_init(1, 2) = atof(argv[i + 5]);
                 i += 5;
             }
+            else if (string(argv[i]) == "--evals-interval") {
+                evals_interval = Interval(atof(argv[i + 1]), atof(argv[i + 2]));
+                i += 2;
+            }
+            else if (string(argv[i]) == "--evals-interval-left")
+                evals_interval = Interval::Left(atof(argv[++i]));
+            else if (string(argv[i]) == "--evals-interval-right")
+                evals_interval = Interval::Right(atof(argv[++i]));
             else if (string(argv[i]) == "--lin-est-skew")
                 lin_est_skew = atoi(argv[++i]);
             else if (string(argv[i]) == "--refine-skew")
@@ -201,9 +210,9 @@ int main(int argc, char **argv) {
         if (K_init.empty()) {
             cout << "Linear calibrating...\n";            
             if (lin_est_skew)
-                K_init = CalibRotationalCameraLinear(Hs);
+                K_init = CalibRotationalCameraLinear(Hs, evals_interval);
             else
-                K_init = CalibRotationalCameraLinearNoSkew(Hs);
+                K_init = CalibRotationalCameraLinearNoSkew(Hs, evals_interval);
             cout << "Linear calibration result'll be used as K_init\n";
         }
         cout << "K_init =\n" << K_init << endl;
