@@ -218,9 +218,7 @@ struct Interval {
     }
 
     Kind kind() const { return kind_; }
-
     double left() const { return left_; }
-
     double right() const { return right_; }
 
 private:
@@ -236,9 +234,9 @@ private:
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
-  * \param Hs Projective plane homographies (64F)
+  * \param Hs Projective plane homographies
   * \param evals_interval Interval used for DIAC eigenvalues truncation (true eigenvalues are [fx^2, fy^2, 1])
-  * \return Camera intrinsics (64F)
+  * \return Camera intrinsics
   */
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
                                     Interval evals_interval = Interval::All());
@@ -248,16 +246,17 @@ cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
-  * \param Hs Projective plane homographies (64F)
+  * \param Hs Projective plane homographies
   * \param evals_interval Interval used for IAC eigenvalues truncation (true eigenvalues are [(1/fx)^2, (1/fy)^2, 1])
-  * \return Camera intrinsics (64F), where skew is zero
+  * \return Camera intrinsics, where skew is zero
   */
 cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs,
                                           Interval evals_interval = Interval::All());
 
 
 /** Describes a quaternion of the following form: a + b*i + c*j + d*k. */
-struct Quaternion {
+class Quaternion {
+public:
     Quaternion() {}
     Quaternion(const Quaternion &q) { a_ = q.a_; b_ = q.b_; c_ = q.c_; d_ = q.d_; }
 
@@ -276,8 +275,8 @@ struct Quaternion {
     double d() const { return d_; }
     double& d() { return d_; }
 
-    double operator[](int index) const { return vals_[index]; }
-    double& operator[](int index) { return vals_[index]; }
+    double operator [](int index) const { return vals_[index]; }
+    double& operator [](int index) { return vals_[index]; }
 
     Quaternion Conjuagate() const { return Quaternion(a_, -b_, -c_, -d_); }
 
