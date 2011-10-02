@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 #include <limits>
+#include <cmath>
 #include <opencv2/core/core.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
 #include <config.h>
@@ -217,7 +218,9 @@ struct Interval {
     }
 
     Kind kind() const { return kind_; }
+
     double left() const { return left_; }
+
     double right() const { return right_; }
 
 private:
@@ -253,46 +256,81 @@ cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs,
                                           Interval evals_interval = Interval::All());
 
 
-#if 0
-/** Describes the squared error cost function (not robust). */
-class SquaredCostFunc {
-public:
-    double operator()(double x) const { return x * x; }
-    double SquareRoot(double x) const { return std::abs(x); }
-};
+/** Describes a quaternion of the following form: a + b*i + c*j + d*k. */
+struct Quaternion {
+    Quaternion() {}
+    Quaternion(const Quaternion &q) { a_ = q.a_; b_ = q.b_; c_ = q.c_; d_ = q.d_; }
 
+    /** Creates a quaternion of the following form: a + b*i + c*j + d*k. */
+    Quaternion(double a, double b, double c, double d) { a_ = a; b_ = b; c_ = c; d_ = d; }
 
-/** Describes the Huber robust error cost function. */
-class HuberCostFunction {
-public:
-    HuberCostFunction(double sigma) : sigma_(std::abs(sigma)),
-                                      sigma_sq_(sigma * sigma) {}
+    double a() const { return a_; }
+    double& a() { return a_; }
 
-    double operator()(double x) const {
-        x = std::abs(x);
-        return x < sigma_ ? x * x : 2 * sigma_ * x - sigma_sq_;
+    double b() const { return b_; }
+    double& b() { return b_; }
+
+    double c() const { return c_; }
+    double& c() { return c_; }
+
+    double d() const { return d_; }
+    double& d() { return d_; }
+
+    double operator[](int index) const { return vals_[index]; }
+    double& operator[](int index) { return vals_[index]; }
+
+    Quaternion Conjuagate() const { return Quaternion(a_, -b_, -c_, -d_); }
+
+    Quaternion Reciprocal() const { return Conjuagate() /= SquaredNorm(); }
+
+    double SquaredNorm() const { return a_ * a_ + b_ * b_ + c_ * c_ + d_ * d_; }
+
+    double Norm() const { return std::sqrt(SquaredNorm()); }
+
+    const Quaternion& operator +=(const Quaternion &q) {
+        a_ += q.a_; b_ += q.b_; c_ += q.c_; d_ += q.d_;
+        return *this;
     }
 
-    double SquareRoot(double x) const { return std::sqrt((*this)(x)); }
+    const Quaternion& operator -=(const Quaternion &q) {
+        a_ -= q.a_; b_ -= q.b_; c_ -= q.c_; d_ -= q.d_;
+        return *this;
+    }
+
+    const Quaternion& operator *=(double a) {
+        a_ *= a; b_ *= a; c_ *= a; d_ *= a;
+        return *this;
+    }
+
+    const Quaternion& operator *=(const Quaternion &q) {
+        return *this = *this * q;
+    }
+
+    const Quaternion& operator /=(double a) {
+        return *this *= 1 / a;
+    }
+
+    Quaternion operator +(const Quaternion &q) const { return Quaternion(*this) += q; }
+
+    Quaternion operator -(const Quaternion &q) const { return Quaternion(*this) -= q; }
+
+    Quaternion operator *(double a) const { return Quaternion(*this) *= a; }
+
+    Quaternion operator *(const Quaternion &q) const {
+        return Quaternion(a_ * q.a_ - b_ * q.b_ - c_ * q.c_ - d_ * q.d_,
+                          a_ * q.b_ + b_ * q.a_ + c_ * q.d_ - d_ * q.c_,
+                          a_ * q.c_ - b_ * q.d_ + c_ * q.a_ + d_ * q.b_,
+                          a_ * q.d_ + b_ * q.c_ - c_ * q.b_ + d_ * q.a_);
+    }
+
+    Quaternion operator /(double a) const { return Quaternion(*this) /= a; }
 
 private:
-    double sigma_, sigma_sq_;
+    union {
+        double a_, b_, c_, d_;
+        double vals_[4];
+    };
 };
-
-
-/** Describes the Blake-Zisserman robust error cost function. */
-class BlakeZissermanCostFunc {
-public:
-    BlakeZissermanCostFunc(double sigma) : sigma_(std::abs(sigma)),
-                                           sigma_sq_(sigma * sigma) {}
-
-    double operator()(double x) const { return std::min(x * x, sigma_sq_); }
-    double SquareRoot(double x) const { return std::min(std::abs(x), sigma_); }
-
-private:
-    double sigma_, sigma_sq_;
-};
-#endif
 
 
 /** Rigid camera refinement method flags. */
