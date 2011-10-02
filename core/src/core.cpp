@@ -107,8 +107,8 @@ void ReprojErrorFixedKR::Jacobian(const cv::Mat &arg, cv::Mat &jac) {
     jac_.setTo(0);
 
     // Maps argument index to the respective intrinsic parameter
-    static const int flags_tbl[] = {RefineFlag_Fx, RefineFlag_Skew, RefineFlag_PPx,
-                                    RefineFlag_Fy, RefineFlag_PPy};
+    static const int flags_tbl[] = {REFINE_FLAG_FX, REFINE_FLAG_SKEW, REFINE_FLAG_PPX,
+                                    REFINE_FLAG_FY, REFINE_FLAG_PPY};
 
     for (int i = 0; i < arg_.cols; ++i) {
         if (i > 4 || (params_to_refine_ & flags_tbl[i])) {
@@ -298,7 +298,7 @@ void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
     }
 
     ReprojErrorFixedKR func(features, matches, params_to_refine);
-    MinimizeLevMarq(func, arg, MinimizeOpts::Verbose_Summary);
+    MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
     K_(0, 0) = arg(0, 0);
     K_(0, 1) = arg(0, 1);

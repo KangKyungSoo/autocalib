@@ -109,16 +109,16 @@ public:
 
     /** Verbosity level. */
     enum Verbose {
-        Verbose_No = 0,
-        Verbose_Summary = 1,
-        Verbose_Iter = 2
+        VERBOSE_NO = 0,
+        VERBOSE_SUMMARY = 1,
+        VERBOSE_ITER = 2
     };
 
     /** \param crit Termination criteria
       * \param verbose Verbosity level
       * \see Verbose
       */
-    MinimizeOpts(cv::TermCriteria crit = crit_default(), int verbose = Verbose_No) {
+    MinimizeOpts(cv::TermCriteria crit = crit_default(), int verbose = VERBOSE_NO) {
         Init(crit, verbose);
     }
 
@@ -297,12 +297,12 @@ private:
 
 /** Rigid camera refinement method flags. */
 enum RefineFlag {
-    RefineFlag_Fx = 1,
-    RefineFlag_Fy = 2,
-    RefineFlag_PPx = 4,
-    RefineFlag_PPy = 8,
-    RefineFlag_Skew = 16,
-    RefineFlag_All = 31
+    REFINE_FLAG_FX = 1,
+    REFINE_FLAG_FY = 2,
+    REFINE_FLAG_PPX = 4,
+    REFINE_FLAG_PPY = 8,
+    REFINE_FLAG_SKEW = 16,
+    REFINE_FLAG_ALL = 31
 };
 
 
@@ -317,7 +317,7 @@ enum RefineFlag {
   */
 void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,
-                       int params_to_refine = RefineFlag_All);
+                       int params_to_refine = REFINE_FLAG_ALL);
 
 
 //============================================================================
