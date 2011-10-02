@@ -278,14 +278,6 @@ public:
     double operator [](int index) const { return vals_[index]; }
     double& operator [](int index) { return vals_[index]; }
 
-    Quaternion Conjuagate() const { return Quaternion(a_, -b_, -c_, -d_); }
-
-    Quaternion Reciprocal() const { return Conjuagate() /= SquaredNorm(); }
-
-    double SquaredNorm() const { return a_ * a_ + b_ * b_ + c_ * c_ + d_ * d_; }
-
-    double Norm() const { return std::sqrt(SquaredNorm()); }
-
     const Quaternion& operator +=(const Quaternion &q) {
         a_ += q.a_; b_ += q.b_; c_ += q.c_; d_ += q.d_;
         return *this;
@@ -316,13 +308,27 @@ public:
     Quaternion operator *(double a) const { return Quaternion(*this) *= a; }
 
     Quaternion operator *(const Quaternion &q) const {
-        return Quaternion(a_ * q.a_ - b_ * q.b_ - c_ * q.c_ - d_ * q.d_,
-                          a_ * q.b_ + b_ * q.a_ + c_ * q.d_ - d_ * q.c_,
-                          a_ * q.c_ - b_ * q.d_ + c_ * q.a_ + d_ * q.b_,
-                          a_ * q.d_ + b_ * q.c_ - c_ * q.b_ + d_ * q.a_);
+        return Quaternion(a_*q.a_ - b_*q.b_ - c_*q.c_ - d_*q.d_,
+                          a_*q.b_ + b_*q.a_ + c_*q.d_ - d_*q.c_,
+                          a_*q.c_ - b_*q.d_ + c_*q.a_ + d_*q.b_,
+                          a_*q.d_ + b_*q.c_ - c_*q.b_ + d_*q.a_);
     }
 
     Quaternion operator /(double a) const { return Quaternion(*this) /= a; }
+
+    Quaternion Conjuagate() const { return Quaternion(a_, -b_, -c_, -d_); }
+
+    Quaternion Reciprocal() const { return Conjuagate() /= SquaredNorm(); }
+
+    double SquaredNorm() const { return a_*a_ + b_*b_ + c_*c_ + d_*d_; }
+
+    double Norm() const { return std::sqrt(SquaredNorm()); }
+
+    /** Converts a unit quaternion into the rotation matrix.
+      *
+      * \return Rotation matrix
+      */
+    cv::Mat R() const;
 
 private:
     union {
