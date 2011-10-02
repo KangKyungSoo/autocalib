@@ -229,7 +229,6 @@ private:
 };
 
 
-
 /** Calculates rotational camera intrinsics using a linear algorithm.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
@@ -254,6 +253,7 @@ cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs,
                                           Interval evals_interval = Interval::All());
 
 
+#if 0
 /** Describes the squared error cost function (not robust). */
 class SquaredCostFunc {
 public:
@@ -292,6 +292,7 @@ public:
 private:
     double sigma_, sigma_sq_;
 };
+#endif
 
 
 /** Rigid camera refinement method flags. */
