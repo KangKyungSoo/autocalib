@@ -170,9 +170,9 @@ typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollectio
 
 
 /** Describes an interval. */
-struct Interval {
+class Interval {
+public:
 
-    /** Interval kind. */
     enum Kind { ALL, LEFT, RIGHT, LEFT_RIGHT };
 
     /** Creates (left, right) interval.
@@ -259,9 +259,17 @@ class Quaternion {
 public:
     Quaternion() {}
     Quaternion(const Quaternion &q) { a_ = q.a_; b_ = q.b_; c_ = q.c_; d_ = q.d_; }
-
-    /** Creates a quaternion of the following form: a + b*i + c*j + d*k. */
     Quaternion(double a, double b, double c, double d) { a_ = a; b_ = b; c_ = c; d_ = d; }
+    Quaternion(double vals[4]) { for (int i = 0; i < 4; ++i) vals_[i] = vals[i]; }
+
+    /** Creates a quaternion from a rotation matrix.
+      *
+      * See http://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation for details.
+      *
+      * \param R Rotation matrix
+      * \return Quaternion
+      */
+    static Quaternion FromRotationMat(cv::InputArray R);
 
     double a() const { return a_; }
     double& a() { return a_; }
@@ -326,9 +334,11 @@ public:
 
     /** Converts a unit quaternion into the rotation matrix.
       *
+      * See http://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation for details.
+      *
       * \return Rotation matrix
       */
-    cv::Mat R() const;
+    cv::Mat RotationMat() const;
 
 private:
     union {

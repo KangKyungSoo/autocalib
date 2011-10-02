@@ -269,7 +269,34 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, Interval evals_inte
 }
 
 
-Mat Quaternion::R() const {
+Quaternion Quaternion::FromRotationMat(cv::InputArray R) {
+    CV_Assert(R.getMat().size() == Size(3, 3) && R.getMat().type() == CV_64F);
+    Mat_<double> R_ = R.getMat();
+
+    int u = 0;
+    if (R_(1, 1) > R_(0, 0))
+        u = 1;
+    if (R_(2, 2) > R_(u, u))
+        u = 2;
+
+    static const int perm_tbl[3][3] = {{0, 1, 2}, {1, 2, 0}, {2, 0, 1}};
+    const int *p = perm_tbl[u];
+
+    double r = sqrt(1 + R_(p[0], p[0]) - R_(p[1], p[1]) - R_(p[2], p[2]));
+
+    if (r < numeric_limits<double>::epsilon())
+        return Quaternion(1, 0, 0, 0);
+
+    Quaternion q;
+    q[0] = (R_(p[2], p[1]) - R_(p[1], p[2])) / (2 * r);
+    q[p[0]] = r / 2;
+    q[p[1]] = (R_(p[0], p[1]) - R_(p[0], p[1])) / (2 * r);
+    q[p[2]] = (R_(p[2], p[0]) - R_(p[0], p[1])) / (2 * r);
+    return q;
+}
+
+
+Mat Quaternion::RotationMat() const {
     Mat_<double> R_(3, 3);
     R_(0, 0) = a_*a_ + b_*b_ - c_*c_ - d_*d_;
     R_(0, 1) = 2*b_*c_ - 2*a_*d_;
