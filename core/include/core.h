@@ -346,7 +346,7 @@ enum RefineFlag {
 /** Refines rigid camera parameters by minimizing overall reprojection error.
   *
   * \param K Camera intrinsics
-  * \param Rs Camera positions vector
+  * \param Rs Camera rotations vector
   * \param features Features collection
   * \param matches Matches collection
   * \param params_to_refine Flags indicating parameters which should be refined
