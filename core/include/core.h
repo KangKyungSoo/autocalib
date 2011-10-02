@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <utility>
+#include <limits>
 #include <opencv2/core/core.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
 #include <config.h>
@@ -166,14 +167,79 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts = 
 typedef std::vector<cv::detail::ImageFeatures> FeaturesCollection;
 typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollection;
 
+
+/** Describes an interval. */
+struct Interval {
+
+    /** Interval kind. */
+    enum Kind { ALL, LEFT, RIGHT, LEFT_RIGHT };
+
+    /** Creates (left, right) interval.
+      *
+      * \return Interval
+      */
+    Interval(double left, double right) {
+        kind_ = LEFT_RIGHT;
+        left_ = left;
+        right_ = right;
+    }
+
+    /** Creates (-inf, +inf) interval.
+      *
+      * \return Interval
+      */
+    static Interval All() {
+        Interval res;
+        res.kind_ = ALL;
+        return res;
+    }
+
+    /** Creates (left, +inf) interval.
+      *
+      * \return Interval
+      */
+    static Interval Left(double left) {
+        Interval res;
+        res.kind_ = LEFT;
+        res.left_ = left;
+        return res;
+    }
+
+    /** Creates (-inf, right) interval.
+      *
+      * \return Interval
+      */
+    static Interval Right(double right) {
+        Interval res;
+        res.kind_ = RIGHT;
+        res.right_ = right;
+        return res;
+    }
+
+    Kind kind() const { return kind_; }
+    double left() const { return left_; }
+    double right() const { return right_; }
+
+private:
+    Interval() {}
+
+    Kind kind_;
+    double left_;
+    double right_;
+};
+
+
+
 /** Calculates rotational camera intrinsics using a linear algorithm.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
   * \param Hs Projective plane homographies (64F)
+  * \param evals_interval Interval used for DIAC eigenvalues truncation (true eigenvalues are [fx^2, fy^2, 1])
   * \return Camera intrinsics (64F)
   */
-cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
+cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
+                                    Interval evals_interval = Interval::All());
 
 
 /** Calculates rotational camera intrinsics using a linear algorithm with the zero skew assumption.
@@ -181,9 +247,11 @@ cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
   * \param Hs Projective plane homographies (64F)
+  * \param evals_interval Interval used for IAC eigenvalues truncation (true eigenvalues are [(1/fx)^2, (1/fy)^2, 1])
   * \return Camera intrinsics (64F), where skew is zero
   */
-cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs);
+cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs,
+                                          Interval evals_interval = Interval::All());
 
 
 /** Describes the squared error cost function (not robust). */
@@ -280,6 +348,15 @@ cv::Mat DecomposeCholesky(cv::InputArray src);
             or empty matrix if the decomposition doesn't exist
   */
 cv::Mat DecomposeUUt(cv::InputArray src);
+
+
+/** Truncs eigenvalues of a symmetric matrix.
+  *
+  * \param src Symmetric matrix
+  * \param interval Desired eigenvalues interval
+  * \return Symmetric matrix with truncated eigenvalues
+  */
+cv::Mat TruncEigenvals(cv::InputArray src, Interval interval);
 
 
 /** Extracts matched keypoints.
