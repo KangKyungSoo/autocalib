@@ -172,7 +172,6 @@ typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollectio
 /** Describes an interval. */
 class Interval {
 public:
-
     enum Kind { ALL, LEFT, RIGHT, LEFT_RIGHT };
 
     /** Creates (left, right) interval.

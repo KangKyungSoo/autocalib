@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <iomanip>
 #include <stdexcept>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -205,7 +206,9 @@ int main(int argc, char **argv) {
 
                 }
             }
-        }                
+        }
+
+        int64 calib_start_time = getTickCount();
 
         if (K_init.empty()) {
             cout << "Linear calibrating...\n";            
@@ -238,19 +241,24 @@ int main(int argc, char **argv) {
         }
         cout << "K_refined =\n" << K_refined << endl;
 
+        int64 calib_time = getTickCount() - calib_start_time;
+
         cout << "SUMMARY\n";
         cout << "K_gold =\n" << K_gold << endl;
         cout << "K_init =\n" << K_init << endl;
         cout << "K_refined =\n" << K_refined << endl;
+        cout << "calibration time = " << fixed << setprecision(3)
+             << calib_time / getTickFrequency() << " sec\n";
 
         if (!log_path.empty()) {
             ofstream f(log_path.c_str(), ios_base::app);
             if (!f.is_open())
                 throw runtime_error("Can't open log file: " + log_path);
-            f << noise_stddev << " ";
+            f << num_points << " " << num_cameras << " " << noise_stddev << " ";
             f << K_init(0, 0) << " " << K_init(1, 1) << " " << K_init(0, 2) << " " << K_init(1, 2) << " " << K_init(0, 1) << " ";
             f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
             f << K_gold(0, 0) << " " << K_gold(1, 1) << " " << K_gold(0, 2) << " " << K_gold(1, 2) << " " << K_gold(0, 1) << " ";
+            f << fixed << setprecision(3) << calib_time / getTickFrequency() << " ";
             f << endl;
         }
     }
