@@ -11,7 +11,7 @@ TEST(Anitdiag, SquareIsUnit) {
 
     ASSERT_TRUE(A.size() == Size(3, 3));
     ASSERT_EQ(CV_64F, A.type());
-    ASSERT_LE(norm(Mat::eye(3, 3, CV_64F), A * A), 1e-3);
+    ASSERT_LE(norm(Mat::eye(3, 3, CV_64F), A * A), 1e-6);
 }
 
 
@@ -24,7 +24,7 @@ TEST(DecomposeCholesky, CanDecomposeSmallMatrix) {
     Mat dst = DecomposeCholesky(L * L.t());
 
     ASSERT_TRUE(!dst.empty());
-    ASSERT_LT(norm(dst, L, NORM_INF), 1e-3);
+    ASSERT_LT(norm(dst, L, NORM_INF), 1e-6);
 }
 
 
@@ -62,7 +62,7 @@ TEST(TruncEigenvals, CanDoNotTruncation) {
 
     ASSERT_TRUE(src.size() == dst.size());
     ASSERT_TRUE(src.type() == CV_64F);
-    ASSERT_LT(norm(dst, src, NORM_INF), 1e-3);
+    ASSERT_LT(norm(dst, src, NORM_INF), 1e-6);
 }
 
 
@@ -78,7 +78,7 @@ TEST(TruncEigenvals, CanTruncNegativeEval) {
     eigenvals(2, 0) = -1;
     Mat src = eigenvecs.t() * Mat::diag(eigenvals) * eigenvecs;
 
-    Mat dst = TruncEigenvals(src, Interval::Left(1e-3));
+    Mat dst = TruncEigenvals(src, Interval::Left(1e-6));
     eigen(dst, eigenvals, eigenvecs);
 
     ASSERT_TRUE(src.size() == dst.size());
@@ -101,7 +101,7 @@ TEST(TruncEigenvals, CanTruncPositiveEval) {
     eigenvals(2, 0) = 1;
     Mat src = eigenvecs.t() * Mat::diag(eigenvals) * eigenvecs;
 
-    Mat dst = TruncEigenvals(src, Interval::Right(-1e-3));
+    Mat dst = TruncEigenvals(src, Interval::Right(-1e-6));
     eigen(dst, eigenvals, eigenvecs);
 
     ASSERT_TRUE(src.size() == dst.size());
@@ -134,4 +134,93 @@ TEST(TruncEigenvals, CanTruncUsingInterval) {
     ASSERT_NEAR(0.5, eigenvals(0, 0), 1e-6);
     ASSERT_NEAR(0, eigenvals(1, 0), 1e-6);
     ASSERT_NEAR(-0.5, eigenvals(2, 0), 1e-6);
+}
+
+
+TEST(Quaternion, EyeToQuaternion) {
+    Mat R = Mat::eye(3, 3, CV_64F);
+    Quaternion q = Quaternion::FromRotationMat(R);
+
+    ASSERT_DOUBLE_EQ(1, q[0]);
+    ASSERT_DOUBLE_EQ(0, q[1]);
+    ASSERT_DOUBLE_EQ(0, q[2]);
+    ASSERT_DOUBLE_EQ(0, q[3]);
+}
+
+
+TEST(Quaternion, QuaternionToEye) {
+    Quaternion q(1, 0, 0, 0);
+    Mat R = q.RotationMat();
+
+    ASSERT_LE(norm(Mat::eye(3, 3, CV_64F), R, NORM_INF), 1e-6);
+}
+
+
+TEST(Quaternion, QuaternionToMat) {
+    Quaternion q;
+    Mat R;
+    RNG rng(0);
+
+    for (int i = 0; i < 1000; ++i) {
+        q[0] = (double)rng; q[1] = (double)rng; q[2] = (double)rng; q[3] = (double)rng;
+        q /= q.Norm();
+        R = q.RotationMat();
+
+        ASSERT_NEAR(1, determinant(R), 1e-6);
+        ASSERT_LE(norm(R * R.t(), Mat::eye(3, 3, CV_64F), NORM_INF), 1e-6);
+    }
+}
+
+
+TEST(Quaternion, QuaternionToMatToQuaternion) {
+    Quaternion q, q_;
+    Mat R;
+    RNG rng(0);
+
+    for (int i = 0; i < 1000; ++i) {
+        q[0] = (double)rng; q[1] = (double)rng; q[2] = (double)rng; q[3] = (double)rng;
+        q /= q.Norm();
+        R = q.RotationMat();
+        q_ = Quaternion::FromRotationMat(R);
+
+        ASSERT_NEAR(abs(q[0]), abs(q_[0]), 1e-6);
+        double sign = q[0] * q_[0] > 0 ? 1 : -1;
+        ASSERT_NEAR(q[1], sign * q_[1], 1e-6);
+        ASSERT_NEAR(q[2], sign * q_[2], 1e-6);
+        ASSERT_NEAR(q[3], sign * q_[3], 1e-6);
+    }
+}
+
+
+TEST(Quaternion, Multiplication) {
+    Quaternion q1, q2, q3;
+    Mat R1, R2, R3, R3_;
+    RNG rng(0);
+
+    for (int i = 0; i < 1000; ++i) {
+        q1[0] = (double)rng; q1[1] = (double)rng; q1[2] = (double)rng; q1[3] = (double)rng;
+        q2[0] = (double)rng; q2[1] = (double)rng; q2[2] = (double)rng; q2[3] = (double)rng;
+        q1 /= q1.Norm();
+        q2 /= q2.Norm();
+        q3 = q1 * q2;
+        R1 = q1.RotationMat();
+        R2 = q2.RotationMat();
+        R3 = R1 * R2;
+        R3_ = q3.RotationMat();
+
+        ASSERT_NEAR(0, norm(R3, R3_, NORM_INF), 1e-6);
+    }
+}
+
+
+TEST(Quaternion, Reciprocal) {
+    Quaternion q;
+    RNG rng(0);
+
+    for (int i = 0; i < 1000; ++i) {
+        q[0] = (double)rng; q[1] = (double)rng; q[2] = (double)rng; q[3] = (double)rng;
+
+        ASSERT_NEAR(0, (q * q.Reciprocal() - 1).Norm(), 1e-6);
+        ASSERT_NEAR(0, (q.Reciprocal() * q - 1).Norm(), 1e-6);
+    }
 }

@@ -7,6 +7,7 @@
 #include <utility>
 #include <limits>
 #include <cmath>
+#include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
 #include <config.h>
@@ -216,9 +217,19 @@ public:
         return res;
     }
 
-    Kind kind() const { return kind_; }
-    double left() const { return left_; }
-    double right() const { return right_; }
+    const Kind kind() const { return kind_; }
+    const double left() const { return left_; }
+    const double right() const { return right_; }
+
+    friend std::ostream& operator <<(std::ostream &stream, const Interval &interv) {
+        if (interv.kind() == ALL)
+            return stream << "(-inf, +inf)";
+        if (interv.kind() == LEFT)
+            return stream << "(" << interv.left() << ", +inf)";
+        if (interv.kind() == ALL)
+            return stream << "(-inf, " << interv.right() << ")";
+        return stream << "(" << interv.left() << ", " << interv.right() << ")";
+    }
 
 private:
     Interval() {}
@@ -258,8 +269,8 @@ class Quaternion {
 public:
     Quaternion() {}
     Quaternion(const Quaternion &q) { a_ = q.a_; b_ = q.b_; c_ = q.c_; d_ = q.d_; }
-    Quaternion(double a, double b, double c, double d) { a_ = a; b_ = b; c_ = c; d_ = d; }
-    Quaternion(double vals[4]) { for (int i = 0; i < 4; ++i) vals_[i] = vals[i]; }
+    Quaternion(double a, double b = 0, double c = 0, double d = 0) { a_ = a; b_ = b; c_ = c; d_ = d; }
+    Quaternion(double coeffs[4]) { for (int i = 0; i < 4; ++i) coeffs_[i] = coeffs[i]; }
 
     /** Creates a quaternion from a rotation matrix.
       *
@@ -270,20 +281,23 @@ public:
       */
     static Quaternion FromRotationMat(cv::InputArray R);
 
-    double a() const { return a_; }
+    const double a() const { return a_; }
     double& a() { return a_; }
 
-    double b() const { return b_; }
+    const double b() const { return b_; }
     double& b() { return b_; }
 
-    double c() const { return c_; }
+    const double c() const { return c_; }
     double& c() { return c_; }
 
-    double d() const { return d_; }
+    const double d() const { return d_; }
     double& d() { return d_; }
 
-    double operator [](int index) const { return vals_[index]; }
-    double& operator [](int index) { return vals_[index]; }
+    const double* coeffs() const { return coeffs_; }
+    double* coeffs() { return coeffs_; }
+
+    const double operator [](int index) const { return coeffs_[index]; }
+    double& operator [](int index) { return coeffs_[index]; }
 
     const Quaternion& operator +=(const Quaternion &q) {
         a_ += q.a_; b_ += q.b_; c_ += q.c_; d_ += q.d_;
@@ -295,13 +309,13 @@ public:
         return *this;
     }
 
+    const Quaternion& operator *=(const Quaternion &q) {
+        return *this = *this * q;
+    }
+
     const Quaternion& operator *=(double a) {
         a_ *= a; b_ *= a; c_ *= a; d_ *= a;
         return *this;
-    }
-
-    const Quaternion& operator *=(const Quaternion &q) {
-        return *this = *this * q;
     }
 
     const Quaternion& operator /=(double a) {
@@ -312,14 +326,14 @@ public:
 
     Quaternion operator -(const Quaternion &q) const { return Quaternion(*this) -= q; }
 
-    Quaternion operator *(double a) const { return Quaternion(*this) *= a; }
-
     Quaternion operator *(const Quaternion &q) const {
         return Quaternion(a_*q.a_ - b_*q.b_ - c_*q.c_ - d_*q.d_,
                           a_*q.b_ + b_*q.a_ + c_*q.d_ - d_*q.c_,
                           a_*q.c_ - b_*q.d_ + c_*q.a_ + d_*q.b_,
                           a_*q.d_ + b_*q.c_ - c_*q.b_ + d_*q.a_);
     }
+
+    Quaternion operator *(double a) const { return Quaternion(*this) *= a; }
 
     Quaternion operator /(double a) const { return Quaternion(*this) /= a; }
 
@@ -339,10 +353,22 @@ public:
       */
     cv::Mat RotationMat() const;
 
+    friend std::ostream& operator <<(std::ostream &stream, const Quaternion &q) {
+        return stream << q[0]
+                      << (q[1] > 0 ? " + " : " - ") << std::abs(q[1]) << "i"
+                      << (q[2] > 0 ? " + " : " - ") << std::abs(q[2]) << "j"
+                      << (q[3] > 0 ? " + " : " - ") << std::abs(q[3]) << "k";
+    }
+
 private:
     union {
-        double a_, b_, c_, d_;
-        double vals_[4];
+        struct {
+            double a_;
+            double b_;
+            double c_;
+            double d_;
+        };
+        double coeffs_[4];
     };
 };
 
