@@ -226,7 +226,7 @@ public:
             return stream << "(-inf, +inf)";
         if (interv.kind() == LEFT)
             return stream << "(" << interv.left() << ", +inf)";
-        if (interv.kind() == ALL)
+        if (interv.kind() == RIGHT)
             return stream << "(-inf, " << interv.right() << ")";
         return stream << "(" << interv.left() << ", " << interv.right() << ")";
     }
