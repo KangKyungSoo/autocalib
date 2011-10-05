@@ -289,9 +289,9 @@ Quaternion Quaternion::FromRotationMat(cv::InputArray R) {
 
     Quaternion q;
     q[0] = (R_(p[2], p[1]) - R_(p[1], p[2])) / (2 * r);
-    q[p[0]] = r / 2;
-    q[p[1]] = (R_(p[0], p[1]) - R_(p[0], p[1])) / (2 * r);
-    q[p[2]] = (R_(p[2], p[0]) - R_(p[0], p[1])) / (2 * r);
+    q[1 + p[0]] = r / 2;
+    q[1 + p[1]] = (R_(p[0], p[1]) + R_(p[1], p[0])) / (2 * r);
+    q[1 + p[2]] = (R_(p[2], p[0]) + R_(p[0], p[2])) / (2 * r);
     return q;
 }
 
@@ -302,7 +302,7 @@ Mat Quaternion::RotationMat() const {
     R_(0, 1) = 2*b_*c_ - 2*a_*d_;
     R_(0, 2) = 2*b_*d_ + 2*a_*c_;
     R_(1, 0) = 2*b_*c_ + 2*a_*d_;
-    R_(1, 1) = a_*a_ - b_*b_ +c_*c_ - d_*d_;
+    R_(1, 1) = a_*a_ - b_*b_ + c_*c_ - d_*d_;
     R_(1, 2) = 2*c_*d_ - 2*a_*b_;
     R_(2, 0) = 2*b_*d_ - 2*a_*c_;
     R_(2, 1) = 2*c_*d_ + 2*a_*b_;
