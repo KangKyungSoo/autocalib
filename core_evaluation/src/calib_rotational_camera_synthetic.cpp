@@ -18,6 +18,7 @@ int num_points = 1000;
 int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
+Mat_<double> K_guess = Mat::eye(3, 3, CV_64F);
 Mat_<double> K_init;
 Interval evals_interval = Interval::All();
 bool lin_est_skew = false;
@@ -49,6 +50,15 @@ int main(int argc, char **argv) {
                 K_gold(0, 2) = atof(argv[i + 3]);
                 K_gold(1, 1) = atof(argv[i + 4]);
                 K_gold(1, 2) = atof(argv[i + 5]);
+                i += 5;
+            }
+            else if (string(argv[i]) == "--K-guess") {
+                K_guess = Mat::eye(3, 3, CV_64F);
+                K_guess(0, 0) = atof(argv[i + 1]);
+                K_guess(0, 1) = atof(argv[i + 2]);
+                K_guess(0, 2) = atof(argv[i + 3]);
+                K_guess(1, 1) = atof(argv[i + 4]);
+                K_guess(1, 2) = atof(argv[i + 5]);
                 i += 5;
             }
             else if (string(argv[i]) == "--K-init") {
@@ -211,11 +221,21 @@ int main(int argc, char **argv) {
         int64 calib_start_time = getTickCount();
 
         if (K_init.empty()) {
-            cout << "Linear calibrating...\n";            
+            cout << "Linear calibrating...\n";
+
+            // Apply intrinsics initial guess
+            vector<Mat> Hs_corrected(Hs.size());
+            for (size_t i = 0; i < Hs.size(); ++i)
+                Hs_corrected[i] = K_guess.inv() * Hs[i] * K_guess;
+
             if (lin_est_skew)
-                K_init = CalibRotationalCameraLinear(Hs, evals_interval);
+                K_init = CalibRotationalCameraLinear(Hs_corrected, evals_interval);
             else
-                K_init = CalibRotationalCameraLinearNoSkew(Hs, evals_interval);
+                K_init = CalibRotationalCameraLinearNoSkew(Hs_corrected, evals_interval);
+
+            // Unapply intrinsics initial guess
+            K_init = K_guess * K_init;
+
             cout << "Linear calibration result'll be used as K_init\n";
         }
         cout << "K_init =\n" << K_init << endl;
@@ -227,10 +247,12 @@ int main(int argc, char **argv) {
                 << "but only " << Hs_from_0.size() << " were/was found";
             throw runtime_error(msg.str());
         }
+
         vector<Mat> Rs(num_cameras);
         Rs[0] = Mat::eye(3, 3, CV_64F);
         for (int i = 1; i < num_cameras; ++i)
             Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
+
         Mat_<double> K_refined = K_init.clone();
         if (refine_skew)
             RefineRigidCamera(K_refined, Rs, features, matches);
