@@ -161,12 +161,12 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, Interval evals_interval) 
                 A(eq_idx, 2) = H(r1, 0) * H(r2, 2) + H(r1, 2) * H(r2, 0);
                 A(eq_idx, 3) = H(r1, 1) * H(r2, 1);
                 A(eq_idx, 4) = H(r1, 1) * H(r2, 2) + H(r1, 2) * H(r2, 1);
-                if (r1 != 2 && r2 != 2) {
+                if (r1 == 2 && r2 == 2)
+                    b(eq_idx, 0) = 1 - H(r1, 2) * H(r2, 2);
+                else {
                     A(eq_idx, lut[r1][r2]) -= 1;
                     b(eq_idx, 0) = -H(r1, 2) * H(r2, 2);
                 }
-                else
-                    b(eq_idx, 0) = 1 - H(r1, 2) * H(r2, 2);
                 eq_idx++;
             }
         }
@@ -218,7 +218,7 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, Interval evals_inte
     Mat_<double> b(6 * num_Hs, 1);
     b.setTo(0);
 
-    static const int lut[][3] = {{0, 1, 2}, {-1, 3, 4}, {-1, -1, -1}};
+    static const int lut[][3] = {{0, -1, 1}, {-1, 2, 3}, {-1, -1, -1}};
 
     int eq_idx = 0;
     for (int H_idx = 0; H_idx < num_Hs; ++H_idx) {
@@ -242,7 +242,7 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, Interval evals_inte
         }
     }
 
-    Mat_<double> x;
+    Mat_<double> x;    
     solve(A, b, x, DECOMP_SVD);
     Mat err = A * x - b;
     LOG(cout << "solve() norm(A*x - b) / norm(b) = " << sqrt(err.dot(err) / b.dot(b)) << endl);
