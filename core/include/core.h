@@ -384,7 +384,7 @@ enum RefineFlag {
 };
 
 
-/** Refines rigid camera parameters by minimizing overall reprojection error.
+/** Refines a rigid camera parameters by minimizing overall reprojection error.
   *
   * \param K Camera intrinsics
   * \param Rs Camera rotations vector
@@ -450,6 +450,25 @@ void ExtractMatchedKeypoints(const cv::detail::ImageFeatures &f1,
                              const cv::detail::ImageFeatures &f2,
                              const std::vector<cv::DMatch> &matches,
                              cv::OutputArray kps1, cv::OutputArray kps2);
+
+
+// TODO add comments
+inline 
+const std::vector<cv::Mat> operator *(const std::vector<cv::Mat> &left, const cv::Mat &right) {
+    std::vector<cv::Mat> result(left.size());
+    for (size_t i = 0; i < left.size(); ++i)
+        result[i] = left[i] * right;
+    return result;
+}
+
+
+inline 
+const std::vector<cv::Mat> operator *(const cv::Mat &left, const std::vector<cv::Mat> &right) {
+    std::vector<cv::Mat> result(right.size());
+    for (size_t i = 0; i < right.size(); ++i)
+        result[i] = left * right[i];
+    return result;
+}
 
 } // namespace autocalib
 
