@@ -155,15 +155,16 @@ int main(int argc, char **argv) {
                     total_noise += noise(0, 2 * j) * noise(0, 2 * j) + noise(0, 2 * j + 1) * noise(0, 2 * j + 1);
                 }
                 cout << "Shot " << i << " noise RMS error = " << sqrt(total_noise / features[i].keypoints.size()) << endl;
+            }
+        }
 
-                if (create_images) {
-                    Mat img;
-                    CreateImage(features[i], img);
-                    stringstream name;
-                    name << "camera" << i << ".jpg";
-                    imwrite(name.str(), img);
-                }
-
+        if (create_images) {
+            for (int i = 0; i < num_cameras; ++i) {
+                Mat img;
+                CreateImage(features[i], img);
+                stringstream name;
+                name << "camera" << i << ".jpg";
+                imwrite(name.str(), img);
             }
         }
 
