@@ -60,6 +60,64 @@ bool SphereScene::IsVisible(const Point3d &point, const Point3d &origin) const {
 }
 
 
+CubeScene::CubeScene(int num_points, RNG &rng) {
+    points.resize(num_points);
+    for (int i = 0; i < num_points; ++i) {
+        int j = abs((int)rng) % 3;
+        points[i].x = (j == 0 ? abs((int)rng) % 2 : (double)rng) - 0.5;
+        points[i].y = (j == 1 ? abs((int)rng) % 2 : (double)rng) - 0.5;
+        points[i].z = (j == 2 ? abs((int)rng) % 2 : (double)rng) - 0.5;
+    }
+}
+
+
+bool CubeScene::IsVisible(const Point3d &point, const Point3d &origin) const {
+    Point3d dir = point - origin;
+    double dist = sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+    dir *= 1 / dist;
+
+    double x, y, z, t;
+
+    t = (-0.5 - origin.x) / dir.x;
+    y = origin.y + t * dir.y;
+    z = origin.z + t * dir.z;
+    if (y > -0.5 && y < 0.5 && z > -0.5 && z < 0.5 && t > 0 && t < dist - 1e-6)
+        return false;
+
+    t = (0.5 - origin.x) / dir.x;
+    y = origin.y + t * dir.y;
+    z = origin.z + t * dir.z;
+    if (y > -0.5 && y < 0.5 && z > -0.5 && z < 0.5 && t > 0 && t < dist - 1e-6)
+        return false;
+
+    t = (-0.5 - origin.y) / dir.y;
+    x = origin.x + t * dir.x;
+    z = origin.z + t * dir.z;
+    if (x > -0.5 && x < 0.5 && z > -0.5 && z < 0.5 && t > 0 && t < dist - 1e-6)
+        return false;
+
+    t = (0.5 - origin.y) / dir.y;
+    x = origin.x + t * dir.x;
+    z = origin.z + t * dir.z;
+    if (x > -0.5 && x < 0.5 && z > -0.5 && z < 0.5 && t > 0 && t < dist - 1e-6)
+        return false;
+
+    t = (-0.5 - origin.z) / dir.z;
+    x = origin.x + t * dir.x;
+    y = origin.y + t * dir.y;
+    if (x > -0.5 && x < 0.5 && y > -0.5 && y < 0.5 && t > 0 && t < dist - 1e-6)
+        return false;
+
+    t = (0.5 - origin.z) / dir.z;
+    x = origin.x + t * dir.x;
+    y = origin.y + t * dir.y;
+    if (x > -0.5 && x < 0.5 && y > -0.5 && y < 0.5 && t > 0 && t < dist - 1e-6)
+        return false;
+
+    return true;
+}
+
+
 void MatchSyntheticShots(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
                          vector<DMatch> &matches)
 {
