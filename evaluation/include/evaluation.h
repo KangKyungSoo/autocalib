@@ -46,7 +46,6 @@ protected:
 class SphereScene : public SyntheticScene {
 public:
 
-    // TODO put rng param into base class
     /** Creates a sphere scene.
       *
       * \param num_points Number of points on the sphere
@@ -56,6 +55,55 @@ public:
 
 private:
     virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const;
+};
+
+
+/** Describes a synthetic cube scene.
+  *
+  * Creates cube has unit edge length and center in the origin.
+  */
+class CubeScene : public SyntheticScene {
+public:
+
+    /** Creates a cube scene.
+      *
+      * \param num_points Number of points on the cube
+      * \param rng Pseudo random number generator
+      */
+    CubeScene(int num_points, cv::RNG &rng);
+
+private:
+    virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const;
+};
+
+
+/** Synthetic scenes factory. */
+class SyntheticSceneCreator {
+public:
+    virtual ~SyntheticSceneCreator() {}
+
+    /** Creates a synthetic scene.
+      *
+      * \param num_points Number of points
+      * \param rng Pseudo random number generator
+      */
+    virtual cv::Ptr<SyntheticScene> Create(int num_points, cv::RNG &rng) = 0;
+};
+
+
+class SphereSceneCreator : public SyntheticSceneCreator {
+public:
+    virtual cv::Ptr<SyntheticScene> Create(int num_points, cv::RNG &rng) {
+        return new SphereScene(num_points, rng);
+    }
+};
+
+
+class CubeSceneCreator : public SyntheticSceneCreator {
+public:
+    virtual cv::Ptr<SyntheticScene> Create(int num_points, cv::RNG &rng) {
+        return new CubeScene(num_points, rng);
+    }
 };
 
 

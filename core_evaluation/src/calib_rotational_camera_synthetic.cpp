@@ -14,6 +14,7 @@ using namespace cv;
 using namespace autocalib;
 using namespace autocalib::evaluation;
 
+Ptr<SyntheticSceneCreator> scene_creator = new SphereSceneCreator();
 int num_points = 1000;
 int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
@@ -31,79 +32,94 @@ double H_est_thresh = 3;
 double noise_stddev = -1; // No noise
 string log_path;
 
+void ParseArgs(int argc, char **argv) {
+    for (int i = 1; i < argc; ++i) {
+        if (string(argv[i]) == "--scene") {
+            if (string(argv[i + 1]) == "sphere")
+                scene_creator = new SphereSceneCreator();
+            else if (string(argv[i + 1]) == "cube")
+                scene_creator = new CubeSceneCreator();
+            else
+                throw runtime_error(string("Unknown synthetic scene type: ") + argv[i + 1]);
+            i++;
+        }
+        else if (string(argv[i]) == "--num-points")
+            num_points = atoi(argv[++i]);
+        else if (string(argv[i]) == "--num-cameras")
+            num_cameras = atoi(argv[++i]);
+        else if (string(argv[i]) == "--viewport") {
+            viewport = Rect(atoi(argv[i + 1]), atoi(argv[i + 2]),
+                            atoi(argv[i + 3]), atoi(argv[i + 4]));
+            i += 4;
+        }
+        else if (string(argv[i]) == "--K-gold") {
+            K_gold = Mat::eye(3, 3, CV_64F);
+            K_gold(0, 0) = atof(argv[i + 1]);
+            K_gold(0, 1) = atof(argv[i + 2]);
+            K_gold(0, 2) = atof(argv[i + 3]);
+            K_gold(1, 1) = atof(argv[i + 4]);
+            K_gold(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--K-guess") {
+            K_guess = Mat::eye(3, 3, CV_64F);
+            K_guess(0, 0) = atof(argv[i + 1]);
+            K_guess(0, 1) = atof(argv[i + 2]);
+            K_guess(0, 2) = atof(argv[i + 3]);
+            K_guess(1, 1) = atof(argv[i + 4]);
+            K_guess(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--K-init") {
+            K_init = Mat::eye(3, 3, CV_64F);
+            K_init(0, 0) = atof(argv[i + 1]);
+            K_init(0, 1) = atof(argv[i + 2]);
+            K_init(0, 2) = atof(argv[i + 3]);
+            K_init(1, 1) = atof(argv[i + 4]);
+            K_init(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--evals-interval") {
+            evals_interval = Interval(atof(argv[i + 1]), atof(argv[i + 2]));
+            i += 2;
+        }
+        else if (string(argv[i]) == "--evals-interval-left")
+            evals_interval = Interval::Left(atof(argv[++i]));
+        else if (string(argv[i]) == "--evals-interval-right")
+            evals_interval = Interval::Right(atof(argv[++i]));
+        else if (string(argv[i]) == "--lin-est-skew")
+            lin_est_skew = atoi(argv[++i]);
+        else if (string(argv[i]) == "--refine-skew")
+            refine_skew = atoi(argv[++i]);
+        else if (string(argv[i]) == "--seed")
+            seed = atoi(argv[++i]);
+        else if (string(argv[i]) == "--camera-center") {
+            camera_center = Mat::zeros(3, 1, CV_64F);
+            camera_center(0, 0) = atof(argv[i + 1]);
+            camera_center(1, 0) = atof(argv[i + 2]);
+            camera_center(2, 0) = atof(argv[i + 3]);
+            i += 3;
+        }
+        else if (string(argv[i]) == "--max-angle")
+            max_angle = atof(argv[++i]);
+        else if (string(argv[i]) == "--create-images")
+            create_images = (bool)atoi(argv[++i]);
+        else if (string(argv[i]) == "--H-est-thresh")
+            H_est_thresh = atof(argv[++i]);
+        else if (string(argv[i]) == "--noise-stddev")
+            noise_stddev = atof(argv[++i]);
+        else if (string(argv[i]) == "--log-path")
+            log_path = argv[++i];
+        else
+            throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
+    }
+}
+
+
 int main(int argc, char **argv) {    
     try {
-        for (int i = 1; i < argc; ++i) {
-            if (string(argv[i]) == "--num-points")
-                num_points = atoi(argv[++i]);
-            else if (string(argv[i]) == "--num-cameras")
-                num_cameras = atoi(argv[++i]);
-            else if (string(argv[i]) == "--viewport") {
-                viewport = Rect(atoi(argv[i + 1]), atoi(argv[i + 2]),
-                                atoi(argv[i + 3]), atoi(argv[i + 4]));
-                i += 4;
-            }
-            else if (string(argv[i]) == "--K-gold") {
-                K_gold = Mat::eye(3, 3, CV_64F);
-                K_gold(0, 0) = atof(argv[i + 1]);
-                K_gold(0, 1) = atof(argv[i + 2]);
-                K_gold(0, 2) = atof(argv[i + 3]);
-                K_gold(1, 1) = atof(argv[i + 4]);
-                K_gold(1, 2) = atof(argv[i + 5]);
-                i += 5;
-            }
-            else if (string(argv[i]) == "--K-guess") {
-                K_guess = Mat::eye(3, 3, CV_64F);
-                K_guess(0, 0) = atof(argv[i + 1]);
-                K_guess(0, 1) = atof(argv[i + 2]);
-                K_guess(0, 2) = atof(argv[i + 3]);
-                K_guess(1, 1) = atof(argv[i + 4]);
-                K_guess(1, 2) = atof(argv[i + 5]);
-                i += 5;
-            }
-            else if (string(argv[i]) == "--K-init") {
-                K_init = Mat::eye(3, 3, CV_64F);
-                K_init(0, 0) = atof(argv[i + 1]);
-                K_init(0, 1) = atof(argv[i + 2]);
-                K_init(0, 2) = atof(argv[i + 3]);
-                K_init(1, 1) = atof(argv[i + 4]);
-                K_init(1, 2) = atof(argv[i + 5]);
-                i += 5;
-            }
-            else if (string(argv[i]) == "--evals-interval") {
-                evals_interval = Interval(atof(argv[i + 1]), atof(argv[i + 2]));
-                i += 2;
-            }
-            else if (string(argv[i]) == "--evals-interval-left")
-                evals_interval = Interval::Left(atof(argv[++i]));
-            else if (string(argv[i]) == "--evals-interval-right")
-                evals_interval = Interval::Right(atof(argv[++i]));
-            else if (string(argv[i]) == "--lin-est-skew")
-                lin_est_skew = atoi(argv[++i]);
-            else if (string(argv[i]) == "--refine-skew")
-                refine_skew = atoi(argv[++i]);
-            else if (string(argv[i]) == "--seed")
-                seed = atoi(argv[++i]);
-            else if (string(argv[i]) == "--camera-center") {
-                camera_center = Mat::zeros(3, 1, CV_64F);
-                camera_center(0, 0) = atof(argv[i + 1]);
-                camera_center(1, 0) = atof(argv[i + 2]);
-                camera_center(2, 0) = atof(argv[i + 3]);
-                i += 3;
-            }
-            else if (string(argv[i]) == "--max-angle")
-                max_angle = atof(argv[++i]);
-            else if (string(argv[i]) == "--create-images")
-                create_images = (bool)atoi(argv[++i]);
-            else if (string(argv[i]) == "--H-est-thresh")
-                H_est_thresh = atof(argv[++i]);
-            else if (string(argv[i]) == "--noise-stddev")
-                noise_stddev = atof(argv[++i]);
-            else if (string(argv[i]) == "--log-path")
-                log_path = argv[++i];
-            else
-                throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
-        }
+        ParseArgs(argc, argv);
+
         if (K_gold.empty()) {
             K_gold = Mat::eye(3, 3, CV_64F);
             K_gold(0, 0) = K_gold(1, 1) = viewport.width + viewport.height;
@@ -111,6 +127,7 @@ int main(int argc, char **argv) {
             K_gold(1, 2) = viewport.height * 0.5;
         }
         cout << "K_gold =\n" << K_gold << endl;
+
         if (camera_center.empty()) {
             camera_center = Mat::zeros(3, 1, CV_64F);
             camera_center(2, 0) = -10;
@@ -121,7 +138,7 @@ int main(int argc, char **argv) {
             rng.state = seed;
 
         // Generate synthetic scene points
-        Ptr<SyntheticScene> scene = new SphereScene(num_points, rng);
+        Ptr<SyntheticScene> scene = scene_creator->Create(num_points, rng);
 
         vector<RigidCamera> cameras(num_cameras);
         FeaturesCollection features(num_cameras);
@@ -249,6 +266,7 @@ int main(int argc, char **argv) {
             throw runtime_error(msg.str());
         }
 
+        // Refine camera parameters
         vector<Mat> Rs(num_cameras);
         Rs[0] = Mat::eye(3, 3, CV_64F);
         for (int i = 1; i < num_cameras; ++i)
