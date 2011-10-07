@@ -296,23 +296,54 @@ Quaternion Quaternion::FromRotationMat(cv::InputArray R) {
 }
 
 
-Mat Quaternion::RotationMat() const {
-    Mat_<double> R_(3, 3);
-    R_(0, 0) = a_*a_ + b_*b_ - c_*c_ - d_*d_;
-    R_(0, 1) = 2*b_*c_ - 2*a_*d_;
-    R_(0, 2) = 2*b_*d_ + 2*a_*c_;
-    R_(1, 0) = 2*b_*c_ + 2*a_*d_;
-    R_(1, 1) = a_*a_ - b_*b_ + c_*c_ - d_*d_;
-    R_(1, 2) = 2*c_*d_ - 2*a_*b_;
-    R_(2, 0) = 2*b_*d_ - 2*a_*c_;
-    R_(2, 1) = 2*c_*d_ + 2*a_*b_;
-    R_(2, 2) = a_*a_ - b_*b_ - c_*c_ + d_*d_;
-    return R_;
-}
-
-
 Mat Quaternion::RotationMatDeriv(int index) const {
-    throw runtime_error("Not implemented yet");
+    CV_Assert(index >= 0 && index < 4);
+    Mat_<double> R(3, 3);
+    if (index == 0) {
+        R(0, 0) = 2*a_;
+        R(0, 1) = -2*d_;
+        R(0, 2) = 2*c_;
+        R(1, 0) = 2*d_;
+        R(1, 1) = 2*a_;
+        R(1, 2) = -2*b_;
+        R(2, 0) = -2*c_;
+        R(2, 1) = 2*b_;
+        R(2, 2) = 2*a_;
+    }
+    else if (index == 1) {
+        R(0, 0) = 2*b_;
+        R(0, 1) = 2*c_ ;
+        R(0, 2) = 2*d_;
+        R(1, 0) = 2*c_;
+        R(1, 1) = -2*b_;
+        R(1, 2) = -2*a_;
+        R(2, 0) = 2*d_;
+        R(2, 1) = 2*a_;
+        R(2, 2) = -2*b_;
+    }
+    else if (index == 2) {
+        R(0, 0) = -2*c_;
+        R(0, 1) = 2*b_;
+        R(0, 2) = 2*a_;
+        R(1, 0) = 2*b_;
+        R(1, 1) = 2*c_;
+        R(1, 2) = 2*d_;
+        R(2, 0) = -2*a_;
+        R(2, 1) = 2*d_;
+        R(2, 2) = -2*c_;
+    }
+    else {
+        R(0, 0) = 2*d_;
+        R(0, 1) = -2*a_;
+        R(0, 2) = 2*b_;
+        R(1, 0) = 2*a_;
+        R(1, 1) = -2*d_;
+        R(1, 2) = 2*c_;
+        R(2, 0) = 2*b_;
+        R(2, 1) = 2*c_;
+        R(2, 2) = 2*d_;
+    }
+    return R;
 }
 
 

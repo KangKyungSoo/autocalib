@@ -350,7 +350,19 @@ public:
       *
       * \return Rotation matrix
       */
-    cv::Mat RotationMat() const;
+    cv::Mat RotationMat() const {
+        cv::Mat_<double> R(3, 3);
+        R(0, 0) = a_*a_ + b_*b_ - c_*c_ - d_*d_;
+        R(0, 1) = 2*b_*c_ - 2*a_*d_;
+        R(0, 2) = 2*b_*d_ + 2*a_*c_;
+        R(1, 0) = 2*b_*c_ + 2*a_*d_;
+        R(1, 1) = a_*a_ - b_*b_ + c_*c_ - d_*d_;
+        R(1, 2) = 2*c_*d_ - 2*a_*b_;
+        R(2, 0) = 2*b_*d_ - 2*a_*c_;
+        R(2, 1) = 2*c_*d_ + 2*a_*b_;
+        R(2, 2) = a_*a_ - b_*b_ - c_*c_ + d_*d_;
+        return R;
+    }
 
     /** Calcluates a rotation matrix partial derivative by the specified quaternion component.
       *
