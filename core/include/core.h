@@ -264,17 +264,18 @@ cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs,
                                           Interval evals_interval = Interval::All());
 
 
-/** Describes a quaternion of the following form: a + b*i + c*j + d*k. */
+/** Describes a quaternion of the following form: a + b*i + c*j + d*k. 
+  *
+  * See http://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation for details.
+  */
 class Quaternion {
 public:
     Quaternion() {}
     Quaternion(const Quaternion &q) { a_ = q.a_; b_ = q.b_; c_ = q.c_; d_ = q.d_; }
     Quaternion(double a, double b = 0, double c = 0, double d = 0) { a_ = a; b_ = b; c_ = c; d_ = d; }
-    Quaternion(double coeffs[4]) { for (int i = 0; i < 4; ++i) coeffs_[i] = coeffs[i]; }
+    Quaternion(double comps[4]) { for (int i = 0; i < 4; ++i) comps_[i] = comps[i]; }
 
     /** Creates a quaternion from a rotation matrix.
-      *
-      * See http://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation for details.
       *
       * \param R Rotation matrix
       * \return Quaternion
@@ -293,11 +294,11 @@ public:
     const double d() const { return d_; }
     double& d() { return d_; }
 
-    const double* coeffs() const { return coeffs_; }
-    double* coeffs() { return coeffs_; }
+    const double* comps() const { return comps_; }
+    double* comps() { return comps_; }
 
-    const double operator [](int index) const { return coeffs_[index]; }
-    double& operator [](int index) { return coeffs_[index]; }
+    const double operator [](int index) const { return comps_[index]; }
+    double& operator [](int index) { return comps_[index]; }
 
     const Quaternion& operator +=(const Quaternion &q) {
         a_ += q.a_; b_ += q.b_; c_ += q.c_; d_ += q.d_;
@@ -347,11 +348,16 @@ public:
 
     /** Converts a unit quaternion into the rotation matrix.
       *
-      * See http://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation for details.
-      *
       * \return Rotation matrix
       */
     cv::Mat RotationMat() const;
+
+    /** Calcluates a rotation matrix partial derivative by the specified quaternion component.
+      *
+      * \param index Quaternion component index
+      * \return Rotation matrix partial derivative
+      */
+    cv::Mat RotationMatDeriv(int index) const;
 
     friend std::ostream& operator <<(std::ostream &stream, const Quaternion &q) {
         return stream << q[0]
@@ -363,12 +369,9 @@ public:
 private:
     union {
         struct {
-            double a_;
-            double b_;
-            double c_;
-            double d_;
+            double a_, b_, c_, d_;
         };
-        double coeffs_[4];
+        double comps_[4];
     };
 };
 

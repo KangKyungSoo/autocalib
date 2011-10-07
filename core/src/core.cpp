@@ -311,6 +311,11 @@ Mat Quaternion::RotationMat() const {
 }
 
 
+Mat Quaternion::RotationMatDeriv(int index) const {
+    throw runtime_error("Not implemented yet");
+}
+
+
 void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,
                        int params_to_refine)
