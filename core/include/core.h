@@ -40,7 +40,7 @@ public:
     virtual const cv::Mat P() const { return P_; }
 
 private:
-    cv::Mat P_;
+    cv::Mat_<double> P_;
 };
 
 
@@ -92,13 +92,18 @@ public:
         return result;
     }
 
+    /** \return Camera intrinsics */
     const cv::Mat& K() const { return K_; }
+
+    /** \return World to local coordinates rotation matrix */
     const cv::Mat& R() const { return R_; }
+
+    /** \return World to local coordinates translation vector */
     const cv::Mat& T() const { return T_; }
 
 private:    
 
-    cv::Mat K_, R_, T_;
+    cv::Mat_<double> K_, R_, T_;
 };
 
 
@@ -464,7 +469,16 @@ cv::Mat TruncEigenvals(cv::InputArray src, Interval interval);
 void ExtractMatchedKeypoints(const cv::detail::ImageFeatures &f1,
                              const cv::detail::ImageFeatures &f2,
                              const std::vector<cv::DMatch> &matches,
-                             cv::OutputArray kps1, cv::OutputArray kps2);
+                             cv::OutputArray kaps1, cv::OutputArray kps2);
+
+/** Applies a rigid traform to a point.
+  *
+  * \param point Source point
+  * \param R Rotation matrix
+  * \param T Translation vector
+  * \return Transformed point
+  */
+cv::Point3d TransformRigid(const cv::Point3d& point, const cv::Mat &R, const cv::Mat &T);
 
 } // namespace autocalib
 
