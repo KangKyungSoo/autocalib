@@ -499,4 +499,16 @@ void ExtractMatchedKeypoints(const detail::ImageFeatures &f1, const detail::Imag
     }
 }
 
+
+Point3d TransformRigid(const Point3d &point, const Mat &R, const Mat &T) {
+    CV_Assert(R.size() == cv::Size(3, 3) && R.type() == CV_64F);
+    CV_Assert(T.size() == cv::Size(1, 3) && T.type() == CV_64F);
+    Mat_<double> R_(R), T_(T);
+    Point3d result;
+    result.x = R_(0, 0) * point.x + R_(0, 1) * point.y + R_(0, 2) * point.z + T_(0, 0);
+    result.y = R_(1, 0) * point.x + R_(1, 1) * point.y + R_(1, 2) * point.z + T_(1, 0);
+    result.z = R_(2, 0) * point.x + R_(2, 1) * point.y + R_(2, 2) * point.z + T_(2, 0);
+    return result;
+}
+
 } // namespace autocalib

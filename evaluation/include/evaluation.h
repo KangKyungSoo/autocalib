@@ -11,8 +11,8 @@ namespace evaluation {
 
 /** Describes a point cloud. */
 class PointCloud {
-public:
-    std::vector<cv::Point3d> points;
+protected:
+    std::vector<cv::Point3d> points_;
 };
 
 
@@ -30,12 +30,38 @@ public:
     void TakeShot(const RigidCamera &camera, cv::Rect viewport,
                   cv::detail::ImageFeatures &features);
 
+    /** \return Local to world coordinates rotation matrix */
+    const cv::Mat R() const { return R_; }
+
+    /** \param R Local to world coordinates rotation matrix */
+    void set_R(const cv::Mat &R) {
+        CV_Assert(R.size() == cv::Size(3, 3) && R.type() == CV_64F);
+        R_ = R.clone();
+    }
+
+    /** \return Local to world coordinates translation vector */
+    const cv::Mat T() const { return T_; }
+
+    /** \param T Local to world coordinates translation vector */
+    void set_T(const cv::Mat &T) {
+        CV_Assert(T.size() == cv::Size(1, 3) && T.type() == CV_64F);
+        T_ = T.clone();
+    }
+
 protected:
+
+    /** Constructs a scene without a transformation. */
+    SyntheticScene() {
+        set_R(cv::Mat::eye(3, 3, CV_64F));
+        set_T(cv::Mat::zeros(3, 1, CV_64F));
+    }
 
     /** Checks point visibility.
       *
       * \return true if the point is visible from the given origin, false otherwise */        
     virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const = 0;
+
+    cv::Mat_<double> R_, T_;
 };
 
 

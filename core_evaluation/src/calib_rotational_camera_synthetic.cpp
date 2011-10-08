@@ -140,16 +140,22 @@ int main(int argc, char **argv) {
         // Generate synthetic scene points
         Ptr<SyntheticScene> scene = scene_creator->Create(num_points, rng);
 
+        // Rotate scene around the origin
+        Mat rvec = Mat::zeros(3, 1, CV_64F);
+        rng.fill(rvec, RNG::UNIFORM, -1, 1);
+        Mat R;
+        Rodrigues(rvec, R);
+        scene->set_R(R);
+
         vector<RigidCamera> cameras(num_cameras);
         FeaturesCollection features(num_cameras);
 
         // Generate cameras and shots
         for (int i = 0; i < num_cameras; ++i) {
-            Mat rvec = Mat::zeros(3, 1, CV_64F);
+            rvec = Mat::zeros(3, 1, CV_64F);
             rng.fill(rvec, RNG::UNIFORM, -1, 1);
             rvec /= norm(rvec) / ((double)rng * max_angle);
 
-            Mat R;
             Rodrigues(rvec, R);
             cameras[i] = RigidCamera::LocalToWorld(K_gold, R, camera_center);
 

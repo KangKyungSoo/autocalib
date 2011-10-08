@@ -19,13 +19,14 @@ void SyntheticScene::TakeShot(const RigidCamera &camera, Rect viewport,
     features.keypoints.clear();
 
     Mat_<double> P = camera.P();
-    for (size_t i = 0; i < points.size(); ++i) {
-        Point3d pt = points[i];
+    for (size_t i = 0; i < points_.size(); ++i) {
+        Point3d pt = points_[i];
         if (IsVisible(pt, origin)) {
-            double x = P(0, 0) * pt.x + P(0, 1) * pt.y + P(0, 2) * pt.z + P(0, 3);
-            double y = P(1, 0) * pt.x + P(1, 1) * pt.y + P(1, 2) * pt.z + P(1, 3);
-            double z = P(2, 0) * pt.x + P(2, 1) * pt.y + P(2, 2) * pt.z + P(2, 3);
-            Point2f kp(float(x / z), float(y / z));
+            Point3d pt_ = TransformRigid(pt, R_, T_);
+            pt.x = P(0, 0) * pt_.x + P(0, 1) * pt_.y + P(0, 2) * pt_.z + P(0, 3);
+            pt.y = P(1, 0) * pt_.x + P(1, 1) * pt_.y + P(1, 2) * pt_.z + P(1, 3);
+            pt.z = P(2, 0) * pt_.x + P(2, 1) * pt_.y + P(2, 2) * pt_.z + P(2, 3);
+            Point2f kp(float(pt.x / pt.z), float(pt.y / pt.z));
             if (kp.x > (float)viewport.x && kp.x < float(viewport.width - 1) &&
                 kp.y > (float)viewport.y && kp.y < float(viewport.height - 1))
             {
@@ -44,73 +45,75 @@ void SyntheticScene::TakeShot(const RigidCamera &camera, Rect viewport,
 
 
 SphereScene::SphereScene(int num_points, RNG &rng) {
-    points.resize(num_points);
+    points_.resize(num_points);
     for (int i = 0; i < num_points; ++i) {
         double phi = (double)rng * 2. * CV_PI;
         double psi = (double)rng * CV_PI;
-        points[i].x = cos(phi) * sin(psi);
-        points[i].y = sin(phi) * sin(psi);
-        points[i].z = cos(psi);
+        points_[i].x = cos(phi) * sin(psi);
+        points_[i].y = sin(phi) * sin(psi);
+        points_[i].z = cos(psi);
     }
 }
 
 
-bool SphereScene::IsVisible(const Point3d &point, const Point3d &origin) const {
-    return point.x * origin.x + point.y * origin.y + point.z * origin.z > 0;
+bool SphereScene::IsVisible(const Point3d &point, const Point3d &origin) const {    
+    Point3d origin_ = TransformRigid(origin, R_.t(), -R_.t() * T_);
+    return point.x * origin_.x + point.y * origin_.y + point.z * origin_.z > 0;
 }
 
 
 CubeScene::CubeScene(int num_points, RNG &rng) {
-    points.resize(num_points);
+    points_.resize(num_points);
     for (int i = 0; i < num_points; ++i) {
         int j = abs((int)rng) % 3;
-        points[i].x = (j == 0 ? abs((int)rng) % 2 : (double)rng) - 0.5;
-        points[i].y = (j == 1 ? abs((int)rng) % 2 : (double)rng) - 0.5;
-        points[i].z = (j == 2 ? abs((int)rng) % 2 : (double)rng) - 0.5;
+        points_[i].x = (j == 0 ? abs((int)rng) % 2 : (double)rng) - 0.5;
+        points_[i].y = (j == 1 ? abs((int)rng) % 2 : (double)rng) - 0.5;
+        points_[i].z = (j == 2 ? abs((int)rng) % 2 : (double)rng) - 0.5;
     }
 }
 
 
 bool CubeScene::IsVisible(const Point3d &point, const Point3d &origin) const {
-    Point3d dir = point - origin;
+    Point3d origin_ = TransformRigid(origin, R_.t(), -R_.t() * T_);
+    Point3d dir = point - origin_;
     double dist = sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
     dir *= 1 / dist;
 
     double x, y, z, t;
 
-    t = (-0.5 - origin.x) / dir.x;
-    y = origin.y + t * dir.y;
-    z = origin.z + t * dir.z;
+    t = (-0.5 - origin_.x) / dir.x;
+    y = origin_.y + t * dir.y;
+    z = origin_.z + t * dir.z;
     if (y > -0.5 && y < 0.5 && z > -0.5 && z < 0.5 && t > 0 && t < dist - 1e-6)
         return false;
 
-    t = (0.5 - origin.x) / dir.x;
-    y = origin.y + t * dir.y;
-    z = origin.z + t * dir.z;
+    t = (0.5 - origin_.x) / dir.x;
+    y = origin_.y + t * dir.y;
+    z = origin_.z + t * dir.z;
     if (y > -0.5 && y < 0.5 && z > -0.5 && z < 0.5 && t > 0 && t < dist - 1e-6)
         return false;
 
-    t = (-0.5 - origin.y) / dir.y;
-    x = origin.x + t * dir.x;
-    z = origin.z + t * dir.z;
+    t = (-0.5 - origin_.y) / dir.y;
+    x = origin_.x + t * dir.x;
+    z = origin_.z + t * dir.z;
     if (x > -0.5 && x < 0.5 && z > -0.5 && z < 0.5 && t > 0 && t < dist - 1e-6)
         return false;
 
-    t = (0.5 - origin.y) / dir.y;
-    x = origin.x + t * dir.x;
-    z = origin.z + t * dir.z;
+    t = (0.5 - origin_.y) / dir.y;
+    x = origin_.x + t * dir.x;
+    z = origin_.z + t * dir.z;
     if (x > -0.5 && x < 0.5 && z > -0.5 && z < 0.5 && t > 0 && t < dist - 1e-6)
         return false;
 
-    t = (-0.5 - origin.z) / dir.z;
-    x = origin.x + t * dir.x;
-    y = origin.y + t * dir.y;
+    t = (-0.5 - origin_.z) / dir.z;
+    x = origin_.x + t * dir.x;
+    y = origin_.y + t * dir.y;
     if (x > -0.5 && x < 0.5 && y > -0.5 && y < 0.5 && t > 0 && t < dist - 1e-6)
         return false;
 
-    t = (0.5 - origin.z) / dir.z;
-    x = origin.x + t * dir.x;
-    y = origin.y + t * dir.y;
+    t = (0.5 - origin_.z) / dir.z;
+    x = origin_.x + t * dir.x;
+    y = origin_.y + t * dir.y;
     if (x > -0.5 && x < 0.5 && y > -0.5 && y < 0.5 && t > 0 && t < dist - 1e-6)
         return false;
 
