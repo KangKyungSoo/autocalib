@@ -106,6 +106,8 @@ public:
 //============================================================================
 // Concrete scenes
 
+// TODO should creators and builder return pointers or smart pointers?
+
 /** Describes a synthetic sphere scene.
   *
   * Created sphere has unit radius and center in the origin.
