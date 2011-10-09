@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
             rng.state = seed;
 
         // Generate synthetic scene points
-        Ptr<SyntheticScene> scene = scene_creator->Create(num_points, rng);
+        Ptr<PointCloudScene> scene = scene_creator->Create(num_points, rng);
 
         // Rotate scene around the origin
         Mat rvec = Mat::zeros(3, 1, CV_64F);

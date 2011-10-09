@@ -9,8 +9,8 @@ using namespace cv;
 namespace autocalib {
 namespace evaluation {
 
-void SyntheticScene::TakeShot(const RigidCamera &camera, Rect viewport,
-                              detail::ImageFeatures &features)
+void PointCloudScene::TakeShot(const RigidCamera &camera, Rect viewport,
+                               detail::ImageFeatures &features)
 {
     Mat R_inv = camera.R().inv();
     Point3d origin = Mat(-R_inv * camera.T()).at<Point3d>(0, 0);
@@ -38,9 +38,38 @@ void SyntheticScene::TakeShot(const RigidCamera &camera, Rect viewport,
 
     features.descriptors.create(visible_points.size(), 1, CV_32S);
     for (size_t i = 0; i < visible_points.size(); ++i)
-        features.descriptors.at<int>(i ,0) = visible_points[i];
+        features.descriptors.at<int>(i, 0) = visible_points[i];
 
     features.img_size = viewport.size();
+}
+
+
+void CompositeScene::TakeShot(const RigidCamera &camera, Rect viewport,
+                              detail::ImageFeatures &features)
+{
+    vector<detail::ImageFeatures> all_features(scenes_.size());
+    size_t total_num_keypoints = 0;
+
+    for (size_t i = 0; i < scenes_.size(); ++i) {
+        scenes_[i]->TakeShot(camera, viewport, all_features[i]);
+        total_num_keypoints += all_features[i].keypoints.size();
+    }
+
+    features.img_size = viewport.size();
+    features.keypoints.resize(total_num_keypoints);
+    features.descriptors.create(total_num_keypoints, 1, CV_32S);
+
+    int kypoint_idx = 0;
+    int descr_offset = 0;
+    for (size_t i = 0; i < all_features.size(); ++i) {
+        for (size_t j = 0; j < all_features[i].keypoints.size(); ++j) {
+            features.keypoints[kypoint_idx] = all_features[i].keypoints[j];
+            features.descriptors.at<int>(kypoint_idx, 0) =
+                    all_features[i].descriptors.at<int>(j, 0) + descr_offset;
+            kypoint_idx++;
+        }
+        descr_offset += scenes_[i]->pointCount();
+    }
 }
 
 

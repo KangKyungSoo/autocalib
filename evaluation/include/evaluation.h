@@ -9,17 +9,13 @@
 namespace autocalib {
 namespace evaluation {
 
-/** Describes a point cloud. */
-class PointCloud {
-protected:
-    std::vector<cv::Point3d> points_;
-};
-
+//============================================================================
+// Scenes base classes
 
 /** Synthetic scene base class. */
-class SyntheticScene : public PointCloud {
+class SyntheticSceneBase {
 public:
-    virtual ~SyntheticScene() {}
+    virtual ~SyntheticSceneBase() {}
 
     /** Takes a shot of the scene.
       *
@@ -27,8 +23,8 @@ public:
       * \param viewport Viewing region
       * \param features Result image features
       */
-    void TakeShot(const RigidCamera &camera, cv::Rect viewport,
-                  cv::detail::ImageFeatures &features);
+    virtual void TakeShot(const RigidCamera &camera, cv::Rect viewport,
+                          cv::detail::ImageFeatures &features) = 0;
 
     /** \return Local to world coordinates rotation matrix */
     const cv::Mat R() const { return R_; }
@@ -51,25 +47,72 @@ public:
 protected:
 
     /** Constructs a scene without a transformation. */
-    SyntheticScene() {
+    SyntheticSceneBase() {
         set_R(cv::Mat::eye(3, 3, CV_64F));
         set_T(cv::Mat::zeros(3, 1, CV_64F));
     }
-
-    /** Checks point visibility.
-      *
-      * \return true if the point is visible from the given origin, false otherwise */        
-    virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const = 0;
 
     cv::Mat_<double> R_, T_;
 };
 
 
+/** Describes a point cloud. */
+class PointCloud {
+public:
+
+    /** \return Number of points */
+    virtual int pointCount() const { return static_cast<int>(points_.size()); }
+
+protected:
+    std::vector<cv::Point3d> points_;
+};
+
+
+/** Describes a synthetic point cloud scene. */
+class PointCloudScene : public SyntheticSceneBase, public PointCloud {
+public:
+    virtual ~PointCloudScene() {}
+
+    /** Takes a shot of the scene.
+      *
+      * \param camera Rigid camera parameters
+      * \param viewport Viewing region
+      * \param features Result image features
+      */
+    virtual void TakeShot(const RigidCamera &camera, cv::Rect viewport,
+                          cv::detail::ImageFeatures &features);
+
+protected:
+
+    /** Checks point visibility.
+      *
+      * \return true if the point is visible from the given origin, false otherwise */
+    virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const = 0;
+};
+
+
+/** Synthetic scenes factory. */
+class SyntheticSceneCreator {
+public:
+    virtual ~SyntheticSceneCreator() {}
+
+    /** Creates a synthetic scene.
+      *
+      * \param num_points Number of points
+      * \param rng Pseudo random number generator
+      */
+    virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) = 0;
+};
+
+
+//============================================================================
+// Concrete scenes
+
 /** Describes a synthetic sphere scene.
   *
   * Created sphere has unit radius and center in the origin.
   */
-class SphereScene : public SyntheticScene {
+class SphereScene : public PointCloudScene {
 public:
 
     /** Creates a sphere scene.
@@ -84,11 +127,19 @@ private:
 };
 
 
+class SphereSceneCreator : public SyntheticSceneCreator {
+public:
+    virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
+        return new SphereScene(num_points, rng);
+    }
+};
+
+
 /** Describes a synthetic cube scene.
   *
   * Creates cube has unit edge length and center in the origin.
   */
-class CubeScene : public SyntheticScene {
+class CubeScene : public PointCloudScene {
 public:
 
     /** Creates a cube scene.
@@ -103,35 +154,51 @@ private:
 };
 
 
-/** Synthetic scenes factory. */
-class SyntheticSceneCreator {
-public:
-    virtual ~SyntheticSceneCreator() {}
-
-    /** Creates a synthetic scene.
-      *
-      * \param num_points Number of points
-      * \param rng Pseudo random number generator
-      */
-    virtual cv::Ptr<SyntheticScene> Create(int num_points, cv::RNG &rng) = 0;
-};
-
-
-class SphereSceneCreator : public SyntheticSceneCreator {
-public:
-    virtual cv::Ptr<SyntheticScene> Create(int num_points, cv::RNG &rng) {
-        return new SphereScene(num_points, rng);
-    }
-};
-
-
 class CubeSceneCreator : public SyntheticSceneCreator {
 public:
-    virtual cv::Ptr<SyntheticScene> Create(int num_points, cv::RNG &rng) {
+    virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
         return new CubeScene(num_points, rng);
     }
 };
 
+
+class CompositeSceneBuilder;
+
+/** Describes a composite synthetic scene. */
+class CompositeScene : public SyntheticSceneBase {
+public:
+    typedef std::vector<cv::Ptr<PointCloudScene> > ScenesCollection;
+
+    virtual void TakeShot(const RigidCamera &camera, cv::Rect viewport,
+                          cv::detail::ImageFeatures &features);
+
+private:
+    ScenesCollection scenes_;
+
+    friend class CompositeSceneBuilder;
+};
+
+
+class CompositeSceneBuilder {
+public:
+
+    /** \return Scenes collection */
+    CompositeScene::ScenesCollection& scenes() { return scenes_; }
+
+    /** \return Composite scene */
+    cv::Ptr<CompositeScene> Build() {
+        cv::Ptr<CompositeScene> result = new CompositeScene();
+        result->scenes_ = scenes_;
+        return result;
+    }
+
+private:
+    CompositeScene::ScenesCollection scenes_;
+};
+
+
+//============================================================================
+// Other
 
 /** Matches two synthetic scene shots.
   *
