@@ -25,34 +25,6 @@ public:
       */
     virtual void TakeShot(const RigidCamera &camera, cv::Rect viewport,
                           cv::detail::ImageFeatures &features) = 0;
-
-    /** \return Local to world coordinates rotation matrix */
-    const cv::Mat R() const { return R_; }
-
-    /** \param R Local to world coordinates rotation matrix */
-    void set_R(const cv::Mat &R) {
-        CV_Assert(R.size() == cv::Size(3, 3) && R.type() == CV_64F);
-        R_ = R.clone();
-    }
-
-    /** \return Local to world coordinates translation vector */
-    const cv::Mat T() const { return T_; }
-
-    /** \param T Local to world coordinates translation vector */
-    void set_T(const cv::Mat &T) {
-        CV_Assert(T.size() == cv::Size(1, 3) && T.type() == CV_64F);
-        T_ = T.clone();
-    }
-
-protected:
-
-    /** Constructs a scene without a transformation. */
-    SyntheticScene() {
-        set_R(cv::Mat::eye(3, 3, CV_64F));
-        set_T(cv::Mat::zeros(3, 1, CV_64F));
-    }
-
-    cv::Mat_<double> R_, T_;
 };
 
 
@@ -82,12 +54,38 @@ public:
     virtual void TakeShot(const RigidCamera &camera, cv::Rect viewport,
                           cv::detail::ImageFeatures &features);
 
+    /** \return Local to world coordinates rotation matrix */
+    const cv::Mat R() const { return R_; }
+
+    /** \param R Local to world coordinates rotation matrix */
+    void set_R(const cv::Mat &R) {
+        CV_Assert(R.size() == cv::Size(3, 3) && R.type() == CV_64F);
+        R_ = R.clone();
+    }
+
+    /** \return Local to world coordinates translation vector */
+    const cv::Mat T() const { return T_; }
+
+    /** \param T Local to world coordinates translation vector */
+    void set_T(const cv::Mat &T) {
+        CV_Assert(T.size() == cv::Size(1, 3) && T.type() == CV_64F);
+        T_ = T.clone();
+    }
+
 protected:
+
+    /** Constructs a scene without a transformation. */
+    PointCloudScene() {
+        set_R(cv::Mat::eye(3, 3, CV_64F));
+        set_T(cv::Mat::zeros(3, 1, CV_64F));
+    }
 
     /** Checks point visibility.
       *
       * \return true if the point is visible from the given origin, false otherwise */
     virtual bool IsVisible(const cv::Point3d &point, const cv::Point3d &origin) const = 0;
+
+    cv::Mat_<double> R_, T_;
 };
 
 
@@ -101,7 +99,7 @@ public:
       * \param num_points Number of points
       * \param rng Pseudo random number generator
       */
-    virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) = 0;
+    virtual PointCloudScene* Create(int num_points, cv::RNG &rng) = 0;
 };
 
 
@@ -129,7 +127,7 @@ private:
 
 class SphereSceneCreator : public PointCloudSceneCreator {
 public:
-    virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
+    virtual PointCloudScene* Create(int num_points, cv::RNG &rng) {
         return new SphereScene(num_points, rng);
     }
 };
@@ -156,7 +154,7 @@ private:
 
 class CubeSceneCreator : public PointCloudSceneCreator {
 public:
-    virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
+    virtual PointCloudScene* Create(int num_points, cv::RNG &rng) {
         return new CubeScene(num_points, rng);
     }
 };
@@ -191,8 +189,8 @@ public:
     }
 
     /** \return Composite scene */
-    cv::Ptr<CompositeScene> Build() {
-        cv::Ptr<CompositeScene> result = new CompositeScene();
+    CompositeScene* Build() {
+        CompositeScene *result = new CompositeScene();
         result->scenes_ = scenes_;
         return result;
     }

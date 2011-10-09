@@ -51,9 +51,7 @@ void CompositeScene::TakeShot(const RigidCamera &camera, Rect viewport,
     size_t total_num_keypoints = 0;
 
     for (size_t i = 0; i < scenes_.size(); ++i) {
-        cout << i << endl;
         scenes_[i]->TakeShot(camera, viewport, all_features[i]);
-        cout << i << " *" << endl;
         total_num_keypoints += all_features[i].keypoints.size();
     }
 
@@ -64,7 +62,6 @@ void CompositeScene::TakeShot(const RigidCamera &camera, Rect viewport,
     int keypoint_idx = 0;
     int descr_offset = 0;
     for (size_t i = 0; i < all_features.size(); ++i) {
-        cout << all_features[i].keypoints.size() << " " << all_features[i].descriptors.rows << endl;
         for (size_t j = 0; j < all_features[i].keypoints.size(); ++j) {
             features.keypoints[keypoint_idx] = all_features[i].keypoints[j];
             features.descriptors.at<int>(keypoint_idx, 0) =

@@ -39,6 +39,8 @@ void ParseArgs(int argc, char **argv) {
                 scene_creator = new SphereSceneCreator();
             else if (string(argv[i + 1]) == "cube")
                 scene_creator = new CubeSceneCreator();
+            else if (string(argv[i + 1]) == "both")
+                scene_creator = 0;
             else
                 throw runtime_error(string("Unknown synthetic scene type: ") + argv[i + 1]);
             i++;
@@ -130,25 +132,53 @@ int main(int argc, char **argv) {
 
         if (camera_center.empty()) {
             camera_center = Mat::zeros(3, 1, CV_64F);
-            camera_center(2, 0) = -10;
+            camera_center(2, 0) = -15;
         }
 
         RNG rng;
         if (seed > 0)
             rng.state = seed;
 
-        // Generate synthetic scene points
-        CompositeSceneBuilder scene_builder;
-        scene_builder.Add(new SphereScene(num_points, rng));
-        scene_builder.Add(new CubeScene(num_points, rng));
-        Ptr<SyntheticScene> scene = static_cast<CompositeScene*>(scene_builder.Build());
+        Mat rvec, R, T;
+        Ptr<SyntheticScene> scene;
 
-        // Rotate scene around the origin
-        Mat rvec = Mat::zeros(3, 1, CV_64F);
-        rng.fill(rvec, RNG::UNIFORM, -1, 1);
-        Mat R;
-        Rodrigues(rvec, R);
-        scene->set_R(R);
+        // Generate synthetic scene
+        if (!scene_creator.empty()) {
+            PointCloudScene *scene_ = scene_creator->Create(num_points, rng);
+            rvec = Mat::zeros(3, 1, CV_64F);
+            rng.fill(rvec, RNG::UNIFORM, -1, 1);
+            Rodrigues(rvec, R);
+            scene_->set_R(R);
+            T = Mat::zeros(3, 1, CV_64F);
+            rng.fill(T, RNG::UNIFORM, -2, 2);
+            scene_->set_T(T);
+            scene = scene_;
+        }
+        else {
+            CompositeSceneBuilder scene_builder;
+
+            PointCloudScene* sphere = new SphereScene(num_points, rng);
+            rvec = Mat::zeros(3, 1, CV_64F);
+            rng.fill(rvec, RNG::UNIFORM, -1, 1);
+            Rodrigues(rvec, R);
+            sphere->set_R(R);
+            T = Mat::zeros(3, 1, CV_64F);
+            rng.fill(T, RNG::UNIFORM, -2, 2);
+            sphere->set_T(T);
+            scene_builder.Add(sphere);
+
+            PointCloudScene* cube = new CubeScene(num_points, rng);
+            rvec = Mat::zeros(3, 1, CV_64F);
+            rng.fill(rvec, RNG::UNIFORM, -1, 1);
+            Rodrigues(rvec, R);
+            cube->set_R(R);
+            T = Mat::zeros(3, 1, CV_64F);
+            rng.fill(T, RNG::UNIFORM, -2, 2);
+            cube->set_T(T);
+            scene_builder.Add(cube);
+
+            scene = scene_builder.Build();
+        }
 
         vector<RigidCamera> cameras(num_cameras);
         FeaturesCollection features(num_cameras);
