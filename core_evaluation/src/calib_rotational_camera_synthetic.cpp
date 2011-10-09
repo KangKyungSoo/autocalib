@@ -14,7 +14,7 @@ using namespace cv;
 using namespace autocalib;
 using namespace autocalib::evaluation;
 
-Ptr<SyntheticSceneCreator> scene_creator = new SphereSceneCreator();
+Ptr<PointCloudSceneCreator> scene_creator = new SphereSceneCreator();
 int num_points = 1000;
 int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
@@ -138,7 +138,10 @@ int main(int argc, char **argv) {
             rng.state = seed;
 
         // Generate synthetic scene points
-        Ptr<PointCloudScene> scene = scene_creator->Create(num_points, rng);
+        CompositeSceneBuilder scene_builder;
+        scene_builder.Add(new SphereScene(num_points, rng));
+        scene_builder.Add(new CubeScene(num_points, rng));
+        Ptr<SyntheticScene> scene = static_cast<CompositeScene*>(scene_builder.Build());
 
         // Rotate scene around the origin
         Mat rvec = Mat::zeros(3, 1, CV_64F);
