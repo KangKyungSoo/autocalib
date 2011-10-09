@@ -13,9 +13,9 @@ namespace evaluation {
 // Scenes base classes
 
 /** Synthetic scene base class. */
-class SyntheticSceneBase {
+class SyntheticScene {
 public:
-    virtual ~SyntheticSceneBase() {}
+    virtual ~SyntheticScene() {}
 
     /** Takes a shot of the scene.
       *
@@ -47,7 +47,7 @@ public:
 protected:
 
     /** Constructs a scene without a transformation. */
-    SyntheticSceneBase() {
+    SyntheticScene() {
         set_R(cv::Mat::eye(3, 3, CV_64F));
         set_T(cv::Mat::zeros(3, 1, CV_64F));
     }
@@ -69,7 +69,7 @@ protected:
 
 
 /** Describes a synthetic point cloud scene. */
-class PointCloudScene : public SyntheticSceneBase, public PointCloud {
+class PointCloudScene : public SyntheticScene, public PointCloud {
 public:
     virtual ~PointCloudScene() {}
 
@@ -92,9 +92,9 @@ protected:
 
 
 /** Synthetic scenes factory. */
-class SyntheticSceneCreator {
+class PointCloudSceneCreator {
 public:
-    virtual ~SyntheticSceneCreator() {}
+    virtual ~PointCloudSceneCreator() {}
 
     /** Creates a synthetic scene.
       *
@@ -127,7 +127,7 @@ private:
 };
 
 
-class SphereSceneCreator : public SyntheticSceneCreator {
+class SphereSceneCreator : public PointCloudSceneCreator {
 public:
     virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
         return new SphereScene(num_points, rng);
@@ -154,7 +154,7 @@ private:
 };
 
 
-class CubeSceneCreator : public SyntheticSceneCreator {
+class CubeSceneCreator : public PointCloudSceneCreator {
 public:
     virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
         return new CubeScene(num_points, rng);
@@ -165,7 +165,7 @@ public:
 class CompositeSceneBuilder;
 
 /** Describes a composite synthetic scene. */
-class CompositeScene : public SyntheticSceneBase {
+class CompositeScene : public SyntheticScene {
 public:
     typedef std::vector<cv::Ptr<PointCloudScene> > ScenesCollection;
 
@@ -182,8 +182,13 @@ private:
 class CompositeSceneBuilder {
 public:
 
-    /** \return Scenes collection */
-    CompositeScene::ScenesCollection& scenes() { return scenes_; }
+    /** Adds a scene.
+      *
+      * \param scene Synthetic scene
+      */
+    void Add(cv::Ptr<PointCloudScene> scene) {
+        scenes_.push_back(scene);
+    }
 
     /** \return Composite scene */
     cv::Ptr<CompositeScene> Build() {
