@@ -469,7 +469,7 @@ cv::Mat TruncEigenvals(cv::InputArray src, Interval interval);
 void ExtractMatchedKeypoints(const cv::detail::ImageFeatures &f1,
                              const cv::detail::ImageFeatures &f2,
                              const std::vector<cv::DMatch> &matches,
-                             cv::OutputArray kaps1, cv::OutputArray kps2);
+                             cv::OutputArray kps1, cv::OutputArray kps2);
 
 /** Applies a rigid traform to a point.
   *
