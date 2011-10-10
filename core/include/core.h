@@ -139,7 +139,7 @@ public:
     /** \return Default termination criteria. */
     static cv::TermCriteria crit_default() {
         return cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS,
-                                1000, std::numeric_limits<double>::epsilon());
+                                1000, 1e-12);
     }
 
     const int verbose() const { return verbose_; }

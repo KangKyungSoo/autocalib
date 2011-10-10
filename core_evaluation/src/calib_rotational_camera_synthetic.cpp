@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
 
         if (camera_center.empty()) {
             camera_center = Mat::zeros(3, 1, CV_64F);
-            camera_center(2, 0) = -15;
+            camera_center(2, 0) = -10;
         }
 
         RNG rng;
