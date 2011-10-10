@@ -244,6 +244,8 @@ private:
     double right_;
 };
 
+// TODO add K_norm into parameters of linear algorithms
+
 
 /** Calculates rotational camera intrinsics using a linear algorithm.
   *
