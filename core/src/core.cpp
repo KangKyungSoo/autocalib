@@ -58,29 +58,39 @@ void ReprojErrorFixedKR::operator()(const cv::Mat &arg, cv::Mat &err) {
     {
         int img_from = view->first.first;
         const vector<KeyPoint> &kps_from = (*features_)[img_from].keypoints;
-        Mat_<double> rvec_from(1, 3);
+        Quaternion quat_from;
         if (img_from) {
-            rvec_from(0, 0) = arg_(0, 5 + 3 * (img_from - 1));
-            rvec_from(0, 1) = arg_(0, 5 + 3 * (img_from - 1) + 1);
-            rvec_from(0, 2) = arg_(0, 5 + 3 * (img_from - 1) + 2);
+            quat_from[0] = arg_(0, 5 + 4 * (img_from - 1));
+            quat_from[1] = arg_(0, 5 + 4 * (img_from - 1) + 1);
+            quat_from[2] = arg_(0, 5 + 4 * (img_from - 1) + 2);
+            quat_from[3] = arg_(0, 5 + 4 * (img_from - 1) + 3);
         }
-        else
-            rvec_from.setTo(0);
-        Mat R_from;
-        Rodrigues(rvec_from, R_from);
+        else {
+            quat_from[0] = 1;
+            quat_from[1] = 0;
+            quat_from[2] = 0;
+            quat_from[3] = 0;
+        }
+        quat_from /= quat_from.Norm();
+        Mat R_from = quat_from.RotationMat();
 
         int img_to = view->first.second;
         const vector<KeyPoint> &kps_to = (*features_)[img_to].keypoints;
-        Mat_<double> rvec_to(1, 3);
+        Quaternion quat_to;
         if (img_to) {
-            rvec_to(0, 0) = arg_(0, 5 + 3 * (img_to - 1));
-            rvec_to(0, 1) = arg_(0, 5 + 3 * (img_to - 1) + 1);
-            rvec_to(0, 2) = arg_(0, 5 + 3 * (img_to - 1) + 2);
+            quat_to[0] = arg_(0, 5 + 4 * (img_to - 1));
+            quat_to[1] = arg_(0, 5 + 4 * (img_to - 1) + 1);
+            quat_to[2] = arg_(0, 5 + 4 * (img_to - 1) + 2);
+            quat_to[3] = arg_(0, 5 + 4 * (img_to - 1) + 3);
         }
-        else
-            rvec_to.setTo(0);
-        Mat R_to;
-        Rodrigues(rvec_to, R_to);
+        else {
+            quat_to[0] = 1;
+            quat_to[1] = 0;
+            quat_to[2] = 0;
+            quat_to[3] = 0;
+        }
+        quat_to /= quat_to.Norm();
+        Mat R_to = quat_to.RotationMat();
 
         Mat_<double> M = K * R_from * R_to.t() * K_inv;
 
@@ -282,11 +292,11 @@ Quaternion Quaternion::FromRotationMat(cv::InputArray R) {
     static const int perm_tbl[3][3] = {{0, 1, 2}, {1, 2, 0}, {2, 0, 1}};
     const int *p = perm_tbl[u];
 
-    double r = sqrt(1 + R_(p[0], p[0]) - R_(p[1], p[1]) - R_(p[2], p[2]));
-
+    double r = 1 + R_(p[0], p[0]) - R_(p[1], p[1]) - R_(p[2], p[2]);
     if (r < numeric_limits<double>::epsilon())
         return Quaternion(1, 0, 0, 0);
 
+    r = sqrt(r);
     Quaternion q;
     q[0] = (R_(p[2], p[1]) - R_(p[1], p[2])) / (2 * r);
     q[1 + p[0]] = r / 2;
@@ -361,18 +371,18 @@ void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
         Rs_[i] = Rs_[0].t() * Rs_[i];
     }
 
-    Mat_<double> arg(1, 5 + 3 * (int)Rs_.size());
+    Mat_<double> arg(1, 5 + 4 * (int)Rs_.size());
     arg(0, 0) = K_(0, 0);
     arg(0, 1) = K_(0, 1);
     arg(0, 2) = K_(0, 2);
     arg(0, 3) = K_(1, 1);
     arg(0, 4) = K_(1, 2);
     for (size_t i = 1; i < Rs_.size(); ++i) {
-        Mat_<double> rvec;
-        Rodrigues(Rs_[i], rvec);
-        arg(0, 5 + 3 * (i - 1)) = rvec(0, 0);
-        arg(0, 5 + 3 * (i - 1) + 1) = rvec(0, 1);
-        arg(0, 5 + 3 * (i - 1) + 2) = rvec(0, 2);
+        Quaternion quat = Quaternion::FromRotationMat(Rs_[i]);
+        arg(0, 5 + 4 * (i - 1)) = quat[0];
+        arg(0, 5 + 4 * (i - 1) + 1) = quat[1];
+        arg(0, 5 + 4 * (i - 1) + 2) = quat[2];
+        arg(0, 5 + 4 * (i - 1) + 3) = quat[3];
     }
 
     ReprojErrorFixedKR func(features, matches, params_to_refine);
@@ -384,11 +394,13 @@ void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
     K_(1, 1) = arg(0, 3);
     K_(1, 2) = arg(0, 4);
     for (size_t i = 1; i < Rs_.size(); ++i) {
-        Mat_<double> rvec(1, 3);
-        rvec(0, 0) = arg(0, 5 + 3 * (i - 1));
-        rvec(0, 1) = arg(0, 5 + 3 * (i - 1) + 1);
-        rvec(0, 2) = arg(0, 5 + 3 * (i - 1) + 2);
-        Rodrigues(rvec, Rs_[i]);
+        Quaternion quat;
+        quat[0] = arg(0, 5 + 4 * (i - 1));
+        quat[1] = arg(0, 5 + 4 * (i - 1) + 1);
+        quat[2] = arg(0, 5 + 4 * (i - 1) + 2);
+        quat[3] = arg(0, 5 + 4 * (i - 1) + 3);
+        quat /= quat.Norm();
+        Rs_[i] = quat.RotationMat();
     }
 }
 
