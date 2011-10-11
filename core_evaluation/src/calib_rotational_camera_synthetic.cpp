@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
 
         // Generate synthetic scene
         if (!scene_creator.empty()) {
-            PointCloudScene *scene_ = scene_creator->Create(num_points, rng);
+            Ptr<PointCloudScene> scene_ = scene_creator->Create(num_points, rng);
             rvec = Mat::zeros(3, 1, CV_64F);
             rng.fill(rvec, RNG::UNIFORM, -1, 1);
             Rodrigues(rvec, R);
@@ -152,12 +152,14 @@ int main(int argc, char **argv) {
             T = Mat::zeros(3, 1, CV_64F);
             rng.fill(T, RNG::UNIFORM, -2, 2);
             scene_->set_T(T);
-            scene = scene_;
+
+            scene = static_cast<SyntheticScene*>(scene_);
+            scene_.addref();
         }
         else {
             CompositeSceneBuilder scene_builder;
 
-            PointCloudScene* sphere = new SphereScene(num_points, rng);
+            Ptr<PointCloudScene> sphere = new SphereScene(num_points, rng);
             rvec = Mat::zeros(3, 1, CV_64F);
             rng.fill(rvec, RNG::UNIFORM, -1, 1);
             Rodrigues(rvec, R);
@@ -167,7 +169,7 @@ int main(int argc, char **argv) {
             sphere->set_T(T);
             scene_builder.Add(sphere);
 
-            PointCloudScene* cube = new CubeScene(num_points, rng);
+            Ptr<PointCloudScene> cube = new CubeScene(num_points, rng);
             rvec = Mat::zeros(3, 1, CV_64F);
             rng.fill(rvec, RNG::UNIFORM, -1, 1);
             Rodrigues(rvec, R);
@@ -177,7 +179,9 @@ int main(int argc, char **argv) {
             cube->set_T(T);
             scene_builder.Add(cube);
 
-            scene = scene_builder.Build();
+            Ptr<CompositeScene> scene_ = scene_builder.Build();
+            scene = static_cast<SyntheticScene*>(scene_);
+            scene_.addref();
         }
 
         vector<RigidCamera> cameras(num_cameras);

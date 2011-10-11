@@ -99,14 +99,12 @@ public:
       * \param num_points Number of points
       * \param rng Pseudo random number generator
       */
-    virtual PointCloudScene* Create(int num_points, cv::RNG &rng) = 0;
+    virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) = 0;
 };
 
 
 //============================================================================
 // Concrete scenes
-
-// TODO should creators and builder return pointers or smart pointers?
 
 /** Describes a synthetic sphere scene.
   *
@@ -129,7 +127,7 @@ private:
 
 class SphereSceneCreator : public PointCloudSceneCreator {
 public:
-    virtual PointCloudScene* Create(int num_points, cv::RNG &rng) {
+    virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
         return new SphereScene(num_points, rng);
     }
 };
@@ -156,7 +154,7 @@ private:
 
 class CubeSceneCreator : public PointCloudSceneCreator {
 public:
-    virtual PointCloudScene* Create(int num_points, cv::RNG &rng) {
+    virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
         return new CubeScene(num_points, rng);
     }
 };
@@ -191,7 +189,7 @@ public:
     }
 
     /** \return Composite scene */
-    CompositeScene* Build() {
+    cv::Ptr<CompositeScene> Build() {
         CompositeScene *result = new CompositeScene();
         result->scenes_ = scenes_;
         return result;
