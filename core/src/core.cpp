@@ -131,18 +131,22 @@ void ReprojErrorFixedKR::Jacobian(const cv::Mat &arg, cv::Mat &jac) {
 } // namespace
 
 
-Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, Interval evals_interval) {
+Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, InputArray K_guess, Interval evals_interval) {
     vector<Mat> Hs_;
     Hs.getMatVector(Hs_);
     int num_Hs = (int)Hs_.size();
     if (num_Hs < 1)
         throw runtime_error("Need at least one homography");
 
+    CV_Assert(K_guess.getMat().size() == Size(3, 3) && K_guess.getMat().type() == CV_64F);
+    Mat_<double> K_guess_ = K_guess.getMat();
+
     // Normalize homographies
     vector<Mat> Hs_normed(num_Hs);
     for (int i = 0; i < num_Hs; ++i) {
         CV_Assert(Hs_[i].size() == Size(3, 3) && Hs_[i].type() == CV_64F);
-        Hs_normed[i] = Hs_[i] / pow(determinant(Hs_[i]), 1. / 3.);
+        Hs_normed[i] = K_guess_.inv() * Hs_[i] * K_guess_;
+        Hs_normed[i] = Hs_normed[i] / pow(determinant(Hs_[i]), 1. / 3.);
     }
 
     Mat_<double> A(6 * num_Hs, 5);
@@ -196,22 +200,26 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, Interval evals_interval) 
     Mat K = DecomposeUUt(diac);
     if (K.empty())
         throw runtime_error("DIAC isn't positive definite");
-    return K;
+    return K_guess_ * K;
 }
 
 
-Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, Interval evals_interval) {
+Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, InputArray K_guess, Interval evals_interval) {
     vector<Mat> Hs_;
     Hs.getMatVector(Hs_);
     int num_Hs = (int)Hs_.size();
     if (num_Hs < 1)
         throw runtime_error("Need at least one homography");
 
+    CV_Assert(K_guess.getMat().size() == Size(3, 3) && K_guess.getMat().type() == CV_64F);
+    Mat_<double> K_guess_ = K_guess.getMat();
+
     // Normalize and transpose homographies
     vector<Mat> Hs_normed_t(num_Hs);
     for (int i = 0; i < num_Hs; ++i) {
         CV_Assert(Hs_[i].size() == Size(3, 3) && Hs_[i].type() == CV_64F);
-        Hs_normed_t[i] = (Hs_[i] / pow(determinant(Hs_[i]), 1. / 3.)).t();
+        Hs_normed_t[i] = K_guess_.inv() * Hs_[i] * K_guess_;
+        Hs_normed_t[i] = (Hs_normed_t[i] / pow(determinant(Hs_[i]), 1. / 3.)).t();
     }
 
     Mat_<double> A(6 * num_Hs, 4);
@@ -265,7 +273,7 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, Interval evals_inte
     Mat K_inv_t = DecomposeCholesky(iac);
     if (K_inv_t.empty())
         throw runtime_error("IAC isn't positive definite");
-    return K_inv_t.inv().t();
+    return K_guess_ * K_inv_t.inv().t();
 }
 
 

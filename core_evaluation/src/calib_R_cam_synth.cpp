@@ -283,20 +283,10 @@ int main(int argc, char **argv) {
 
         if (K_init.empty()) {
             cout << "Linear calibrating...\n";
-
-            // Apply intrinsics initial guess
-            vector<Mat> Hs_corrected(Hs.size());
-            for (size_t i = 0; i < Hs.size(); ++i)
-                Hs_corrected[i] = K_guess.inv() * Hs[i] * K_guess;
-
             if (lin_est_skew)
-                K_init = CalibRotationalCameraLinear(Hs_corrected, evals_interval);
+                K_init = CalibRotationalCameraLinear(Hs, K_guess, evals_interval);
             else
-                K_init = CalibRotationalCameraLinearNoSkew(Hs_corrected, evals_interval);
-
-            // Unapply intrinsics initial guess
-            K_init = K_guess * K_init;
-
+                K_init = CalibRotationalCameraLinearNoSkew(Hs, K_guess, evals_interval);
             cout << "Linear calibration result'll be used as K_init\n";
         }
         cout << "K_init =\n" << K_init << endl;
