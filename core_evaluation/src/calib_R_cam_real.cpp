@@ -72,12 +72,27 @@ public:
 
 void ParseArgs(int argc, char **argv);
 
+vector<string> img_names;
 vector<Mat> imgs;
-Ptr<FeaturesFinderCreator> finder_creator = new SurfFeaturesFinderCreator();
+Ptr<FeaturesFinderCreator> ffinder_creator = new SurfFeaturesFinderCreator();
+vector<detail::ImageFeatures> features;
 
 int main(int argc, char **argv) {
     try {
         ParseArgs(argc, argv);
+
+        // Find features
+
+        Ptr<detail::FeaturesFinder> ffinder = ffinder_creator->Create();
+        features.resize(imgs.size());
+
+        for (size_t i = 0; i < imgs.size(); ++i) {
+            int64 t = getTickCount();
+            cout << "Finding features in image " << img_names[i] << "... ";
+            (*ffinder)(imgs[i], features[i]);
+            cout << "#features = " << features[i].keypoints.size() << ", "
+                 << (getTickCount() - t) / getTickFrequency() << " sec\n";
+        }
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
@@ -88,8 +103,49 @@ int main(int argc, char **argv) {
 
 void ParseArgs(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
-        Mat img = imread(argv[++i]);
-        if (img.empty())
-            throw runtime_error(string("Can't open image: ") + argv[i]);
+        if (string(argv[i]) == "--ffinder") {
+            if (string(argv[i + 1]) == "surf")
+                ffinder_creator = new SurfFeaturesFinderCreator();
+            else if (string(argv[i + 1]) == "orb")
+                ffinder_creator = new OrbFeaturesFinderCreator();
+            else
+                throw runtime_error(string("Unknown features finder type: ") + argv[i + 1]);
+            i++;
+        }
+        else if (string(argv[i]) == "--surf-hess-thresh") {
+            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(ffinder_creator);
+            SurfFeaturesFinderCreator *sffc = dynamic_cast<SurfFeaturesFinderCreator*>(ffc);
+            if (!sffc)
+                throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
+            sffc->hess_thresh = atoi(argv[++i]);
+        }
+        else if (string(argv[i]) == "--surf-num-octaves") {
+            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(ffinder_creator);
+            SurfFeaturesFinderCreator *sffc = dynamic_cast<SurfFeaturesFinderCreator*>(ffc);
+            if (!sffc)
+                throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
+            sffc->num_octaves = atoi(argv[++i]);
+        }
+        else if (string(argv[i]) == "--surf-num-layers") {
+            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(ffinder_creator);
+            SurfFeaturesFinderCreator *sffc = dynamic_cast<SurfFeaturesFinderCreator*>(ffc);
+            if (!sffc)
+                throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
+            sffc->num_layers = atoi(argv[++i]);
+        }
+        else if (string(argv[i]) == "--orb-num-features") {
+            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(ffinder_creator);
+            OrbFeaturesFinderCreator *offc = dynamic_cast<OrbFeaturesFinderCreator*>(ffc);
+            if (!offc)
+                throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
+            offc->num_features = atoi(argv[++i]);
+        }
+        else {
+            Mat img = imread(argv[++i]);
+            if (img.empty())
+                throw runtime_error(string("Can't open image: ") + argv[i]);
+            img_names.push_back(argv[i]);
+            imgs.push_back(img);
+        }
     }
 }
