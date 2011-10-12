@@ -178,7 +178,7 @@ typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollectio
 /** Describes an interval. */
 class Interval {
 public:
-    enum Kind { ALL, LEFT, RIGHT, LEFT_RIGHT };
+    enum Kind {ALL, LEFT, RIGHT, LEFT_RIGHT};
 
     /** Creates (left, right) interval.
       *
@@ -244,18 +244,18 @@ private:
     double right_;
 };
 
-// TODO add K_norm into parameters of linear algorithms
-
 
 /** Calculates rotational camera intrinsics using a linear algorithm.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
   * \param Hs Projective plane homographies
+  * \param K_guess Camara intrinsics guess
   * \param evals_interval Interval used for DIAC eigenvalues truncation (true eigenvalues are [fx^2, fy^2, 1])
   * \return Camera intrinsics
   */
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
+                                    cv::InputArray K_guess = cv::Mat::eye(3, 3, CV_64F),
                                     Interval evals_interval = Interval::All());
 
 
@@ -264,10 +264,12 @@ cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
   * \param Hs Projective plane homographies
+  * \param K_guess Camara intrinsics guess
   * \param evals_interval Interval used for IAC eigenvalues truncation (true eigenvalues are [(1/fx)^2, (1/fy)^2, 1])
   * \return Camera intrinsics, where skew is zero
   */
 cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs,
+                                          cv::InputArray K_guess = cv::Mat::eye(3, 3, CV_64F),
                                           Interval evals_interval = Interval::All());
 
 
