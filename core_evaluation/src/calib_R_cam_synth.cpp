@@ -147,15 +147,15 @@ int main(int argc, char **argv) {
         vector<Mat> Hs;
         vector<Mat> Hs_from_0;
         Mat kps1, kps2;
-        vector<DMatch> pair_matches;
-        vector<DMatch> inlier_pair_matches;
-        MatchesCollection matches;
+        vector<DMatch> matches;
+        vector<DMatch> inlier_matches;
+        MatchesCollection matches_collection;
 
         cout << "Finding homographies...\n";        
         for (int from = 0; from < num_cameras - 1; ++from) {
             for (int to = from + 1; to < num_cameras; ++to) {
-                MatchSyntheticShots(features[from], features[to], pair_matches);
-                ExtractMatchedKeypoints(features[from], features[to], pair_matches, kps1, kps2);
+                MatchSyntheticShots(features[from], features[to], matches);
+                ExtractMatchedKeypoints(features[from], features[to], matches, kps1, kps2);
 
                 Mat_<uchar> mask;
                 Mat_<double> H = findHomography(kps1, kps2, mask, cv::RANSAC, H_est_thresh);
@@ -165,13 +165,13 @@ int main(int argc, char **argv) {
                 else {
 
                     // Put inlier matches into matches collection
-                    inlier_pair_matches.clear();
-                    for (size_t i = 0; i < pair_matches.size(); ++i)
+                    inlier_matches.clear();
+                    for (size_t i = 0; i < matches.size(); ++i)
                         if (mask(0, i))
-                            inlier_pair_matches.push_back(pair_matches[i]);
+                            inlier_matches.push_back(matches[i]);
                     MatchesCollection::iterator iter;
-                    iter = matches.insert(make_pair(make_pair(from, to), vector<DMatch>())).first;
-                    iter->second.swap(inlier_pair_matches);
+                    iter = matches_collection.insert(make_pair(make_pair(from, to), vector<DMatch>())).first;
+                    iter->second.swap(inlier_matches);
 
                     Hs.push_back(H);
                     if (from == 0)
@@ -179,7 +179,7 @@ int main(int argc, char **argv) {
 
                     // Compute homography reprojection error
                     double rms_err = 0;
-                    for (size_t i = 0; i < pair_matches.size(); ++i) {
+                    for (size_t i = 0; i < matches.size(); ++i) {
                         Point2f kp1 = kps1.at<Point2f>(0, i);
                         Point2f kp2 = kps2.at<Point2f>(0, i);
                         double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
@@ -188,8 +188,8 @@ int main(int argc, char **argv) {
                         rms_err += (kp2.x - x / z) * (kp2.x - x / z) + (kp2.y - y / z) * (kp2.y - y / z);
                     }
                     cout << "H from " << from << " to " << to
-                         << " RMS error = " << sqrt(rms_err / pair_matches.size())
-                         << " = sqrt(2) * " << sqrt(rms_err / pair_matches.size()) / sqrt(2.) << endl;
+                         << " RMS error = " << sqrt(rms_err / matches.size())
+                         << " = sqrt(2) * " << sqrt(rms_err / matches.size()) / sqrt(2.) << endl;
 
                 }
             }
@@ -223,10 +223,10 @@ int main(int argc, char **argv) {
 
         Mat_<double> K_refined = K_init.clone();
         if (refine_skew)
-            RefineRigidCamera(K_refined, Rs, features, matches);
+            RefineRigidCamera(K_refined, Rs, features, matches_collection);
         else {
             K_refined(0, 1) = 0;
-            RefineRigidCamera(K_refined, Rs, features, matches,
+            RefineRigidCamera(K_refined, Rs, features, matches_collection,
                               REFINE_FLAG_ALL & ~REFINE_FLAG_SKEW);
         }
         cout << "K_refined =\n" << K_refined << endl;

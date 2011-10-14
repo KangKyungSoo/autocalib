@@ -70,11 +70,24 @@ public:
 };
 
 
+class BestOf2NearestMatcherCreator {
+public:
+    BestOf2NearestMatcherCreator() : match_conf(0.65f) {}
+
+    Ptr<detail::FeaturesMatcher> Create() {
+        return new detail::BestOf2NearestMatcher(false, match_conf);
+    }
+
+    float match_conf;
+};
+
+
 void ParseArgs(int argc, char **argv);
 
 vector<string> img_names;
 vector<Mat> imgs;
-Ptr<FeaturesFinderCreator> ffinder_creator = new SurfFeaturesFinderCreator();
+Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
+BestOf2NearestMatcherCreator matcher_creator;
 vector<detail::ImageFeatures> features;
 
 int main(int argc, char **argv) {
@@ -83,15 +96,31 @@ int main(int argc, char **argv) {
 
         // Find features
 
-        Ptr<detail::FeaturesFinder> ffinder = ffinder_creator->Create();
+        Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
         features.resize(imgs.size());
 
         for (size_t i = 0; i < imgs.size(); ++i) {
             int64 t = getTickCount();
             cout << "Finding features in image " << img_names[i] << "... ";
-            (*ffinder)(imgs[i], features[i]);
+            (*features_finder)(imgs[i], features[i]);
             cout << "#features = " << features[i].keypoints.size() << ", "
                  << (getTickCount() - t) / getTickFrequency() << " sec\n";
+        }
+
+        // Match all pairs
+
+        Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
+        vector<detail::MatchesInfo> pairwise_matches;
+        (*matcher)(features, pairwise_matches);
+
+        // Convert pairwise matches into our matches format
+
+        MatchesCollection matches_collection;
+        for (size_t i = 0; i + 1 < imgs.size(); ++i) {
+            for (size_t j = i + 1; j < imgs.size(); ++j) {
+                const detail::MatchesInfo &mi = pairwise_matches[i * imgs.size() + j];
+                matches_collection.insert(make_pair(make_pair(i, j), mi.matches));
+            }
         }
     }
     catch (const exception &e) {
@@ -105,41 +134,43 @@ void ParseArgs(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
         if (string(argv[i]) == "--ffinder") {
             if (string(argv[i + 1]) == "surf")
-                ffinder_creator = new SurfFeaturesFinderCreator();
+                features_finder_creator = new SurfFeaturesFinderCreator();
             else if (string(argv[i + 1]) == "orb")
-                ffinder_creator = new OrbFeaturesFinderCreator();
+                features_finder_creator = new OrbFeaturesFinderCreator();
             else
                 throw runtime_error(string("Unknown features finder type: ") + argv[i + 1]);
             i++;
         }
         else if (string(argv[i]) == "--surf-hess-thresh") {
-            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(ffinder_creator);
+            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(features_finder_creator);
             SurfFeaturesFinderCreator *sffc = dynamic_cast<SurfFeaturesFinderCreator*>(ffc);
             if (!sffc)
                 throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
             sffc->hess_thresh = atoi(argv[++i]);
         }
         else if (string(argv[i]) == "--surf-num-octaves") {
-            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(ffinder_creator);
+            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(features_finder_creator);
             SurfFeaturesFinderCreator *sffc = dynamic_cast<SurfFeaturesFinderCreator*>(ffc);
             if (!sffc)
                 throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
             sffc->num_octaves = atoi(argv[++i]);
         }
         else if (string(argv[i]) == "--surf-num-layers") {
-            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(ffinder_creator);
+            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(features_finder_creator);
             SurfFeaturesFinderCreator *sffc = dynamic_cast<SurfFeaturesFinderCreator*>(ffc);
             if (!sffc)
                 throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
             sffc->num_layers = atoi(argv[++i]);
         }
         else if (string(argv[i]) == "--orb-num-features") {
-            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(ffinder_creator);
+            FeaturesFinderCreator *ffc = static_cast<FeaturesFinderCreator*>(features_finder_creator);
             OrbFeaturesFinderCreator *offc = dynamic_cast<OrbFeaturesFinderCreator*>(ffc);
             if (!offc)
                 throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
             offc->num_features = atoi(argv[++i]);
         }
+        else if (string(argv[i]) == "--match-conf")
+            matcher_creator.match_conf = atof(argv[++i]);
         else {
             Mat img = imread(argv[++i]);
             if (img.empty())
