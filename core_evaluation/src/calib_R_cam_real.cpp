@@ -150,7 +150,6 @@ int main(int argc, char **argv) {
                     cout << "#matches = " << matches.size() << " #inliers = " << num_inliers << endl;
                     Hs.push_back(H);
                 }
-
             }
         }
     }

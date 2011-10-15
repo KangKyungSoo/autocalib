@@ -181,7 +181,6 @@ typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollectio
   *
   * \param Hs Projective plane homographies
   * \param K_guess Camara intrinsics guess
-  * \param evals_interval Interval used for DIAC eigenvalues truncation (true eigenvalues are [fx^2, fy^2, 1])
   * \return Camera intrinsics
   */
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
@@ -194,7 +193,6 @@ cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
   *
   * \param Hs Projective plane homographies
   * \param K_guess Camara intrinsics guess
-  * \param evals_interval Interval used for IAC eigenvalues truncation (true eigenvalues are [(1/fx)^2, (1/fy)^2, 1])
   * \return Camera intrinsics, where skew is zero
   */
 cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs,
