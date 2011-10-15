@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
 
         vector<Mat> Hs;
         vector<Mat> Hs_from_0;
-        Mat kps1, kps2;
+        Mat keypoints1, keypoints2;
         vector<DMatch> matches;
         vector<DMatch> inlier_matches;
         MatchesCollection matches_collection;
@@ -154,10 +154,10 @@ int main(int argc, char **argv) {
         for (int from = 0; from < num_cameras - 1; ++from) {
             for (int to = from + 1; to < num_cameras; ++to) {
                 MatchSyntheticShots(features[from], features[to], matches);
-                ExtractMatchedKeypoints(features[from], features[to], matches, kps1, kps2);
+                ExtractMatchedKeypoints(features[from], features[to], matches, keypoints1, keypoints2);
 
                 Mat_<uchar> mask;
-                Mat_<double> H = findHomography(kps1, kps2, mask, cv::RANSAC, H_est_thresh);
+                Mat_<double> H = findHomography(keypoints1, keypoints2, mask, cv::RANSAC, H_est_thresh);
 
                 if (H.empty())
                     cout << "Can't find H from " << from << " to " << to << endl;
@@ -179,8 +179,8 @@ int main(int argc, char **argv) {
                     // Compute homography reprojection error
                     double rms_err = 0;
                     for (size_t i = 0; i < matches.size(); ++i) {
-                        Point2f kp1 = kps1.at<Point2f>(0, i);
-                        Point2f kp2 = kps2.at<Point2f>(0, i);
+                        Point2f kp1 = keypoints1.at<Point2f>(0, i);
+                        Point2f kp2 = keypoints2.at<Point2f>(0, i);
                         double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
                         double y = H(1, 0) * kp1.x + H(1, 1) * kp1.y + H(1, 2);
                         double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);

@@ -88,7 +88,8 @@ vector<string> img_names;
 vector<Mat> imgs;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
-vector<detail::ImageFeatures> features;
+FeaturesCollection features_collection;
+double H_est_thresh = 3.;
 
 int main(int argc, char **argv) {
     try {
@@ -97,13 +98,13 @@ int main(int argc, char **argv) {
         // Find features
 
         Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
-        features.resize(imgs.size());
+        features_collection.resize(imgs.size());
 
         for (size_t i = 0; i < imgs.size(); ++i) {
             int64 t = getTickCount();
             cout << "Finding features in image " << img_names[i] << "... ";
-            (*features_finder)(imgs[i], features[i]);
-            cout << "#features = " << features[i].keypoints.size() << ", "
+            (*features_finder)(imgs[i], features_collection[i]);
+            cout << "#features = " << features_collection[i].keypoints.size() << ", "
                  << (getTickCount() - t) / getTickFrequency() << " sec\n";
         }
 
@@ -111,15 +112,45 @@ int main(int argc, char **argv) {
 
         Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
         vector<detail::MatchesInfo> pairwise_matches;
-        (*matcher)(features, pairwise_matches);
+        (*matcher)(features_collection, pairwise_matches);
 
         // Convert pairwise matches into our matches format
 
         MatchesCollection matches_collection;
-        for (size_t i = 0; i + 1 < imgs.size(); ++i) {
-            for (size_t j = i + 1; j < imgs.size(); ++j) {
-                const detail::MatchesInfo &mi = pairwise_matches[i * imgs.size() + j];
-                matches_collection.insert(make_pair(make_pair(i, j), mi.matches));
+
+        for (size_t from = 0; from + 1 < imgs.size(); ++from) {
+            for (size_t to = from + 1; to < imgs.size(); ++to) {
+                const detail::MatchesInfo &mi = pairwise_matches[from * imgs.size() + to];
+                matches_collection.insert(make_pair(make_pair(from, to), mi.matches));
+            }
+        }
+
+        // Estimate homographies
+
+        vector<Mat> Hs;
+        Mat keypoints1, keypoints2;
+
+        for (size_t from = 0; from + 1 < imgs.size(); ++from) {
+            for (size_t to = from + 1; to < imgs.size(); ++to) {
+                const vector<DMatch> &matches = matches_collection.find(make_pair(from, to))->second;
+                ExtractMatchedKeypoints(features_collection[from], features_collection[to],
+                                        matches, keypoints1, keypoints2);
+
+                cout << "Estimating H between #" << from << " and #" << to << "... ";
+                vector<uchar> inliers_mask;
+                Mat H = findHomography(keypoints1, keypoints2, inliers_mask, RANSAC, H_est_thresh);
+
+                if (H.empty())
+                    cout << "FAILED\n";
+                else {
+                    int num_inliers = 0;
+                    for (size_t i = 0; i < matches.size(); ++i)
+                        if (inliers_mask[i])
+                            num_inliers++;
+                    cout << "#matches = " << matches.size() << " #inliers = " << num_inliers << endl;
+                    Hs.push_back(H);
+                }
+
             }
         }
     }
@@ -171,6 +202,8 @@ void ParseArgs(int argc, char **argv) {
         }
         else if (string(argv[i]) == "--match-conf")
             matcher_creator.match_conf = atof(argv[++i]);
+        else if (string(argv[i]) == "--H-est-thresh")
+            H_est_thresh = atof(argv[++i]);
         else {
             Mat img = imread(argv[++i]);
             if (img.empty())
