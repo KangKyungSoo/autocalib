@@ -4,7 +4,6 @@ set(lib_name autocalib)
 project(${lib_name})
 
 find_package(OpenCV REQUIRED)
-find_package(Boost REQUIRED)
 
 include_directories(".")
 

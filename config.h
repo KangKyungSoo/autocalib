@@ -5,9 +5,9 @@
 
 #if LOGGING_ENABLED
     #include <iostream>
-    #define LOG(x) x
+    #define AUTOCALIB_LOG(x) x
 #else
-    #define LOG(x)
+    #define AUTOCALIB_LOG(x)
 #endif
 
 #endif // AUTOCALIB_CONFIG_H_

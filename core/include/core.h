@@ -277,6 +277,23 @@ void ExtractMatchedKeypoints(const cv::detail::ImageFeatures &f1,
   */
 cv::Point3d TransformRigid(const cv::Point3d& point, const cv::Mat &R, const cv::Mat &T);
 
+
+typedef std::map<std::pair<int, int>, cv::Mat> RelativeRotationMats;
+typedef std::map<std::pair<int, int>, double> RelativeConfidences;
+typedef std::map<int, cv::Mat> AbsoluteRotationMats;
+
+
+/** Extracts absolute rotations from relative rotations.
+  *
+  * \param rel_rmats Pairwise relative rotation matrices in the "(from,to)->rmat" format
+  * \param rel_confs Pairwise relative confidences
+  * \param abs_rmats Absolute rotation matrices (reference camera'll have an eye rotation matrix)
+  * \return Reference camera ID
+  */
+int ExtractAbsoluteRotations(const RelativeRotationMats &rel_rmats,
+                             const RelativeConfidences &rel_confs,
+                             AbsoluteRotationMats &abs_rmats);
+
 } // namespace autocalib
 
 #include "core_inl.h"

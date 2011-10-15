@@ -179,7 +179,7 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, InputArray K_guess) {
     Mat_<double> x;
     solve(A, b, x, DECOMP_SVD);
     Mat err = A * x - b;
-    LOG(cout << "solve() norm(A*x - b) / norm(b) = " << sqrt(err.dot(err) / b.dot(b)) << endl);
+    AUTOCALIB_LOG(cout << "solve() norm(A*x - b) / norm(b) = " << sqrt(err.dot(err) / b.dot(b)) << endl);
 
     // Dual Image of the Absolute Conic == K * K.t()
     Mat_<double> diac = Mat::eye(3, 3, CV_64F);
@@ -189,7 +189,7 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, InputArray K_guess) {
     diac(1, 1) = x(3, 0);
     diac(1, 2) = diac(2, 1) = x(4, 0);
 
-    LOG(Mat evals; Mat evecs;
+    AUTOCALIB_LOG(Mat evals; Mat evecs;
         eigen(diac, evals, evecs);
         cout << "DIAC = K * K.t() = \n" << diac << endl;
         cout << "DIAC evecs = \n" << evecs << endl;
@@ -251,7 +251,7 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, InputArray K_guess)
     Mat_<double> x;    
     solve(A, b, x, DECOMP_SVD);
     Mat err = A * x - b;
-    LOG(cout << "solve() norm(A*x - b) / norm(b) = " << sqrt(err.dot(err) / b.dot(b)) << endl);
+    AUTOCALIB_LOG(cout << "solve() norm(A*x - b) / norm(b) = " << sqrt(err.dot(err) / b.dot(b)) << endl);
 
     // Image of the Absolute Conic == (K * K.t()).inv()
     Mat_<double> iac = Mat::eye(3, 3, CV_64F);
@@ -260,7 +260,7 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, InputArray K_guess)
     iac(1, 1) = x(2, 0);
     iac(1, 2) = iac(2, 1) = x(3, 0);
 
-    LOG(Mat evals; Mat evecs;
+    AUTOCALIB_LOG(Mat evals; Mat evecs;
         eigen(iac, evals, evecs);
         cout << "IAC = (K * K.t()).inv() =\n" << iac << endl;
         cout << "IAC evecs = \n" << evecs << endl;
@@ -403,12 +403,42 @@ void ExtractMatchedKeypoints(const detail::ImageFeatures &f1, const detail::Imag
 Point3d TransformRigid(const Point3d &point, const Mat &R, const Mat &T) {
     CV_Assert(R.size() == cv::Size(3, 3) && R.type() == CV_64F);
     CV_Assert(T.size() == cv::Size(1, 3) && T.type() == CV_64F);
+
     Mat_<double> R_(R), T_(T);
     Point3d result;
     result.x = R_(0, 0) * point.x + R_(0, 1) * point.y + R_(0, 2) * point.z + T_(0, 0);
     result.y = R_(1, 0) * point.x + R_(1, 1) * point.y + R_(1, 2) * point.z + T_(1, 0);
     result.z = R_(2, 0) * point.x + R_(2, 1) * point.y + R_(2, 2) * point.z + T_(2, 0);
-    return result;
+
+    return result;    
+}
+
+
+int ExtractAbsoluteRotations(const RelativeRotationMats &rel_rmats,
+                             const RelativeConfidences &rel_confs,
+                             AbsoluteRotationMats &abs_rmats)
+{
+    list<detail::GraphEdge> edges;
+    for (RelativeRotationMats::const_iterator it = rel_rmats.begin(); it != rel_rmats.end(); ++it) {
+        double conf = rel_confs.find(it->first)->second;
+        if (conf > 0)
+            edges.push_back(detail::GraphEdge(it->first.first, it->first.second, conf));
+    }
+
+    list<detail::GraphEdge> max_span_tree_edges;
+
+    detail::DisjointSets comps;
+    edges.sort(greater<detail::GraphEdge>());
+    for (list<detail::GraphEdge>::const_iterator it = edges.begin(); it != edges.end(); ++it) {
+        int comp_from = comps.findSetByElem(it->from);
+        int comp_to = comps.findSetByElem(it->to);
+        if (comp_from != comp_to) {
+            comps.mergeSets(comp_from, comp_to);
+            max_span_tree_edges.push_back(*it);
+        }
+    }
+
+    throw runtime_error("Not implemented");
 }
 
 } // namespace autocalib
