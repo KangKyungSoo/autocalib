@@ -175,76 +175,6 @@ typedef std::vector<cv::detail::ImageFeatures> FeaturesCollection;
 typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollection;
 
 
-/** Describes an interval. */
-class Interval {
-public:
-    enum Kind {ALL, LEFT, RIGHT, LEFT_RIGHT};
-
-    /** Creates (left, right) interval.
-      *
-      * \return Interval
-      */
-    Interval(double left, double right) {
-        kind_ = LEFT_RIGHT;
-        left_ = left;
-        right_ = right;
-    }
-
-    /** Creates (-inf, +inf) interval.
-      *
-      * \return Interval
-      */
-    static Interval All() {
-        Interval res;
-        res.kind_ = ALL;
-        return res;
-    }
-
-    /** Creates (left, +inf) interval.
-      *
-      * \return Interval
-      */
-    static Interval Left(double left) {
-        Interval res;
-        res.kind_ = LEFT;
-        res.left_ = left;
-        return res;
-    }
-
-    /** Creates (-inf, right) interval.
-      *
-      * \return Interval
-      */
-    static Interval Right(double right) {
-        Interval res;
-        res.kind_ = RIGHT;
-        res.right_ = right;
-        return res;
-    }
-
-    const Kind kind() const { return kind_; }
-    const double left() const { return left_; }
-    const double right() const { return right_; }
-
-    friend std::ostream& operator <<(std::ostream &stream, const Interval &interv) {
-        if (interv.kind() == ALL)
-            return stream << "(-inf, +inf)";
-        if (interv.kind() == LEFT)
-            return stream << "(" << interv.left() << ", +inf)";
-        if (interv.kind() == RIGHT)
-            return stream << "(-inf, " << interv.right() << ")";
-        return stream << "(" << interv.left() << ", " << interv.right() << ")";
-    }
-
-private:
-    Interval() {}
-
-    Kind kind_;
-    double left_;
-    double right_;
-};
-
-
 /** Calculates rotational camera intrinsics using a linear algorithm.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
@@ -255,8 +185,7 @@ private:
   * \return Camera intrinsics
   */
 cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
-                                    cv::InputArray K_guess = cv::Mat::eye(3, 3, CV_64F),
-                                    Interval evals_interval = Interval::All());
+                                    cv::InputArray K_guess = cv::Mat::eye(3, 3, CV_64F));
 
 
 /** Calculates rotational camera intrinsics using a linear algorithm with the zero skew assumption.
@@ -269,132 +198,7 @@ cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
   * \return Camera intrinsics, where skew is zero
   */
 cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs,
-                                          cv::InputArray K_guess = cv::Mat::eye(3, 3, CV_64F),
-                                          Interval evals_interval = Interval::All());
-
-
-/** Describes a quaternion of the following form: a + b*i + c*j + d*k. 
-  *
-  * See http://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation for details.
-  */
-class Quaternion {
-public:
-    Quaternion() {}
-    Quaternion(const Quaternion &q) { a_ = q.a_; b_ = q.b_; c_ = q.c_; d_ = q.d_; }
-    Quaternion(double a, double b = 0, double c = 0, double d = 0) { a_ = a; b_ = b; c_ = c; d_ = d; }
-    Quaternion(double comps[4]) { for (int i = 0; i < 4; ++i) comps_[i] = comps[i]; }
-
-    /** Creates a quaternion from a rotation matrix.
-      *
-      * \param R Rotation matrix
-      * \return Quaternion
-      */
-    static Quaternion FromRotationMat(cv::InputArray R);
-
-    const double a() const { return a_; }
-    double& a() { return a_; }
-
-    const double b() const { return b_; }
-    double& b() { return b_; }
-
-    const double c() const { return c_; }
-    double& c() { return c_; }
-
-    const double d() const { return d_; }
-    double& d() { return d_; }
-
-    const double* comps() const { return comps_; }
-    double* comps() { return comps_; }
-
-    const double operator [](int index) const { return comps_[index]; }
-    double& operator [](int index) { return comps_[index]; }
-
-    const Quaternion& operator +=(const Quaternion &q) {
-        a_ += q.a_; b_ += q.b_; c_ += q.c_; d_ += q.d_;
-        return *this;
-    }
-
-    const Quaternion& operator -=(const Quaternion &q) {
-        a_ -= q.a_; b_ -= q.b_; c_ -= q.c_; d_ -= q.d_;
-        return *this;
-    }
-
-    const Quaternion& operator *=(const Quaternion &q) {
-        return *this = *this * q;
-    }
-
-    const Quaternion& operator *=(double a) {
-        a_ *= a; b_ *= a; c_ *= a; d_ *= a;
-        return *this;
-    }
-
-    const Quaternion& operator /=(double a) {
-        return *this *= 1 / a;
-    }
-
-    Quaternion operator +(const Quaternion &q) const { return Quaternion(*this) += q; }
-
-    Quaternion operator -(const Quaternion &q) const { return Quaternion(*this) -= q; }
-
-    Quaternion operator *(const Quaternion &q) const {
-        return Quaternion(a_*q.a_ - b_*q.b_ - c_*q.c_ - d_*q.d_,
-                          a_*q.b_ + b_*q.a_ + c_*q.d_ - d_*q.c_,
-                          a_*q.c_ - b_*q.d_ + c_*q.a_ + d_*q.b_,
-                          a_*q.d_ + b_*q.c_ - c_*q.b_ + d_*q.a_);
-    }
-
-    Quaternion operator *(double a) const { return Quaternion(*this) *= a; }
-
-    Quaternion operator /(double a) const { return Quaternion(*this) /= a; }
-
-    Quaternion Conjuagate() const { return Quaternion(a_, -b_, -c_, -d_); }
-
-    Quaternion Reciprocal() const { return Conjuagate() /= SquaredNorm(); }
-
-    double SquaredNorm() const { return a_*a_ + b_*b_ + c_*c_ + d_*d_; }
-
-    double Norm() const { return std::sqrt(SquaredNorm()); }
-
-    /** Converts a unit quaternion into the rotation matrix.
-      *
-      * \return Rotation matrix
-      */
-    cv::Mat RotationMat() const {
-        cv::Mat_<double> R(3, 3);
-        R(0, 0) = a_*a_ + b_*b_ - c_*c_ - d_*d_;
-        R(0, 1) = 2*b_*c_ - 2*a_*d_;
-        R(0, 2) = 2*b_*d_ + 2*a_*c_;
-        R(1, 0) = 2*b_*c_ + 2*a_*d_;
-        R(1, 1) = a_*a_ - b_*b_ + c_*c_ - d_*d_;
-        R(1, 2) = 2*c_*d_ - 2*a_*b_;
-        R(2, 0) = 2*b_*d_ - 2*a_*c_;
-        R(2, 1) = 2*c_*d_ + 2*a_*b_;
-        R(2, 2) = a_*a_ - b_*b_ - c_*c_ + d_*d_;
-        return R;
-    }
-
-    /** Calcluates a rotation matrix partial derivative by the specified quaternion component.
-      *
-      * \param index Quaternion component index
-      * \return Rotation matrix partial derivative
-      */
-    cv::Mat RotationMatDeriv(int index) const;
-
-    friend std::ostream& operator <<(std::ostream &stream, const Quaternion &q) {
-        return stream << q[0]
-                      << (q[1] > 0 ? " + " : " - ") << std::abs(q[1]) << "i"
-                      << (q[2] > 0 ? " + " : " - ") << std::abs(q[2]) << "j"
-                      << (q[3] > 0 ? " + " : " - ") << std::abs(q[3]) << "k";
-    }
-
-private:
-    union {
-        struct {
-            double a_, b_, c_, d_;
-        };
-        double comps_[4];
-    };
-};
+                                          cv::InputArray K_guess = cv::Mat::eye(3, 3, CV_64F));
 
 
 /** Rigid camera refinement method flags. */
@@ -451,15 +255,6 @@ cv::Mat DecomposeCholesky(cv::InputArray src);
             or empty matrix if the decomposition doesn't exist
   */
 cv::Mat DecomposeUUt(cv::InputArray src);
-
-
-/** Truncs eigenvalues of a symmetric matrix.
-  *
-  * \param src Symmetric matrix
-  * \param interval Desired eigenvalues interval
-  * \return Symmetric matrix with truncated eigenvalues
-  */
-cv::Mat TruncEigenvals(cv::InputArray src, Interval interval);
 
 
 /** Extracts matched keypoints.

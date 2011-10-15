@@ -131,7 +131,7 @@ void ReprojErrorFixedKR::Jacobian(const cv::Mat &arg, cv::Mat &jac) {
 } // namespace
 
 
-Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, InputArray K_guess, Interval evals_interval) {
+Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, InputArray K_guess) {
     vector<Mat> Hs_;
     Hs.getMatVector(Hs_);
     int num_Hs = (int)Hs_.size();
@@ -189,8 +189,6 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, InputArray K_guess, Inter
     diac(1, 1) = x(3, 0);
     diac(1, 2) = diac(2, 1) = x(4, 0);
 
-    diac = TruncEigenvals(diac, evals_interval);
-
     LOG(Mat evals; Mat evecs;
         eigen(diac, evals, evecs);
         cout << "DIAC = K * K.t() = \n" << diac << endl;
@@ -204,7 +202,7 @@ Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs, InputArray K_guess, Inter
 }
 
 
-Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, InputArray K_guess, Interval evals_interval) {
+Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, InputArray K_guess) {
     vector<Mat> Hs_;
     Hs.getMatVector(Hs_);
     int num_Hs = (int)Hs_.size();
@@ -262,8 +260,6 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, InputArray K_guess,
     iac(1, 1) = x(2, 0);
     iac(1, 2) = iac(2, 1) = x(3, 0);
 
-    iac = TruncEigenvals(iac, evals_interval);
-
     LOG(Mat evals; Mat evecs;
         eigen(iac, evals, evecs);
         cout << "IAC = (K * K.t()).inv() =\n" << iac << endl;
@@ -274,84 +270,6 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, InputArray K_guess,
     if (K_inv_t.empty())
         throw runtime_error("IAC isn't positive definite");
     return K_guess_ * K_inv_t.inv().t();
-}
-
-
-Quaternion Quaternion::FromRotationMat(cv::InputArray R) {
-    CV_Assert(R.getMat().size() == Size(3, 3) && R.getMat().type() == CV_64F);
-    Mat_<double> R_ = R.getMat();
-
-    int u = 0;
-    if (R_(1, 1) > R_(0, 0))
-        u = 1;
-    if (R_(2, 2) > R_(u, u))
-        u = 2;
-
-    static const int perm_tbl[3][3] = {{0, 1, 2}, {1, 2, 0}, {2, 0, 1}};
-    const int *p = perm_tbl[u];
-
-    double r = sqrt(1 + R_(p[0], p[0]) - R_(p[1], p[1]) - R_(p[2], p[2]));
-
-    if (r < numeric_limits<double>::epsilon())
-        return Quaternion(1, 0, 0, 0);
-
-    Quaternion q;
-    q[0] = (R_(p[2], p[1]) - R_(p[1], p[2])) / (2 * r);
-    q[1 + p[0]] = r / 2;
-    q[1 + p[1]] = (R_(p[0], p[1]) + R_(p[1], p[0])) / (2 * r);
-    q[1 + p[2]] = (R_(p[2], p[0]) + R_(p[0], p[2])) / (2 * r);
-    return q;
-}
-
-
-Mat Quaternion::RotationMatDeriv(int index) const {
-    CV_Assert(index >= 0 && index < 4);
-    Mat_<double> R(3, 3);
-    if (index == 0) {
-        R(0, 0) = 2*a_;
-        R(0, 1) = -2*d_;
-        R(0, 2) = 2*c_;
-        R(1, 0) = 2*d_;
-        R(1, 1) = 2*a_;
-        R(1, 2) = -2*b_;
-        R(2, 0) = -2*c_;
-        R(2, 1) = 2*b_;
-        R(2, 2) = 2*a_;
-    }
-    else if (index == 1) {
-        R(0, 0) = 2*b_;
-        R(0, 1) = 2*c_ ;
-        R(0, 2) = 2*d_;
-        R(1, 0) = 2*c_;
-        R(1, 1) = -2*b_;
-        R(1, 2) = -2*a_;
-        R(2, 0) = 2*d_;
-        R(2, 1) = 2*a_;
-        R(2, 2) = -2*b_;
-    }
-    else if (index == 2) {
-        R(0, 0) = -2*c_;
-        R(0, 1) = 2*b_;
-        R(0, 2) = 2*a_;
-        R(1, 0) = 2*b_;
-        R(1, 1) = 2*c_;
-        R(1, 2) = 2*d_;
-        R(2, 0) = -2*a_;
-        R(2, 1) = 2*d_;
-        R(2, 2) = -2*c_;
-    }
-    else {
-        R(0, 0) = 2*d_;
-        R(0, 1) = -2*a_;
-        R(0, 2) = 2*b_;
-        R(1, 0) = 2*a_;
-        R(1, 1) = -2*d_;
-        R(1, 2) = 2*c_;
-        R(2, 0) = 2*b_;
-        R(2, 1) = 2*c_;
-        R(2, 2) = 2*d_;
-    }
-    return R;
 }
 
 
@@ -463,32 +381,6 @@ Mat DecomposeUUt(InputArray src) {
         return Mat();
 
     return adiag * U_flipped * adiag;
-}
-
-
-Mat TruncEigenvals(InputArray src, Interval interval) {
-    Mat src_ = src.getMat();
-    CV_Assert(src_.rows == src_.cols && src_.type() == CV_64F);
-
-    Mat_<double> eigenvals, eigenvecs;
-    eigen(src_, eigenvals, eigenvecs);
-
-    switch (interval.kind()) {
-    case Interval::LEFT:
-        for (int i = 0; i < eigenvals.rows; ++i)
-            eigenvals(i, 0) = max(eigenvals(i, 0), interval.left());
-        break;
-    case Interval::RIGHT:
-        for (int i = 0; i < eigenvals.rows; ++i)
-            eigenvals(i, 0) = min(eigenvals(i, 0), interval.right());
-        break;
-    case Interval::LEFT_RIGHT:
-        for (int i = 0; i < eigenvals.rows; ++i)
-            eigenvals(i, 0) = max(min(eigenvals(i, 0), interval.right()), interval.left());
-        break;
-    }
-
-    return eigenvecs.t() * Mat::diag(eigenvals) * eigenvecs;
 }
 
 
