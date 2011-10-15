@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 set(target "${lib_name}_core")
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 
-include_directories(${OpenCV_INCLUDE_DIR} ${CMAKE_CURRENT_DIRECTORY})
+include_directories(${Boost_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIR} ${CMAKE_CURRENT_DIRECTORY})
 
 file(GLOB sources "include/*.h" "src/*.h" "src/*.cpp")
 add_library(${target} ${includes} ${sources})

@@ -1,1 +1,1 @@
-Project depends on the GTest and OpenCV libraries.
+Project depends on the OpenCV, GTest and Boost libraries.
