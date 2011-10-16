@@ -438,6 +438,7 @@ int ExtractAbsoluteRotations(const RelativeRotationMats &rel_rmats,
         }
     }
 
+    // TODO finish this
     throw runtime_error("Not implemented");
 }
 

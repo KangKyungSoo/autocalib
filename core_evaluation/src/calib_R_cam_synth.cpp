@@ -329,7 +329,7 @@ void ParseArgs(int argc, char **argv) {
             H_est_thresh = atof(argv[++i]);
         else if (string(argv[i]) == "--noise-stddev")
             noise_stddev = atof(argv[++i]);
-        else if (string(argv[i]) == "--AUTOCALIB_LOG-path")
+        else if (string(argv[i]) == "--log-path")
             log_path = argv[++i];
         else
             throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
