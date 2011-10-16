@@ -98,7 +98,7 @@ void ReprojErrorFixedKR::operator()(const cv::Mat &arg, cv::Mat &err) {
 }
 
 
-// TODO calculate analytically
+// TODO calculate analytically Jacobian in BA
 void ReprojErrorFixedKR::Jacobian(const cv::Mat &arg, cv::Mat &jac) {
     Mat_<double> arg_(arg.clone());
 
@@ -269,7 +269,11 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs, InputArray K_guess)
     Mat K_inv_t = DecomposeCholesky(iac);
     if (K_inv_t.empty())
         throw runtime_error("IAC isn't positive definite");
-    return K_guess_ * K_inv_t.inv().t();
+
+    Mat_<double> K = K_inv_t.inv().t();
+    K /= K(2, 2);
+
+    return K_guess_ * K;
 }
 
 
@@ -438,7 +442,7 @@ int ExtractAbsoluteRotations(const RelativeRotationMats &rel_rmats,
         }
     }
 
-    // TODO finish this
+    // TODO finish ExtractAbsoluteRotations functions
     throw runtime_error("Not implemented");
 }
 
