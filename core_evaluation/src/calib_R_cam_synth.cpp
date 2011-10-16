@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
         cout << "Refining camera...\n";
         if (Hs_from_0.size() != num_cameras - 1) {
             stringstream msg;
-            msg << "Refinement requires Hs between first and other images, "
+            msg << "Refinement requires Hs between first and all other images, "
                 << "but only " << Hs_from_0.size() << " were/was found";
             throw runtime_error(msg.str());
         }

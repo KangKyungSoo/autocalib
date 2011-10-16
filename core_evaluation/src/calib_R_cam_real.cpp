@@ -104,14 +104,17 @@ int main(int argc, char **argv) {
             K_guess(0, 0) = imgs[0].cols + imgs[0].rows; K_guess(0, 2) = imgs[0].cols * 0.5;
             K_guess(1, 1) = imgs[0].cols + imgs[0].rows; K_guess(1, 2) = imgs[0].rows * 0.5;
         }
-        cout << "K_guess = \n" << K_guess << endl;
+        cout << "K_guess =\n" << K_guess << endl;
+
+        int num_cameras = static_cast<int>(imgs.size());
 
         // Find features
 
+        cout << "Finding features...\n";
         Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
         features_collection.resize(imgs.size());
 
-        for (size_t i = 0; i < imgs.size(); ++i) {
+        for (int i = 0; i < num_cameras; ++i) {
             int64 t = getTickCount();
             cout << "Finding features in '" << img_names[i] << "'... ";
             (*features_finder)(imgs[i], features_collection[i]);
@@ -130,8 +133,8 @@ int main(int argc, char **argv) {
 
         MatchesCollection matches_collection;
 
-        for (size_t from = 0; from + 1 < imgs.size(); ++from) {
-            for (size_t to = from + 1; to < imgs.size(); ++to) {
+        for (int from = 0; from < num_cameras - 1; ++from) {
+            for (int to = from + 1; to < num_cameras; ++to) {
                 const detail::MatchesInfo &mi = pairwise_matches[from * imgs.size() + to];
                 matches_collection.insert(make_pair(make_pair(from, to), mi.matches));
             }
@@ -143,8 +146,9 @@ int main(int argc, char **argv) {
         vector<Mat> Hs_from_0;
         Mat keypoints1, keypoints2;
 
-        for (size_t from = 0; from + 1 < imgs.size(); ++from) {
-            for (size_t to = from + 1; to < imgs.size(); ++to) {
+        cout << "Estimating Hs...\n";
+        for (int from = 0; from < num_cameras - 1; ++from) {
+            for (int to = from + 1; to < num_cameras; ++to) {
                 const vector<DMatch> &matches = matches_collection.find(make_pair(from, to))->second;
 
                 cout << "Estimating H between '" << img_names[from] << "' and '" << img_names[to]
@@ -176,7 +180,46 @@ int main(int argc, char **argv) {
             }
         }
 
+        // Linear calibration
 
+        Mat K_linear;
+        cout << "Linear calibrating...\n";
+        if (lin_est_skew)
+            K_linear = CalibRotationalCameraLinear(Hs, K_guess);
+        else
+            K_linear = CalibRotationalCameraLinearNoSkew(Hs, K_guess);
+        cout << "K_linear =\n" << K_linear << endl;
+
+        // Non-linear refinement
+
+        cout << "Refining camera...\n";
+
+        if (Hs_from_0.size() != num_cameras - 1) {
+            stringstream msg;
+            msg << "Refinement requires Hs between first and all other images, "
+                << "but only " << Hs_from_0.size() << " were/was found";
+            throw runtime_error(msg.str());
+        }
+
+        vector<Mat> Rs(num_cameras);
+        Rs[0] = Mat::eye(3, 3, CV_64F);
+        for (int i = 1; i < num_cameras; ++i)
+            Rs[i] = K_linear.inv() * Hs_from_0[i - 1] * K_linear;
+
+        Mat_<double> K_refined = K_linear.clone();
+        if (refine_skew)
+            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection);
+        else {
+            K_refined(0, 1) = 0;
+            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection,
+                              REFINE_FLAG_ALL & ~REFINE_FLAG_SKEW);
+        }
+        cout << "K_refined =\n" << K_refined << endl;
+
+        cout << "SUMMARY\n";
+        cout << "K_guess =\n" << K_guess << endl;
+        cout << "K_linear =\n" << K_linear << endl;
+        cout << "K_refined =\n" << K_refined << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
