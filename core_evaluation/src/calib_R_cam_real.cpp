@@ -89,11 +89,22 @@ vector<Mat> imgs;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
 FeaturesCollection features_collection;
+int min_num_matches = 6;
 double H_est_thresh = 3.;
+Mat_<double> K_guess;
+bool lin_est_skew = false;
+bool refine_skew = false;
 
 int main(int argc, char **argv) {
     try {
         ParseArgs(argc, argv);
+
+        if (K_guess.empty()) {
+            K_guess = Mat::eye(3, 3, CV_64F);
+            K_guess(0, 0) = imgs[0].cols + imgs[0].rows; K_guess(0, 2) = imgs[0].cols * 0.5;
+            K_guess(1, 1) = imgs[0].cols + imgs[0].rows; K_guess(1, 2) = imgs[0].rows * 0.5;
+        }
+        cout << "K_guess = \n" << K_guess << endl;
 
         // Find features
 
@@ -102,14 +113,15 @@ int main(int argc, char **argv) {
 
         for (size_t i = 0; i < imgs.size(); ++i) {
             int64 t = getTickCount();
-            cout << "Finding features in image " << img_names[i] << "... ";
+            cout << "Finding features in '" << img_names[i] << "'... ";
             (*features_finder)(imgs[i], features_collection[i]);
-            cout << "#features = " << features_collection[i].keypoints.size() << ", "
-                 << (getTickCount() - t) / getTickFrequency() << " sec\n";
+            cout << "#features = " << features_collection[i].keypoints.size()
+                 << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
         }
 
         // Match all pairs
 
+        cout << "Matching pairs...\n";
         Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
         vector<detail::MatchesInfo> pairwise_matches;
         (*matcher)(features_collection, pairwise_matches);
@@ -128,30 +140,43 @@ int main(int argc, char **argv) {
         // Estimate homographies
 
         vector<Mat> Hs;
+        vector<Mat> Hs_from_0;
         Mat keypoints1, keypoints2;
 
         for (size_t from = 0; from + 1 < imgs.size(); ++from) {
             for (size_t to = from + 1; to < imgs.size(); ++to) {
                 const vector<DMatch> &matches = matches_collection.find(make_pair(from, to))->second;
+
+                cout << "Estimating H between '" << img_names[from] << "' and '" << img_names[to]
+                     << "'... #matches = " << matches.size();
+
+                if (matches.size() < min_num_matches) {
+                    cout << ", not enough matches\n";
+                    continue;
+                }
+
                 ExtractMatchedKeypoints(features_collection[from], features_collection[to],
                                         matches, keypoints1, keypoints2);
-
-                cout << "Estimating H between #" << from << " and #" << to << "... ";
                 vector<uchar> inliers_mask;
                 Mat H = findHomography(keypoints1, keypoints2, inliers_mask, RANSAC, H_est_thresh);
 
-                if (H.empty())
-                    cout << "FAILED\n";
-                else {
-                    int num_inliers = 0;
-                    for (size_t i = 0; i < matches.size(); ++i)
-                        if (inliers_mask[i])
-                            num_inliers++;
-                    cout << "#matches = " << matches.size() << " #inliers = " << num_inliers << endl;
-                    Hs.push_back(H);
+                if (H.empty()) {
+                    cout << ", can't estimate H\n";
+                    continue;
                 }
+
+                int num_inliers = 0;
+                for (size_t i = 0; i < matches.size(); ++i)
+                    if (inliers_mask[i])
+                        num_inliers++;
+                cout << ", #inliers = " << num_inliers << endl;
+                Hs.push_back(H);
+                if (from == 0)
+                    Hs_from_0.push_back(H);
             }
         }
+
+
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
@@ -201,10 +226,25 @@ void ParseArgs(int argc, char **argv) {
         }
         else if (string(argv[i]) == "--match-conf")
             matcher_creator.match_conf = atof(argv[++i]);
+        else if (string(argv[i]) == "--min-num-matches")
+            min_num_matches = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-thresh")
             H_est_thresh = atof(argv[++i]);
+        else if (string(argv[i]) == "--K-guess") {
+            K_guess = Mat::eye(3, 3, CV_64F);
+            K_guess(0, 0) = atof(argv[i + 1]);
+            K_guess(0, 1) = atof(argv[i + 2]);
+            K_guess(0, 2) = atof(argv[i + 3]);
+            K_guess(1, 1) = atof(argv[i + 4]);
+            K_guess(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--lin-est-skew")
+            lin_est_skew = atoi(argv[++i]);
+        else if (string(argv[i]) == "--refine-skew")
+            refine_skew = atoi(argv[++i]);
         else {
-            Mat img = imread(argv[++i]);
+            Mat img = imread(argv[i]);
             if (img.empty())
                 throw runtime_error(string("Can't open image: ") + argv[i]);
             img_names.push_back(argv[i]);
