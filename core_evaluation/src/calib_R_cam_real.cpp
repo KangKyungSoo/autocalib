@@ -12,6 +12,7 @@ using namespace cv;
 using namespace autocalib;
 
 
+// TODO does flann matches work with ORB (uchar) descriptors?
 /** Describes an ORB features finder. */
 class OrbFeaturesFinder : public detail::FeaturesFinder {
 public:
