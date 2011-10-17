@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
         }
 
         vector<RigidCamera> cameras(num_cameras);
-        FeaturesCollection features(num_cameras);
+        FeaturesCollection features_collection(num_cameras);
 
         // Generate cameras and shots
         for (int i = 0; i < num_cameras; ++i) {
@@ -111,32 +111,32 @@ int main(int argc, char **argv) {
             Rodrigues(rvec, R);
             cameras[i] = RigidCamera::LocalToWorld(K_gold, R, camera_center);
 
-            scene->TakeShot(cameras[i], viewport, features[i]);
+            scene->TakeShot(cameras[i], viewport, features_collection[i]);
         }
 
         if (noise_stddev > 0) {
             cout << "Adding noise...\n";
             for (int i = 0; i < num_cameras; ++i) {
-                Mat_<float> noise(1, 2 * features[i].keypoints.size());
+                Mat_<float> noise(1, 2 * features_collection[i].keypoints.size());
 
                 // Final noise RMS is determined by sqrt(noise_x^2 + noise_y^2),
                 // so we split by sqrt(2) to get desired noise
                 rng.fill(noise, RNG::NORMAL, 0, noise_stddev / sqrt(2.));
 
                 double total_noise = 0;
-                for (size_t j = 0; j < features[i].keypoints.size(); ++j) {
-                    features[i].keypoints[j].pt.x += noise(0, 2 * j);
-                    features[i].keypoints[j].pt.y += noise(0, 2 * j + 1);
+                for (size_t j = 0; j < features_collection[i].keypoints.size(); ++j) {
+                    features_collection[i].keypoints[j].pt.x += noise(0, 2 * j);
+                    features_collection[i].keypoints[j].pt.y += noise(0, 2 * j + 1);
                     total_noise += noise(0, 2 * j) * noise(0, 2 * j) + noise(0, 2 * j + 1) * noise(0, 2 * j + 1);
                 }
-                cout << "Shot " << i << " noise RMS error = " << sqrt(total_noise / features[i].keypoints.size()) << endl;
+                cout << "Shot " << i << " noise RMS error = " << sqrt(total_noise / features_collection[i].keypoints.size()) << endl;
             }
         }
 
         if (create_images) {
             for (int i = 0; i < num_cameras; ++i) {
                 Mat img;
-                CreateImage(features[i], img);
+                CreateImage(features_collection[i], img);
                 stringstream name;
                 name << "camera" << i << ".jpg";
                 imwrite(name.str(), img);
@@ -153,8 +153,8 @@ int main(int argc, char **argv) {
         cout << "Finding homographies...\n";        
         for (int from = 0; from < num_cameras - 1; ++from) {
             for (int to = from + 1; to < num_cameras; ++to) {
-                MatchSyntheticShots(features[from], features[to], matches);
-                ExtractMatchedKeypoints(features[from], features[to], matches, keypoints1, keypoints2);
+                MatchSyntheticShots(features_collection[from], features_collection[to], matches);
+                ExtractMatchedKeypoints(features_collection[from], features_collection[to], matches, keypoints1, keypoints2);
 
                 Mat_<uchar> mask;
                 Mat_<double> H = findHomography(keypoints1, keypoints2, mask, cv::RANSAC, H_est_thresh);
@@ -222,10 +222,10 @@ int main(int argc, char **argv) {
 
         Mat_<double> K_refined = K_init.clone();
         if (refine_skew)
-            RefineRigidCamera(K_refined, Rs, features, matches_collection);
+            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection);
         else {
             K_refined(0, 1) = 0;
-            RefineRigidCamera(K_refined, Rs, features, matches_collection,
+            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection,
                               REFINE_FLAG_ALL & ~REFINE_FLAG_SKEW);
         }
         cout << "K_refined =\n" << K_refined << endl;
