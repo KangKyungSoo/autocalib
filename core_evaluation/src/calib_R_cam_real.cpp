@@ -140,6 +140,7 @@ FeaturesCollection features_collection;
 int min_num_matches = 6;
 double H_est_thresh = 3.;
 Mat_<double> K_guess;
+Mat_<double> K_init;
 bool lin_est_skew = false;
 bool refine_skew = false;
 
@@ -230,13 +231,14 @@ int main(int argc, char **argv) {
 
         // Linear calibration
 
-        Mat K_linear;
-        cout << "Linear calibrating...\n";
-        if (lin_est_skew)
-            K_linear = CalibRotationalCameraLinear(Hs, K_guess);
-        else
-            K_linear = CalibRotationalCameraLinearNoSkew(Hs, K_guess);
-        cout << "K_linear =\n" << K_linear << endl;
+        if (K_init.empty()) {
+            cout << "Linear calibrating...\n";
+            if (lin_est_skew)
+                K_init = CalibRotationalCameraLinear(Hs, K_guess);
+            else
+                K_init = CalibRotationalCameraLinearNoSkew(Hs, K_guess);
+            cout << "K_init =\n" << K_init << endl;
+        }
 
         // Non-linear refinement
 
@@ -252,9 +254,9 @@ int main(int argc, char **argv) {
         vector<Mat> Rs(num_cameras);
         Rs[0] = Mat::eye(3, 3, CV_64F);
         for (int i = 1; i < num_cameras; ++i)
-            Rs[i] = K_linear.inv() * Hs_from_0[i - 1] * K_linear;
+            Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
 
-        Mat_<double> K_refined = K_linear.clone();
+        Mat_<double> K_refined = K_init.clone();
         if (refine_skew)
             RefineRigidCamera(K_refined, Rs, features_collection, matches_collection);
         else {
@@ -266,7 +268,7 @@ int main(int argc, char **argv) {
 
         cout << "SUMMARY\n";
         cout << "K_guess =\n" << K_guess << endl;
-        cout << "K_linear =\n" << K_linear << endl;
+        cout << "K_init =\n" << K_init << endl;
         cout << "K_refined =\n" << K_refined << endl;
     }
     catch (const exception &e) {
@@ -337,6 +339,15 @@ void ParseArgs(int argc, char **argv) {
             K_guess(0, 2) = atof(argv[i + 3]);
             K_guess(1, 1) = atof(argv[i + 4]);
             K_guess(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--K-init") {
+            K_init = Mat::eye(3, 3, CV_64F);
+            K_init(0, 0) = atof(argv[i + 1]);
+            K_init(0, 1) = atof(argv[i + 2]);
+            K_init(0, 2) = atof(argv[i + 3]);
+            K_init(1, 1) = atof(argv[i + 4]);
+            K_init(1, 2) = atof(argv[i + 5]);
             i += 5;
         }
         else if (string(argv[i]) == "--lin-est-skew")
