@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <set>
 #include <stdexcept>
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
@@ -25,7 +26,9 @@ public:
 
 private:
     virtual void find(const Mat &image, detail::ImageFeatures &features) {
-        orb_(image, Mat(), features.keypoints, features.descriptors);
+        Mat tmp;
+        orb_(image, Mat(), features.keypoints, tmp);
+        tmp.convertTo(features.descriptors, CV_32F);
     }
 
     ORB orb_;
@@ -71,14 +74,58 @@ public:
 };
 
 
-class BestOf2NearestMatcherCreator {
+class BestOf2NearestMatcher : public detail::FeaturesMatcher {
 public:
-    BestOf2NearestMatcherCreator() : match_conf(0.65f) {}
+    BestOf2NearestMatcher(Ptr<DescriptorMatcher> &matcher, float match_conf)
+        : matcher_(matcher), match_conf_(match_conf) {}
 
-    Ptr<detail::FeaturesMatcher> Create() {
-        return new detail::BestOf2NearestMatcher(false, match_conf);
+    virtual void match(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
+                       detail::MatchesInfo &mi)
+    {
+        vector<vector<DMatch> > matches;
+        set<pair<int, int> > matches12;
+
+        matcher_->knnMatch(f1.descriptors, f2.descriptors, matches, 2);
+        for (size_t i = 0; i < matches.size(); ++i) {
+            if (matches[i].size() < 2)
+                continue;
+            const DMatch &m1 = matches[i][0];
+            const DMatch &m2 = matches[i][1];
+            if (m1.distance < (1.f - match_conf_) * m2.distance)
+                matches12.insert(make_pair(m1.queryIdx, m1.trainIdx));
+        }
+
+        mi.matches.clear();
+        matcher_->knnMatch(f2.descriptors, f1.descriptors, matches, 2);
+        for (size_t i = 0; i < matches.size(); ++i) {
+            if (matches[i].size() < 2)
+                continue;
+            const DMatch &m1 = matches[i][0];
+            const DMatch &m2 = matches[i][1];
+            if (m1.distance < (1.f - match_conf_) * m2.distance &&
+                matches12.find(make_pair(m1.trainIdx, m1.queryIdx)) != matches12.end())
+            {
+                mi.matches.push_back(DMatch(m1.trainIdx, m1.queryIdx, m1.distance));
+            }
+        }
     }
 
+private:
+    Ptr<DescriptorMatcher> matcher_;
+    float match_conf_;
+};
+
+
+class BestOf2NearestMatcherCreator {
+public:
+    BestOf2NearestMatcherCreator()
+        : matcher(new FlannBasedMatcher()), match_conf(0.65f) {}
+
+    Ptr<detail::FeaturesMatcher> Create() {
+        return new BestOf2NearestMatcher(matcher, match_conf);
+    }
+
+    Ptr<DescriptorMatcher> matcher;
     float match_conf;
 };
 
@@ -231,7 +278,7 @@ int main(int argc, char **argv) {
 
 void ParseArgs(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
-        if (string(argv[i]) == "--ffinder") {
+        if (string(argv[i]) == "--features") {
             if (string(argv[i + 1]) == "surf")
                 features_finder_creator = new SurfFeaturesFinderCreator();
             else if (string(argv[i + 1]) == "orb")
@@ -267,6 +314,15 @@ void ParseArgs(int argc, char **argv) {
             if (!offc)
                 throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
             offc->num_features = atoi(argv[++i]);
+        }
+        else if (string(argv[i]) == "--matcher") {
+            if (string(argv[i + 1]) == "bfm_l2")
+                matcher_creator.matcher = new BruteForceMatcher<L2<float> >();
+            else if (string(argv[i + 1]) == "flann")
+                matcher_creator.matcher = new FlannBasedMatcher();
+            else
+                throw runtime_error(string("Unknown matcher type: ") + argv[i + 1]);
+            i++;
         }
         else if (string(argv[i]) == "--match-conf")
             matcher_creator.match_conf = atof(argv[++i]);
