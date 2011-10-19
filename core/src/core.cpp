@@ -12,7 +12,8 @@ class ReprojErrorFixedKR {
 public:
     ReprojErrorFixedKR(const FeaturesCollection &features,
                        const MatchesCollection &matches,
-                       int params_to_refine)
+                       int params_to_refine,
+                       const vector<int> &Rs_indices)
             : features_(&features), matches_(&matches), params_to_refine_(params_to_refine),
               step_(1e-4)
     {
@@ -20,6 +21,10 @@ public:
         for (MatchesCollection::const_iterator view = matches_->begin();
              view != matches_->end(); ++view)
             num_matches_ += (int)view->second.size();
+
+        Rs_indices_inv_.assign(*max(Rs_indices.begin(), Rs_indices.end()), -1);
+        for (size_t i = 0; i < Rs_indices.size(); ++i)
+            Rs_indices_inv_[Rs_indices[i]] = i;
     }
 
     void operator()(const cv::Mat &arg, cv::Mat &err);
@@ -32,13 +37,14 @@ private:
     const MatchesCollection *matches_;
     int num_matches_;
     int params_to_refine_;
+    vector<int> Rs_indices_inv_;
 
     const double step_;
-    cv::Mat_<double> err_;
+    Mat_<double> err_;
 };
 
 
-void ReprojErrorFixedKR::operator()(const cv::Mat &arg, cv::Mat &err) {
+void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
     Mat_<double> arg_(arg);
 
     err.create(dimension(), 1, CV_64F);
@@ -57,12 +63,12 @@ void ReprojErrorFixedKR::operator()(const cv::Mat &arg, cv::Mat &err) {
          view != matches_->end(); ++view)
     {
         int img_from = view->first.first;
-        const vector<KeyPoint> &kps_from = (*features_)[img_from].keypoints;
+        const vector<KeyPoint> &kps_from = features_->find(img_from)->second.keypoints;
         Mat_<double> rvec_from(1, 3);
         if (img_from) {
-            rvec_from(0, 0) = arg_(0, 5 + 3 * (img_from - 1));
-            rvec_from(0, 1) = arg_(0, 5 + 3 * (img_from - 1) + 1);
-            rvec_from(0, 2) = arg_(0, 5 + 3 * (img_from - 1) + 2);
+            rvec_from(0, 0) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_from] - 1));
+            rvec_from(0, 1) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_from] - 1) + 1);
+            rvec_from(0, 2) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_from] - 1) + 2);
         }
         else
             rvec_from.setTo(0);
@@ -70,12 +76,12 @@ void ReprojErrorFixedKR::operator()(const cv::Mat &arg, cv::Mat &err) {
         Rodrigues(rvec_from, R_from);
 
         int img_to = view->first.second;
-        const vector<KeyPoint> &kps_to = (*features_)[img_to].keypoints;
+        const vector<KeyPoint> &kps_to = features_->find(img_to)->second.keypoints;
         Mat_<double> rvec_to(1, 3);
         if (img_to) {
-            rvec_to(0, 0) = arg_(0, 5 + 3 * (img_to - 1));
-            rvec_to(0, 1) = arg_(0, 5 + 3 * (img_to - 1) + 1);
-            rvec_to(0, 2) = arg_(0, 5 + 3 * (img_to - 1) + 2);
+            rvec_to(0, 0) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_to] - 1));
+            rvec_to(0, 1) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_to] - 1) + 1);
+            rvec_to(0, 2) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_to] - 1) + 2);
         }
         else
             rvec_to.setTo(0);
@@ -269,35 +275,35 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs) {
 }
 
 
-void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
+void RefineRigidCamera(InputOutputArray K, map<int, Mat> Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,
                        int params_to_refine)
 {
     CV_Assert(K.getMatRef().size() == Size(3, 3) && K.getMatRef().type() == CV_64F);
     Mat_<double> K_(K.getMatRef());
 
-    vector<Mat> Rs_;
-    Rs.getMatVector(Rs_);
-    for (size_t i = 0; i < Rs_.size(); ++i) {
-        CV_Assert(Rs_[i].size() == Size(3, 3) && Rs_[i].type() == CV_64F);
-        Rs_[i] = Rs_[0].t() * Rs_[i];
+    vector<int> Rs_indices;
+    for (map<int, Mat>::iterator iter = Rs.begin(); iter != Rs.end() ;++iter) {
+        CV_Assert(iter->second.size() == Size(3, 3) && iter->second.type() == CV_64F);
+        iter->second = Rs.begin()->second.t() * iter->second;
+        Rs_indices.push_back(iter->first);
     }
 
-    Mat_<double> arg(1, 5 + 3 * (int)Rs_.size());
+    Mat_<double> arg(1, 5 + 3 * (int)Rs.size());
     arg(0, 0) = K_(0, 0);
     arg(0, 1) = K_(0, 1);
     arg(0, 2) = K_(0, 2);
     arg(0, 3) = K_(1, 1);
     arg(0, 4) = K_(1, 2);
-    for (size_t i = 1; i < Rs_.size(); ++i) {
+    for (size_t i = 1; i < Rs_indices.size(); ++i) {
         Mat_<double> rvec;
-        Rodrigues(Rs_[i], rvec);
+        Rodrigues(Rs.find(Rs_indices[i])->second, rvec);
         arg(0, 5 + 3 * (i - 1)) = rvec(0, 0);
         arg(0, 5 + 3 * (i - 1) + 1) = rvec(0, 1);
         arg(0, 5 + 3 * (i - 1) + 2) = rvec(0, 2);
     }
 
-    ReprojErrorFixedKR func(features, matches, params_to_refine);
+    ReprojErrorFixedKR func(features, matches, params_to_refine, Rs_indices);
     MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
     K_(0, 0) = arg(0, 0);
@@ -305,12 +311,12 @@ void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
     K_(0, 2) = arg(0, 2);
     K_(1, 1) = arg(0, 3);
     K_(1, 2) = arg(0, 4);
-    for (size_t i = 1; i < Rs_.size(); ++i) {
+    for (size_t i = 1; i < Rs_indices.size(); ++i) {
         Mat_<double> rvec(1, 3);
         rvec(0, 0) = arg(0, 5 + 3 * (i - 1));
         rvec(0, 1) = arg(0, 5 + 3 * (i - 1) + 1);
         rvec(0, 2) = arg(0, 5 + 3 * (i - 1) + 2);
-        Rodrigues(rvec, Rs_[i]);
+        Rodrigues(rvec, Rs.find(Rs_indices[i])->second);
     }
 }
 

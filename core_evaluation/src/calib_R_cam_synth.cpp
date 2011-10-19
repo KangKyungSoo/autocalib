@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
         }
 
         vector<RigidCamera> cameras(num_cameras);
-        FeaturesCollection features_collection(num_cameras);
+        FeaturesCollection features_collection;
 
         // Generate cameras and shots
         for (int i = 0; i < num_cameras; ++i) {
@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
         }
 
         // Refine camera parameters
-        vector<Mat> Rs(num_cameras);
+        map<int, Mat> Rs;
         Rs[0] = Mat::eye(3, 3, CV_64F);
         for (int i = 1; i < num_cameras; ++i)
             Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;

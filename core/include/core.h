@@ -171,7 +171,7 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts = 
 //============================================================================
 // Autocalibration
 
-typedef std::vector<cv::detail::ImageFeatures> FeaturesCollection;
+typedef std::map<int, cv::detail::ImageFeatures> FeaturesCollection;
 typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollection;
 
 
@@ -209,13 +209,13 @@ enum RefineFlag {
 /** Refines a rigid camera parameters by minimizing overall reprojection error.
   *
   * \param K Camera intrinsics
-  * \param Rs Camera rotations vector
+  * \param Rs Camera rotations
   * \param features Features collection
   * \param matches Matches collection
   * \param params_to_refine Flags indicating parameters which should be refined
   * \see RefineFlag
   */
-void RefineRigidCamera(cv::InputOutputArray K, cv::InputOutputArrayOfArrays Rs,
+void RefineRigidCamera(cv::InputOutputArray K, std::map<int, cv::Mat> Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,
                        int params_to_refine = REFINE_FLAG_ALL);
 
@@ -288,7 +288,7 @@ typedef std::map<int, cv::Mat> AbsoluteRotationMats;
   */
 int ExtractAbsoluteRotations(const RelativeRotationMats &rel_rmats,
                              const RelativeConfidences &rel_confs,
-                             AbsoluteRotationMats &abs_rmats);
+                             AbsoluteRotationMats &abs_rmats); 
 
 } // namespace autocalib
 
