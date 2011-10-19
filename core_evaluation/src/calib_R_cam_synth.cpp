@@ -21,7 +21,6 @@ int num_points = 1000;
 int num_cameras = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
-Mat_<double> K_guess = Mat::eye(3, 3, CV_64F);
 Mat_<double> K_init;
 bool lin_est_skew = false;
 bool refine_skew = false;
@@ -199,9 +198,9 @@ int main(int argc, char **argv) {
         if (K_init.empty()) {
             cout << "Linear calibrating...\n";
             if (lin_est_skew)
-                K_init = CalibRotationalCameraLinear(Hs, K_guess);
+                K_init = CalibRotationalCameraLinear(Hs);
             else
-                K_init = CalibRotationalCameraLinearNoSkew(Hs, K_guess);
+                K_init = CalibRotationalCameraLinearNoSkew(Hs);
             cout << "Linear calibration result'll be used as K_init\n";
         }
         cout << "K_init =\n" << K_init << endl;
@@ -288,15 +287,6 @@ void ParseArgs(int argc, char **argv) {
             K_gold(0, 2) = atof(argv[i + 3]);
             K_gold(1, 1) = atof(argv[i + 4]);
             K_gold(1, 2) = atof(argv[i + 5]);
-            i += 5;
-        }
-        else if (string(argv[i]) == "--K-guess") {
-            K_guess = Mat::eye(3, 3, CV_64F);
-            K_guess(0, 0) = atof(argv[i + 1]);
-            K_guess(0, 1) = atof(argv[i + 2]);
-            K_guess(0, 2) = atof(argv[i + 3]);
-            K_guess(1, 1) = atof(argv[i + 4]);
-            K_guess(1, 2) = atof(argv[i + 5]);
             i += 5;
         }
         else if (string(argv[i]) == "--K-init") {

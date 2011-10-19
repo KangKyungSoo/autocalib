@@ -180,11 +180,9 @@ typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollectio
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
   * \param Hs Projective plane homographies
-  * \param K_guess Camara intrinsics guess
   * \return Camera intrinsics
   */
-cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
-                                    cv::InputArray K_guess = cv::Mat::eye(3, 3, CV_64F));
+cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
 
 
 /** Calculates rotational camera intrinsics using a linear algorithm with the zero skew assumption.
@@ -192,11 +190,9 @@ cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs,
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
   *
   * \param Hs Projective plane homographies
-  * \param K_guess Camara intrinsics guess
   * \return Camera intrinsics, where skew is zero
   */
-cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs,
-                                          cv::InputArray K_guess = cv::Mat::eye(3, 3, CV_64F));
+cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs);
 
 
 /** Rigid camera refinement method flags. */
