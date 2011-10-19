@@ -139,7 +139,6 @@ BestOf2NearestMatcherCreator matcher_creator;
 FeaturesCollection features_collection;
 int min_num_matches = 6;
 double H_est_thresh = 3.;
-Mat_<double> K_guess;
 Mat_<double> K_init;
 bool lin_est_skew = false;
 bool refine_skew = false;
@@ -147,13 +146,6 @@ bool refine_skew = false;
 int main(int argc, char **argv) {
     try {
         ParseArgs(argc, argv);
-
-        if (K_guess.empty()) {
-            K_guess = Mat::eye(3, 3, CV_64F);
-            K_guess(0, 0) = imgs[0].cols + imgs[0].rows; K_guess(0, 2) = imgs[0].cols * 0.5;
-            K_guess(1, 1) = imgs[0].cols + imgs[0].rows; K_guess(1, 2) = imgs[0].rows * 0.5;
-        }
-        cout << "K_guess =\n" << K_guess << endl;
 
         int num_cameras = static_cast<int>(imgs.size());
 
@@ -234,9 +226,9 @@ int main(int argc, char **argv) {
         if (K_init.empty()) {
             cout << "Linear calibrating...\n";
             if (lin_est_skew)
-                K_init = CalibRotationalCameraLinear(Hs, K_guess);
+                K_init = CalibRotationalCameraLinear(Hs);
             else
-                K_init = CalibRotationalCameraLinearNoSkew(Hs, K_guess);
+                K_init = CalibRotationalCameraLinearNoSkew(Hs);
             cout << "K_init =\n" << K_init << endl;
         }
 
@@ -267,7 +259,6 @@ int main(int argc, char **argv) {
         cout << "K_refined =\n" << K_refined << endl;
 
         cout << "SUMMARY\n";
-        cout << "K_guess =\n" << K_guess << endl;
         cout << "K_init =\n" << K_init << endl;
         cout << "K_refined =\n" << K_refined << endl;
     }
@@ -332,15 +323,6 @@ void ParseArgs(int argc, char **argv) {
             min_num_matches = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-thresh")
             H_est_thresh = atof(argv[++i]);
-        else if (string(argv[i]) == "--K-guess") {
-            K_guess = Mat::eye(3, 3, CV_64F);
-            K_guess(0, 0) = atof(argv[i + 1]);
-            K_guess(0, 1) = atof(argv[i + 2]);
-            K_guess(0, 2) = atof(argv[i + 3]);
-            K_guess(1, 1) = atof(argv[i + 4]);
-            K_guess(1, 2) = atof(argv[i + 5]);
-            i += 5;
-        }
         else if (string(argv[i]) == "--K-init") {
             K_init = Mat::eye(3, 3, CV_64F);
             K_init(0, 0) = atof(argv[i + 1]);
