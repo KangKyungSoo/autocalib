@@ -148,12 +148,13 @@ int main(int argc, char **argv) {
         ParseArgs(argc, argv);
 
         int num_cameras = static_cast<int>(imgs.size());
+        if (num_cameras < 1)
+            throw runtime_error("Need at least one camera");
 
         // Find features
 
         cout << "Finding features...\n";
         Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
-        features_collection.resize(imgs.size());
 
         for (int i = 0; i < num_cameras; ++i) {
             int64 t = getTickCount();
@@ -165,21 +166,24 @@ int main(int argc, char **argv) {
 
         // Match all pairs
 
-        cout << "Matching pairs...\n";
-        Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
-        vector<detail::MatchesInfo> pairwise_matches;
-        (*matcher)(features_collection, pairwise_matches);
-
-        // Convert pairwise matches into our matches format
-
+        cout << "Matching pairs... ";
         MatchesCollection matches_collection;
+        Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
 
-        for (int from = 0; from < num_cameras - 1; ++from) {
-            for (int to = from + 1; to < num_cameras; ++to) {
-                const detail::MatchesInfo &mi = pairwise_matches[from * imgs.size() + to];
-                matches_collection.insert(make_pair(make_pair(from, to), mi.matches));
+        FeaturesCollection::iterator from_iter = features_collection.begin();
+        FeaturesCollection::iterator from_next_iter = from_iter; ++from_next_iter;
+        FeaturesCollection::iterator to_iter;
+
+        for (; from_next_iter != features_collection.end(); from_iter = from_next_iter++) {
+            for (to_iter = from_next_iter; to_iter != features_collection.end(); ++to_iter) {
+                cout << "(" << from_iter->first << "->" << to_iter->first << ") ";
+                detail::MatchesInfo mi;
+                (*matcher)(from_iter->second, to_iter->second, mi);
+                matches_collection.insert(make_pair(make_pair(from_iter->first, to_iter->first),
+                                                    mi.matches));
             }
         }
+        cout << endl;
 
         // Estimate homographies
 
@@ -243,7 +247,7 @@ int main(int argc, char **argv) {
             throw runtime_error(msg.str());
         }
 
-        vector<Mat> Rs(num_cameras);
+        map<int, Mat> Rs;
         Rs[0] = Mat::eye(3, 3, CV_64F);
         for (int i = 1; i < num_cameras; ++i)
             Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
