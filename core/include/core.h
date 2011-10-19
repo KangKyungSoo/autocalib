@@ -14,6 +14,12 @@
 
 namespace autocalib {
 
+typedef std::map<int, cv::detail::ImageFeatures> FeaturesCollection;
+typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollection;
+typedef std::map<std::pair<int, int>, cv::Mat> RelativeRotationMats;
+typedef std::map<std::pair<int, int>, double> RelativeConfidences;
+typedef std::map<int, cv::Mat> AbsoluteRotationMats;
+
 //============================================================================
 // Cameras
 
@@ -171,10 +177,6 @@ double MinimizeLevMarq(Func func, cv::InputOutputArray arg, MinimizeOpts opts = 
 //============================================================================
 // Autocalibration
 
-typedef std::map<int, cv::detail::ImageFeatures> FeaturesCollection;
-typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollection;
-
-
 /** Calculates rotational camera intrinsics using a linear algorithm.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
@@ -215,7 +217,7 @@ enum RefineFlag {
   * \param params_to_refine Flags indicating parameters which should be refined
   * \see RefineFlag
   */
-void RefineRigidCamera(cv::InputOutputArray K, std::map<int, cv::Mat> Rs,
+void RefineRigidCamera(cv::InputOutputArray K, AbsoluteRotationMats Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,
                        int params_to_refine = REFINE_FLAG_ALL);
 
@@ -272,11 +274,6 @@ void ExtractMatchedKeypoints(const cv::detail::ImageFeatures &f1,
   * \return Transformed point
   */
 cv::Point3d TransformRigid(const cv::Point3d& point, const cv::Mat &R, const cv::Mat &T);
-
-
-typedef std::map<std::pair<int, int>, cv::Mat> RelativeRotationMats;
-typedef std::map<std::pair<int, int>, double> RelativeConfidences;
-typedef std::map<int, cv::Mat> AbsoluteRotationMats;
 
 
 /** Extracts absolute rotations from relative rotations.

@@ -275,7 +275,7 @@ Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs) {
 }
 
 
-void RefineRigidCamera(InputOutputArray K, map<int, Mat> Rs,
+void RefineRigidCamera(InputOutputArray K, AbsoluteRotationMats Rs,
                        const FeaturesCollection &features, const MatchesCollection &matches,
                        int params_to_refine)
 {
@@ -283,7 +283,7 @@ void RefineRigidCamera(InputOutputArray K, map<int, Mat> Rs,
     Mat_<double> K_(K.getMatRef());
 
     vector<int> Rs_indices;
-    for (map<int, Mat>::iterator iter = Rs.begin(); iter != Rs.end() ;++iter) {
+    for (AbsoluteRotationMats::iterator iter = Rs.begin(); iter != Rs.end() ;++iter) {
         CV_Assert(iter->second.size() == Size(3, 3) && iter->second.type() == CV_64F);
         iter->second = Rs.begin()->second.t() * iter->second;
         Rs_indices.push_back(iter->first);
