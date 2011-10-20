@@ -241,7 +241,7 @@ int main(int argc, char **argv) {
         if (!log_path.empty()) {
             ofstream f(log_path.c_str(), ios_base::app);
             if (!f.is_open())
-                throw runtime_error("Can't open AUTOCALIB_LOG file: " + log_path);
+                throw runtime_error("Can't open log file: " + log_path);
             f << num_points << " " << num_cameras << " " << noise_stddev << " ";
             f << K_init(0, 0) << " " << K_init(1, 1) << " " << K_init(0, 2) << " " << K_init(1, 2) << " " << K_init(0, 1) << " ";
             f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
