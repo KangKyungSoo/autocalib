@@ -431,7 +431,8 @@ namespace autocalib {
     } // namespace
 
 
-    int ExtractEfficientCorrespondences(const RelativeConfidences &rel_confs, detail::Graph &graph) {
+    int ExtractEfficientCorrespondences(const RelativeConfidences &rel_confs, detail::Graph &graph)
+    {
 
         // Collect all vertices
 
@@ -467,12 +468,10 @@ namespace autocalib {
 
         list<detail::GraphEdge> max_comp_edges;
 
-        RelativeConfidences rel_confs_;
         for (RelativeConfidences::const_iterator iter = rel_confs.begin(); iter != rel_confs.end(); ++iter) {
             if (max_comp.find(iter->first.first) != max_comp.end() &&
                 max_comp.find(iter->first.second) != max_comp.end())
             {
-                rel_confs_.insert(*iter);
                 max_comp_edges.push_back(detail::GraphEdge(iter->first.first, iter->first.second, iter->second));
             }
         }
