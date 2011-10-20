@@ -10,6 +10,7 @@
 #include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
+#include <opencv2/stitching/detail/util.hpp>
 #include <config.h>
 
 namespace autocalib {
@@ -277,18 +278,14 @@ namespace autocalib {
     cv::Point3d TransformRigid(const cv::Point3d& point, const cv::Mat &R, const cv::Mat &T);
 
 
-    /** Extracts absolute rotations from relative rotations.
+    /** Extracts an efficient correspondences subgraph.
       *
-      * Note this function may remove some of input cameras.
-      *
-      * \param rel_rmats Pairwise relative rotation matrices in the "(from,to)->rmat" format
-      * \param rel_confs Pairwise relative confidences
-      * \param abs_rmats Absolute rotation matrices (reference camera'll have an eye rotation matrix)
-      * \return Reference camera ID
+      * \param rel_confs Pairwise matches confidences
+      * \param graph Efficient correspondences subgraph (it's an oriented graph and it's a tree)
+      * \return Extracted graph center (one of)
       */
-    int ExtractAbsoluteRotations(const RelativeRotationMats &rel_rmats,
-                                 const RelativeConfidences &rel_confs,
-                                 AbsoluteRotationMats &abs_rmats);
+    int ExtractEfficientCorrespondences(const RelativeConfidences &rel_confs, cv::detail::Graph &graph);
+
 
 } // namespace autocalib
 

@@ -125,7 +125,8 @@ namespace autocalib {
         iac(1, 1) = x(2, 0);
         iac(1, 2) = iac(2, 1) = x(3, 0);
 
-        AUTOCALIB_LOG(Mat evals; Mat evecs;
+        AUTOCALIB_LOG(
+            Mat evals; Mat evecs;
             eigen(iac, evals, evecs);
             cout << "IAC = (K * K.t()).inv() =\n" << iac << endl;
             cout << "IAC evecs = \n" << evecs << endl;
@@ -427,30 +428,15 @@ namespace autocalib {
             map<int, int> *distances;
         };
 
-
-        class CalculateAbsRotations {
-        public:
-            CalculateAbsRotations(const RelativeRotationMats &rel_rmats, AbsoluteRotationMats &abs_rmats)
-                : rel_rmats(&rel_rmats), abs_rmats(&abs_rmats) {}
-
-            void operator()(const detail::GraphEdge &edge) {
-                (*abs_rmats)[edge.to] = rel_rmats->find(make_pair(edge.from, edge.to))->second
-                                        * (*abs_rmats)[edge.from];
-            }
-
-            const RelativeRotationMats *rel_rmats;
-            AbsoluteRotationMats *abs_rmats;
-        };
-
     } // namespace
 
 
-    int ExtractAbsoluteRotations(const RelativeRotationMats &rel_rmats,
-                                 const RelativeConfidences &rel_confs,
-                                 AbsoluteRotationMats &abs_rmats)
-    {
+    int ExtractEfficientCorrespondences(const RelativeConfidences &rel_confs, detail::Graph &graph) {
+
+        // Collect all vertices
+
         set<int> vertices;
-        for (RelativeRotationMats::const_iterator iter = rel_rmats.begin(); iter != rel_rmats.end(); ++iter) {
+        for (RelativeConfidences::const_iterator iter = rel_confs.begin(); iter != rel_confs.end(); ++iter) {
             vertices.insert(iter->first.first);
             vertices.insert(iter->first.second);
         }
@@ -460,12 +446,12 @@ namespace autocalib {
         detail::DisjointSets cc_as_djs;
         cc_as_djs.createOneElemSets(vertices.size());
 
-        for (RelativeRotationMats::const_iterator iter = rel_rmats.begin(); iter != rel_rmats.end(); ++iter) {
+        for (RelativeConfidences::const_iterator iter = rel_confs.begin(); iter != rel_confs.end(); ++iter) {
             int comp_from = cc_as_djs.findSetByElem(iter->first.first);
             int comp_to = cc_as_djs.findSetByElem(iter->first.second);
             if (comp_from != comp_to)
                 cc_as_djs.mergeSets(comp_from, comp_to);
-        }       
+        }
 
         // Select the biggest one
 
@@ -481,15 +467,6 @@ namespace autocalib {
 
         list<detail::GraphEdge> max_comp_edges;
 
-        RelativeRotationMats rel_rmats_;
-        for (RelativeRotationMats::const_iterator iter = rel_rmats.begin(); iter != rel_rmats.end(); ++iter) {
-            if (max_comp.find(iter->first.first) != max_comp.end() &&
-                max_comp.find(iter->first.second) != max_comp.end())
-            {
-                rel_rmats_.insert(*iter);
-            }
-        }
-
         RelativeConfidences rel_confs_;
         for (RelativeConfidences::const_iterator iter = rel_confs.begin(); iter != rel_confs.end(); ++iter) {
             if (max_comp.find(iter->first.first) != max_comp.end() &&
@@ -502,7 +479,12 @@ namespace autocalib {
 
         // Find a maximum spanning tree of the maximum component using the Kruskal algorithm
 
-        detail::Graph span_tree;
+        detail::Graph &span_tree = graph;
+        span_tree.create(max_comp.size());
+
+        detail::Graph span_tree_bidirect;
+        span_tree_bidirect.create(max_comp.size());
+
         map<int, int> span_tree_powers;
 
         cc_as_djs.createOneElemSets(max_comp.size());
@@ -517,7 +499,9 @@ namespace autocalib {
             if (comp_from != comp_to) {
                 cc_as_djs.mergeSets(comp_from, comp_to);
                 span_tree.addEdge(iter->from, iter->to, iter->weight);
-                span_tree.addEdge(iter->to, iter->from, iter->weight);
+
+                span_tree_bidirect.addEdge(iter->from, iter->to, iter->weight);
+                span_tree_bidirect.addEdge(iter->to, iter->from, iter->weight);
 
                 map<int, int>::iterator iter_ = span_tree_powers.find(iter->from);
                 if (iter_ != span_tree_powers.end())
@@ -552,7 +536,7 @@ namespace autocalib {
 
         for (set<int>::iterator iter = max_comp.begin(); iter != max_comp.end(); ++iter) {
             map<int, int> distances = zero_distances;
-            span_tree.walkBreadthFirst(*iter, IncrementDistance(distances));
+            span_tree_bidirect.walkBreadthFirst(*iter, IncrementDistance(distances));
 
             int arg_max;
             int max_distance = numeric_limits<int>::max();
@@ -569,12 +553,6 @@ namespace autocalib {
                 radius = max_distance;
             }
         }
-
-        // Obtain absolute rotations
-
-        abs_rmats.clear();
-        abs_rmats[center] = Mat::eye(3, 3, CV_64F);
-        span_tree.walkBreadthFirst(center, CalculateAbsRotations(rel_rmats_, abs_rmats));
 
         return center;
     }
