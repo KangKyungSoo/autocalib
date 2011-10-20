@@ -6,18 +6,17 @@ using namespace cv;
 
 namespace autocalib {
 
-    Mat CalibRotationalCameraLinear(InputArrayOfArrays Hs) {
-        vector<Mat> Hs_;
-        Hs.getMatVector(Hs_);
-        int num_Hs = (int)Hs_.size();
+    Mat CalibRotationalCameraLinear(const HomographiesP2 &Hs) {
+        int num_Hs = (int)Hs.size();
         if (num_Hs < 1)
             throw runtime_error("Need at least one homography");
 
         // Normalize homographies
-        vector<Mat> Hs_normed(num_Hs);
-        for (int i = 0; i < num_Hs; ++i) {
-            CV_Assert(Hs_[i].size() == Size(3, 3) && Hs_[i].type() == CV_64F);
-            Hs_normed[i] = Hs_[i] / pow(determinant(Hs_[i]), 1. / 3.);
+        vector<Mat> Hs_normed;
+        for (HomographiesP2::const_iterator iter = Hs.begin(); iter != Hs.end(); ++iter) {
+            Mat H = iter->second;
+            CV_Assert(H.size() == Size(3, 3) && H.type() == CV_64F);
+            Hs_normed.push_back(H / pow(determinant(H), 1. / 3.));
         }
 
         Mat_<double> A(6 * num_Hs, 5);
@@ -73,18 +72,17 @@ namespace autocalib {
     }
 
 
-    Mat CalibRotationalCameraLinearNoSkew(InputArrayOfArrays Hs) {
-        vector<Mat> Hs_;
-        Hs.getMatVector(Hs_);
-        int num_Hs = (int)Hs_.size();
+    Mat CalibRotationalCameraLinearNoSkew(const HomographiesP2 &Hs) {
+        int num_Hs = (int)Hs.size();
         if (num_Hs < 1)
             throw runtime_error("Need at least one homography");
 
         // Normalize and transpose homographies
-        vector<Mat> Hs_normed_t(num_Hs);
-        for (int i = 0; i < num_Hs; ++i) {
-            CV_Assert(Hs_[i].size() == Size(3, 3) && Hs_[i].type() == CV_64F);
-            Hs_normed_t[i] = (Hs_[i] / pow(determinant(Hs_[i]), 1. / 3.)).t();
+        vector<Mat> Hs_normed_t;
+        for (HomographiesP2::const_iterator iter = Hs.begin(); iter != Hs.end(); ++iter) {
+            Mat H = iter->second;
+            CV_Assert(H.size() == Size(3, 3) && H.type() == CV_64F);
+            Hs_normed_t.push_back((H / pow(determinant(H), 1. / 3.)).t());
         }
 
         Mat_<double> A(6 * num_Hs, 4);
@@ -160,7 +158,7 @@ namespace autocalib {
                      view != matches_->end(); ++view)
                     num_matches_ += (int)view->second.size();
 
-                Rs_indices_inv_.assign(*max(Rs_indices.begin(), Rs_indices.end()), -1);
+                Rs_indices_inv_.assign(*max_element(Rs_indices.begin(), Rs_indices.end()) + 1, -1);
                 for (size_t i = 0; i < Rs_indices.size(); ++i)
                     Rs_indices_inv_[Rs_indices[i]] = i;
             }
@@ -416,37 +414,169 @@ namespace autocalib {
     }
 
 
+    namespace {
+
+        class IncrementDistance {
+        public:
+            IncrementDistance(map<int, int> &distances) : distances(&distances) {}
+
+            void operator()(const detail::GraphEdge &edge) {
+                (*distances)[edge.to] = (*distances)[edge.from] + 1;
+            }
+
+            map<int, int> *distances;
+        };
+
+
+        class CalculateAbsRotations {
+        public:
+            CalculateAbsRotations(const RelativeRotationMats &rel_rmats, AbsoluteRotationMats &abs_rmats)
+                : rel_rmats(&rel_rmats), abs_rmats(&abs_rmats) {}
+
+            void operator()(const detail::GraphEdge &edge) {
+                (*abs_rmats)[edge.to] = rel_rmats->find(make_pair(edge.from, edge.to))->second
+                                        * (*abs_rmats)[edge.from];
+            }
+
+            const RelativeRotationMats *rel_rmats;
+            AbsoluteRotationMats *abs_rmats;
+        };
+
+    } // namespace
+
+
     int ExtractAbsoluteRotations(const RelativeRotationMats &rel_rmats,
                                  const RelativeConfidences &rel_confs,
                                  AbsoluteRotationMats &abs_rmats)
     {
         set<int> vertices;
-
-        // Prepare graph edges
-
-        list<detail::GraphEdge> edges;
         for (RelativeRotationMats::const_iterator iter = rel_rmats.begin(); iter != rel_rmats.end(); ++iter) {
             vertices.insert(iter->first.first);
             vertices.insert(iter->first.second);
-            double conf = rel_confs.find(iter->first)->second;
-            if (conf > 0)
-                edges.push_back(detail::GraphEdge(iter->first.first, iter->first.second, conf));
         }
 
-        // Find maximum spanning subtrees using the Kruskal algorithm
-        // (a few subtrees are possible as graph can be not connected)
+        // Find connected components
 
-        detail::DisjointSets comps_as_djs;
-        edges.sort(greater<detail::GraphEdge>());
-        for (list<detail::GraphEdge>::const_iterator iter = edges.begin(); iter != edges.end(); ++iter) {
-            int comp_from = comps_as_djs.findSetByElem(iter->from);
-            int comp_to = comps_as_djs.findSetByElem(iter->to);
+        detail::DisjointSets cc_as_djs;
+        cc_as_djs.createOneElemSets(vertices.size());
+
+        for (RelativeRotationMats::const_iterator iter = rel_rmats.begin(); iter != rel_rmats.end(); ++iter) {
+            int comp_from = cc_as_djs.findSetByElem(iter->first.first);
+            int comp_to = cc_as_djs.findSetByElem(iter->first.second);
             if (comp_from != comp_to)
-                comps_as_djs.mergeSets(comp_from, comp_to);
+                cc_as_djs.mergeSets(comp_from, comp_to);
+        }       
+
+        // Select the biggest one
+
+        int max_comp_id = max_element(cc_as_djs.size.begin(), cc_as_djs.size.end())
+                          - cc_as_djs.size.begin();
+
+        set<int> max_comp;
+        for (set<int>::iterator iter = vertices.begin(); iter != vertices.end(); ++iter)
+            if (cc_as_djs.findSetByElem(*iter) == max_comp_id)
+                max_comp.insert(*iter);
+
+        // Leave only the biggest component data
+
+        list<detail::GraphEdge> max_comp_edges;
+
+        RelativeRotationMats rel_rmats_;
+        for (RelativeRotationMats::const_iterator iter = rel_rmats.begin(); iter != rel_rmats.end(); ++iter) {
+            if (max_comp.find(iter->first.first) != max_comp.end() &&
+                max_comp.find(iter->first.second) != max_comp.end())
+            {
+                rel_rmats_.insert(*iter);
+            }
         }
 
-        // TODO finish ExtractAbsoluteRotations functions
-        throw runtime_error("Not implemented");
+        RelativeConfidences rel_confs_;
+        for (RelativeConfidences::const_iterator iter = rel_confs.begin(); iter != rel_confs.end(); ++iter) {
+            if (max_comp.find(iter->first.first) != max_comp.end() &&
+                max_comp.find(iter->first.second) != max_comp.end())
+            {
+                rel_confs_.insert(*iter);
+                max_comp_edges.push_back(detail::GraphEdge(iter->first.first, iter->first.second, iter->second));
+            }
+        }
+
+        // Find a maximum spanning tree of the maximum component using the Kruskal algorithm
+
+        detail::Graph span_tree;
+        map<int, int> span_tree_powers;
+
+        cc_as_djs.createOneElemSets(max_comp.size());
+        max_comp_edges.sort(greater<detail::GraphEdge>());
+
+        for (list<detail::GraphEdge>::iterator iter = max_comp_edges.begin();
+             iter != max_comp_edges.end(); ++iter)
+        {
+            int comp_from = cc_as_djs.findSetByElem(iter->from);
+            int comp_to = cc_as_djs.findSetByElem(iter->to);
+
+            if (comp_from != comp_to) {
+                cc_as_djs.mergeSets(comp_from, comp_to);
+                span_tree.addEdge(iter->from, iter->to, iter->weight);
+                span_tree.addEdge(iter->to, iter->from, iter->weight);
+
+                map<int, int>::iterator iter_ = span_tree_powers.find(iter->from);
+                if (iter_ != span_tree_powers.end())
+                    iter_->second++;
+                else
+                    span_tree_powers.insert(make_pair(iter->from, 0));
+
+                iter_ = span_tree_powers.find(iter->to);
+                if (iter_ != span_tree_powers.end())
+                    iter_->second++;
+                else
+                    span_tree_powers.insert(make_pair(iter->to, 0));
+            }
+        }
+
+        // Find spanning tree leafs
+
+        set<int> span_tree_leafs;
+        map<int, int> zero_distances;
+
+        for (map<int, int>::iterator iter = span_tree_powers.begin(); iter != span_tree_powers.end(); ++iter) {
+            if (iter->second == 1) {
+                span_tree_leafs.insert(iter->first);
+                zero_distances.insert(make_pair(iter->first, 0));
+            }
+        }
+
+        // Find spanning tree center
+
+        int center;
+        int radius = numeric_limits<int>::max();
+
+        for (set<int>::iterator iter = max_comp.begin(); iter != max_comp.end(); ++iter) {
+            map<int, int> distances = zero_distances;
+            span_tree.walkBreadthFirst(*iter, IncrementDistance(distances));
+
+            int arg_max;
+            int max_distance = numeric_limits<int>::max();
+
+            for (map<int, int>::iterator iter_ = distances.begin(); iter_ != distances.end(); ++iter_) {
+                if (iter_->second > max_distance) {
+                    arg_max = iter_->first;
+                    max_distance = iter_->second;
+                }
+            }
+
+            if (max_distance < radius) {
+                center = arg_max;
+                radius = max_distance;
+            }
+        }
+
+        // Obtain absolute rotations
+
+        abs_rmats.clear();
+        abs_rmats[center] = Mat::eye(3, 3, CV_64F);
+        span_tree.walkBreadthFirst(center, CalculateAbsRotations(rel_rmats_, abs_rmats));
+
+        return center;
     }
 
 } // namespace autocalib

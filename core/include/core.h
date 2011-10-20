@@ -16,6 +16,7 @@ namespace autocalib {
 
     typedef std::map<int, cv::detail::ImageFeatures> FeaturesCollection;
     typedef std::map<std::pair<int, int>, std::vector<cv::DMatch> > MatchesCollection;
+    typedef std::map<std::pair<int, int>, cv::Mat> HomographiesP2;
     typedef std::map<std::pair<int, int>, cv::Mat> RelativeRotationMats;
     typedef std::map<std::pair<int, int>, double> RelativeConfidences;
     typedef std::map<int, cv::Mat> AbsoluteRotationMats;
@@ -184,7 +185,7 @@ namespace autocalib {
       * \param Hs Projective plane homographies
       * \return Camera intrinsics
       */
-    cv::Mat CalibRotationalCameraLinear(cv::InputArrayOfArrays Hs);
+    cv::Mat CalibRotationalCameraLinear(const HomographiesP2 &Hs);
 
 
     /** Calculates rotational camera intrinsics using a linear algorithm with the zero skew assumption.
@@ -194,7 +195,7 @@ namespace autocalib {
       * \param Hs Projective plane homographies
       * \return Camera intrinsics, where skew is zero
       */
-    cv::Mat CalibRotationalCameraLinearNoSkew(cv::InputArrayOfArrays Hs);
+    cv::Mat CalibRotationalCameraLinearNoSkew(const HomographiesP2 &Hs);
 
 
     /** Rigid camera refinement method flags. */
