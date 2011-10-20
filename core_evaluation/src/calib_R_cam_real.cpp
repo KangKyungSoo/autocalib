@@ -26,9 +26,7 @@ public:
 
 private:
     virtual void find(const Mat &image, detail::ImageFeatures &features) {
-        Mat tmp;
-        orb_(image, Mat(), features.keypoints, tmp);
-        tmp.convertTo(features.descriptors, CV_32F);
+        orb_(image, Mat(), features.keypoints, features.descriptors);
     }
 
     ORB orb_;
@@ -187,8 +185,9 @@ int main(int argc, char **argv) {
 
         // Estimate homographies
 
-        vector<Mat> Hs;
+        HomographiesP2 Hs;
         vector<Mat> Hs_from_0;
+        RelativeConfidences rel_confs;
         Mat keypoints1, keypoints2;
 
         cout << "Estimating Hs...\n";
@@ -207,7 +206,7 @@ int main(int argc, char **argv) {
                 ExtractMatchedKeypoints(features_collection[from], features_collection[to],
                                         matches, keypoints1, keypoints2);
                 vector<uchar> inliers_mask;
-                Mat H = findHomography(keypoints1, keypoints2, inliers_mask, RANSAC, H_est_thresh);
+                Mat_<double> H = findHomography(keypoints1, keypoints2, inliers_mask, RANSAC, H_est_thresh);
 
                 if (H.empty()) {
                     cout << ", can't estimate H\n";
@@ -218,8 +217,31 @@ int main(int argc, char **argv) {
                 for (size_t i = 0; i < matches.size(); ++i)
                     if (inliers_mask[i])
                         num_inliers++;
-                cout << ", #inliers = " << num_inliers << endl;
-                Hs.push_back(H);
+                cout << ", #inliers = " << num_inliers;
+
+                double rms_err = 0;
+                for (int i = 0; i < keypoints1.cols; ++i) {
+                    const Point2f &kp1 = keypoints1.at<Point2f>(0, i);
+                    const Point2f &kp2 = keypoints2.at<Point2f>(0, i);
+                    double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
+                    double y = H(1, 0) * kp1.x + H(1, 1) * kp1.y + H(1, 2);
+                    double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);
+                    x /= z; y /= z;
+                    rms_err += (kp2.x - x) * (kp2.x - x) + (kp2.y - y) * (kp2.y - y);
+                }
+                rms_err = sqrt(rms_err / keypoints1.cols);
+                cout << ", RMS err = " << rms_err;
+
+                // See "Automatic Panoramic Image Stitching using Invariant Features"
+                // by Matthew Brown and David G. Lowe, IJCV 2007 for the explanation
+                double confidence = num_inliers / (8 + 0.3 * matches.size()) - 1;
+
+                rel_confs[make_pair(from, to)] = confidence;
+                cout << ", conf = " << confidence;
+
+                cout << endl;
+
+                Hs[make_pair(from, to)] = H;
                 if (from == 0)
                     Hs_from_0.push_back(H);
             }
@@ -313,10 +335,16 @@ void ParseArgs(int argc, char **argv) {
             offc->num_features = atoi(argv[++i]);
         }
         else if (string(argv[i]) == "--matcher") {
-            if (string(argv[i + 1]) == "bfm_l2")
+            if (string(argv[i + 1]) == "bfm_l1")
+                matcher_creator.matcher = new BruteForceMatcher<L1<float> >();
+            else if (string(argv[i + 1]) == "bfm_l2")
                 matcher_creator.matcher = new BruteForceMatcher<L2<float> >();
             else if (string(argv[i + 1]) == "flann")
                 matcher_creator.matcher = new FlannBasedMatcher();
+            else if (string(argv[i + 1]) == "bfm_hamming")
+                matcher_creator.matcher = new BruteForceMatcher<Hamming>();
+            else if (string(argv[i + 1]) == "bfm_hamming_lut")
+                matcher_creator.matcher = new BruteForceMatcher<HammingLUT>();
             else
                 throw runtime_error(string("Unknown matcher type: ") + argv[i + 1]);
             i++;

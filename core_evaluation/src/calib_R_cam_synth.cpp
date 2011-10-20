@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        vector<Mat> Hs;
+        HomographiesP2 Hs;
         vector<Mat> Hs_from_0;
         Mat keypoints1, keypoints2;
         vector<DMatch> matches;
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
                     iter = matches_collection.insert(make_pair(make_pair(from, to), vector<DMatch>())).first;
                     iter->second.swap(inlier_matches);
 
-                    Hs.push_back(H);
+                    Hs[make_pair(from, to)] = H;
                     if (from == 0)
                         Hs_from_0.push_back(H.clone());
 
