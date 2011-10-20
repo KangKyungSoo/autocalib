@@ -110,32 +110,36 @@ int main(int argc, char **argv) {
             Rodrigues(rvec, R);
             cameras[i] = RigidCamera::LocalToWorld(K_gold, R, camera_center);
 
-            scene->TakeShot(cameras[i], viewport, features_collection[i]);
+            Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
+            scene->TakeShot(cameras[i], viewport, *features);
+            features_collection[i] = features;
         }
 
         if (noise_stddev > 0) {
             cout << "Adding noise...\n";
             for (int i = 0; i < num_cameras; ++i) {
-                Mat_<float> noise(1, 2 * features_collection[i].keypoints.size());
+                Mat_<float> noise(1, 2 * features_collection.find(i)->second->keypoints.size());
 
                 // Final noise RMS is determined by sqrt(noise_x^2 + noise_y^2),
                 // so we split by sqrt(2) to get desired noise
                 rng.fill(noise, RNG::NORMAL, 0, noise_stddev / sqrt(2.));
 
                 double total_noise = 0;
-                for (size_t j = 0; j < features_collection[i].keypoints.size(); ++j) {
-                    features_collection[i].keypoints[j].pt.x += noise(0, 2 * j);
-                    features_collection[i].keypoints[j].pt.y += noise(0, 2 * j + 1);
+                Ptr<detail::ImageFeatures> features = features_collection.find(i)->second;
+                for (size_t j = 0; j < features->keypoints.size(); ++j) {
+                    features->keypoints[j].pt.x += noise(0, 2 * j);
+                    features->keypoints[j].pt.y += noise(0, 2 * j + 1);
                     total_noise += noise(0, 2 * j) * noise(0, 2 * j) + noise(0, 2 * j + 1) * noise(0, 2 * j + 1);
                 }
-                cout << "Shot " << i << " noise RMS error = " << sqrt(total_noise / features_collection[i].keypoints.size()) << endl;
+                cout << "Shot " << i << " noise RMS error = " << sqrt(total_noise / features->keypoints.size()) << endl;
             }
         }
 
         if (create_images) {
             for (int i = 0; i < num_cameras; ++i) {
                 Mat img;
-                CreateImage(features_collection[i], img);
+                CreateImage(*(features_collection.find(i)->second), img);
+
                 stringstream name;
                 name << "camera" << i << ".jpg";
                 imwrite(name.str(), img);
@@ -146,14 +150,17 @@ int main(int argc, char **argv) {
         vector<Mat> Hs_from_0;
         Mat keypoints1, keypoints2;
         vector<DMatch> matches;
-        vector<DMatch> inlier_matches;
         MatchesCollection matches_collection;
 
         cout << "Finding homographies...\n";        
         for (int from = 0; from < num_cameras - 1; ++from) {
             for (int to = from + 1; to < num_cameras; ++to) {
-                MatchSyntheticShots(features_collection[from], features_collection[to], matches);
-                ExtractMatchedKeypoints(features_collection[from], features_collection[to], matches, keypoints1, keypoints2);
+                MatchSyntheticShots(*(features_collection.find(from)->second),
+                                    *(features_collection.find(to)->second),
+                                    matches);
+                ExtractMatchedKeypoints(*(features_collection.find(from)->second),
+                                        *(features_collection.find(to)->second),
+                                          matches, keypoints1, keypoints2);
 
                 Mat_<uchar> mask;
                 Mat_<double> H = findHomography(keypoints1, keypoints2, mask, cv::RANSAC, H_est_thresh);
@@ -161,15 +168,13 @@ int main(int argc, char **argv) {
                 if (H.empty())
                     cout << "Can't find H from " << from << " to " << to << endl;
                 else {
+                    Ptr<vector<DMatch> > inlier_matches = new vector<DMatch>();
 
                     // Put inlier matches into matches collection
-                    inlier_matches.clear();
                     for (size_t i = 0; i < matches.size(); ++i)
                         if (mask(0, i))
-                            inlier_matches.push_back(matches[i]);
-                    MatchesCollection::iterator iter;
-                    iter = matches_collection.insert(make_pair(make_pair(from, to), vector<DMatch>())).first;
-                    iter->second.swap(inlier_matches);
+                            inlier_matches->push_back(matches[i]);
+                    matches_collection[make_pair(from, to)] = inlier_matches;
 
                     Hs[make_pair(from, to)] = H;
                     if (from == 0)

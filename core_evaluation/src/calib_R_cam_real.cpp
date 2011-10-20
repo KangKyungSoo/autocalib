@@ -157,8 +157,12 @@ int main(int argc, char **argv) {
         for (int i = 0; i < num_cameras; ++i) {
             int64 t = getTickCount();
             cout << "Finding features in '" << img_names[i] << "'... ";
-            (*features_finder)(imgs[i], features_collection[i]);
-            cout << "#features = " << features_collection[i].keypoints.size()
+
+            Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
+            (*features_finder)(imgs[i], *features);
+            features_collection[i] = features;
+
+            cout << "#features = " << features_collection.find(i)->second->keypoints.size()
                  << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
         }
 
@@ -176,9 +180,9 @@ int main(int argc, char **argv) {
             for (to_iter = from_next_iter; to_iter != features_collection.end(); ++to_iter) {
                 cout << "(" << from_iter->first << "->" << to_iter->first << ") ";
                 detail::MatchesInfo mi;
-                (*matcher)(from_iter->second, to_iter->second, mi);
-                matches_collection.insert(make_pair(make_pair(from_iter->first, to_iter->first),
-                                                    mi.matches));
+                (*matcher)(*(from_iter->second), *(to_iter->second), mi);
+                matches_collection[make_pair(from_iter->first, to_iter->first)]
+                        = new vector<DMatch>(mi.matches);
             }
         }
         cout << endl;
@@ -193,7 +197,7 @@ int main(int argc, char **argv) {
         cout << "Estimating Hs...\n";
         for (int from = 0; from < num_cameras - 1; ++from) {
             for (int to = from + 1; to < num_cameras; ++to) {
-                const vector<DMatch> &matches = matches_collection.find(make_pair(from, to))->second;
+                const vector<DMatch> &matches = *(matches_collection.find(make_pair(from, to))->second);
 
                 cout << "Estimating H between '" << img_names[from] << "' and '" << img_names[to]
                      << "'... #matches = " << matches.size();
@@ -203,7 +207,8 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
-                ExtractMatchedKeypoints(features_collection[from], features_collection[to],
+                ExtractMatchedKeypoints(*(features_collection.find(from)->second),
+                                        *(features_collection.find(to)->second),
                                         matches, keypoints1, keypoints2);
                 vector<uchar> inliers_mask;
                 Mat_<double> H = findHomography(keypoints1, keypoints2, inliers_mask, RANSAC, H_est_thresh);
