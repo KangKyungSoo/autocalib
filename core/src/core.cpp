@@ -157,7 +157,7 @@ namespace autocalib {
                 num_matches_ = 0;
                 for (MatchesCollection::const_iterator view = matches_->begin();
                      view != matches_->end(); ++view)
-                    num_matches_ += (int)view->second.size();
+                    num_matches_ += (int)view->second->size();
 
                 Rs_indices_inv_.assign(*max_element(Rs_indices.begin(), Rs_indices.end()) + 1, -1);
                 for (size_t i = 0; i < Rs_indices.size(); ++i)
@@ -200,7 +200,7 @@ namespace autocalib {
                  view != matches_->end(); ++view)
             {
                 int img_from = view->first.first;
-                const vector<KeyPoint> &kps_from = features_->find(img_from)->second.keypoints;
+                const vector<KeyPoint> &kps_from = features_->find(img_from)->second->keypoints;
                 Mat_<double> rvec_from(1, 3);
                 if (img_from) {
                     rvec_from(0, 0) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_from] - 1));
@@ -213,7 +213,7 @@ namespace autocalib {
                 Rodrigues(rvec_from, R_from);
 
                 int img_to = view->first.second;
-                const vector<KeyPoint> &kps_to = features_->find(img_to)->second.keypoints;
+                const vector<KeyPoint> &kps_to = features_->find(img_to)->second->keypoints;
                 Mat_<double> rvec_to(1, 3);
                 if (img_to) {
                     rvec_to(0, 0) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_to] - 1));
@@ -227,7 +227,7 @@ namespace autocalib {
 
                 Mat_<double> M = K * R_from * R_to.t() * K_inv;
 
-                const vector<DMatch> &matches = view->second;
+                const vector<DMatch> &matches = *(view->second);
                 for (size_t i = 0; i < matches.size(); ++i, ++pos) {
                     const Point2f &p1 = kps_from[matches[i].queryIdx].pt;
                     const Point2f &p2 = kps_to[matches[i].trainIdx].pt;
