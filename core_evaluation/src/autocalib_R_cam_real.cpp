@@ -291,29 +291,20 @@ int main(int argc, char **argv) {
                 // by Matthew Brown and David G. Lowe, IJCV 2007 for the explanation
                 double confidence = num_inliers / (8 + 0.3 * matches.size()) - 1;
 
-                rel_confs[make_pair(from, to)] = confidence;
-
                 cout << ", conf = " << confidence;
                 cout << endl;
 
-                if (confidence > 0)
+                if (confidence > 0) {
+                    rel_confs[make_pair(from, to)] = confidence;
                     Hs[make_pair(from, to)] = H;
+                }
             }
         }
 
         // Find efficient correspondences graph
 
         detail::Graph eff_corresps;
-        RelativeConfidences eff_rel_confs;
-        int ref_frame_idx = ExtractEfficientCorrespondences(num_frames, rel_confs, eff_corresps, &eff_rel_confs);
-
-        cout << "Efficient correspondences are: ";
-        for (RelativeConfidences::iterator iter = eff_rel_confs.begin();
-             iter != eff_rel_confs.end(); ++iter)
-        {
-            cout << "(" << iter->first.first << "->" << iter->first.second << ", conf=" << iter->second << ") ";
-        }
-        cout << "\nref_frame_idx = " << ref_frame_idx << endl;
+        int ref_frame_idx = ExtractEfficientCorrespondences(num_frames, rel_confs, eff_corresps);
 
         // Linear calibration
 
@@ -326,35 +317,43 @@ int main(int argc, char **argv) {
             cout << "K_init =\n" << K_init << endl;
         }
 
-//        // Non-linear refinement
+        RelativeRotationMats rel_Rs;
+        for (HomographiesP2::iterator iter = Hs.begin(); iter != Hs.end(); ++iter)
+            rel_Rs[iter->first] = K_init.inv() * iter->second * K_init;
 
-//        cout << "Refining camera...\n";
+        // Non-linear refinement
 
-//        if (Hs_from_0.size() != num_cameras - 1) {
-//            stringstream msg;
-//            msg << "Refinement requires Hs between first and all other images, "
-//                << "but only " << Hs_from_0.size() << " were/was found";
-//            throw runtime_error(msg.str());
-//        }
+        cout << "Refining camera...\n";
 
-//        map<int, Mat> Rs;
-//        Rs[0] = Mat::eye(3, 3, CV_64F);
-//        for (int i = 1; i < num_cameras; ++i)
-//            Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
+        AbsoluteRotationMats Rs;
+        GetAbsoluteRotations(rel_Rs, eff_corresps, ref_frame_idx, Rs);
 
-//        Mat_<double> K_refined = K_init.clone();
-//        if (refine_skew)
-//            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection);
-//        else {
-//            K_refined(0, 1) = 0;
-//            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection,
-//                              REFINE_FLAG_ALL & ~REFINE_FLAG_SKEW);
-//        }
-//        cout << "K_refined =\n" << K_refined << endl;
+        cout << "The following pairs will be used: \n";
+        MatchesCollection eff_matches_collection;
+        for (MatchesCollection::iterator iter = matches_collection.begin();
+             iter != matches_collection.end(); ++iter)
+        {
+            if (Rs.find(iter->first.first) != Rs.end() && Rs.find(iter->first.second) != Rs.end() &&
+                rel_confs.find(iter->first) != rel_confs.end())
+            {
+                cout << "'" << img_names[iter->first.first] << "'->'" << img_names[iter->first.second] << "'\n";
+                eff_matches_collection[iter->first] = iter->second;
+            }
+        }
+
+        Mat_<double> K_refined = K_init.clone();
+        if (refine_skew)
+            RefineRigidCamera(K_refined, Rs, features_collection, eff_matches_collection);
+        else {
+            K_refined(0, 1) = 0;
+            RefineRigidCamera(K_refined, Rs, features_collection, eff_matches_collection,
+                              REFINE_FLAG_ALL & ~REFINE_FLAG_SKEW);
+        }
+        cout << "K_refined =\n" << K_refined << endl;
 
         cout << "SUMMARY\n";
         cout << "K_init =\n" << K_init << endl;
-        //cout << "K_refined =\n" << K_refined << endl;
+        cout << "K_refined =\n" << K_refined << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
