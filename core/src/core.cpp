@@ -470,15 +470,12 @@ namespace autocalib {
 
         // Find a maximum spanning tree of the maximum component using the Kruskal algorithm
 
-        detail::Graph &span_tree = eff_corresp;
-        span_tree.create(max_comp.size());
-
-        detail::Graph span_tree_bidirect;
-        span_tree_bidirect.create(max_comp.size());
+        detail::Graph &span_tree_bidirect = eff_corresp;
+        span_tree_bidirect.create(num_frames);
 
         map<int, int> span_tree_powers;
 
-        cc_as_djs.createOneElemSets(max_comp.size());
+        cc_as_djs.createOneElemSets(num_frames);
         max_comp_edges.sort(greater<detail::GraphEdge>());
 
         if (rel_confs_eff)
@@ -492,8 +489,6 @@ namespace autocalib {
 
             if (comp_from != comp_to) {
                 cc_as_djs.mergeSets(comp_from, comp_to);
-
-                span_tree.addEdge(iter->from, iter->to, iter->weight);
 
                 span_tree_bidirect.addEdge(iter->from, iter->to, iter->weight);
                 span_tree_bidirect.addEdge(iter->to, iter->from, iter->weight);
@@ -565,6 +560,18 @@ namespace autocalib {
                                AbsoluteRotationMats &abs_rmats)
                 : rel_rmats(&rel_rmats), abs_rmats(&abs_rmats) {}
 
+            void operator()(const detail::GraphEdge &edge) {
+                Mat R;
+
+                RelativeRotationMats::const_iterator iter = rel_rmats->find(make_pair(edge.from, edge.to));
+                if (iter != rel_rmats->end())
+                    R = iter->second;
+                else
+                    R = rel_rmats->find(make_pair(edge.to, edge.from))->second.t();
+
+                (*abs_rmats)[edge.to] = R * (*abs_rmats)[edge.from];
+            }
+
             const RelativeRotationMats *rel_rmats;
             AbsoluteRotationMats *abs_rmats;
         };
@@ -575,7 +582,9 @@ namespace autocalib {
     void GetAbsoluteRotations(const RelativeRotationMats &rel_rmats, const detail::Graph &eff_corresp,
                               int ref_frame_idx, AbsoluteRotationMats &abs_rmats)
     {
-
+        abs_rmats.clear();
+        abs_rmats[ref_frame_idx] = Mat::eye(3, 3, CV_64F);
+        eff_corresp.walkBreadthFirst(ref_frame_idx, CalculateRotations(rel_rmats, abs_rmats));
     }
 
 } // namespace autocalib
