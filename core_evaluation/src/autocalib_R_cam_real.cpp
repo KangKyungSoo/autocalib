@@ -240,7 +240,6 @@ int main(int argc, char **argv) {
         // Estimate homographies
 
         HomographiesP2 Hs;
-        vector<Mat> Hs_from_0;
         RelativeConfidences rel_confs;
         Mat keypoints1, keypoints2;
 
