@@ -277,16 +277,6 @@ namespace autocalib {
       */
     cv::Point3d TransformRigid(const cv::Point3d& point, const cv::Mat &R, const cv::Mat &T);
 
-
-    /** Extracts an efficient correspondences subgraph.
-      *
-      * \param rel_confs Pairwise matches confidences
-      * \param graph Efficient correspondences subgraph (it's an oriented graph and it's a tree)
-      * \return Extracted graph center (one of)
-      */
-    int ExtractEfficientCorrespondences(const RelativeConfidences &rel_confs, cv::detail::Graph &graph);
-
-
 } // namespace autocalib
 
 #include "core_inl.h"
