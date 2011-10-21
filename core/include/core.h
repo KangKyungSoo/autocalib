@@ -17,7 +17,10 @@ namespace autocalib {
 
     typedef std::map<int, cv::Ptr<cv::detail::ImageFeatures> > FeaturesCollection;
     typedef std::map<std::pair<int, int>, cv::Ptr<std::vector<cv::DMatch> > > MatchesCollection;
+
+    /** 2D projective space homographies. */
     typedef std::map<std::pair<int, int>, cv::Mat> HomographiesP2;
+
     typedef std::map<std::pair<int, int>, cv::Mat> RelativeRotationMats;
     typedef std::map<std::pair<int, int>, double> RelativeConfidences;
     typedef std::map<int, cv::Mat> AbsoluteRotationMats;
@@ -280,11 +283,25 @@ namespace autocalib {
 
     /** Extracts an efficient correspondences subgraph.
       *
+      * \param num_frames Number of frames
       * \param rel_confs Pairwise matches confidences
       * \param graph Efficient correspondences subgraph (it's an oriented graph and it's a tree)
-      * \return Extracted graph center (one of)
+      * \param rel_confs_eff Efficient pairwise matches confiedences (optional)
+      * \return Extracted graph center (if many then one of)
       */
-    int ExtractEfficientCorrespondences(const RelativeConfidences &rel_confs, cv::detail::Graph &graph);
+    int ExtractEfficientCorrespondences(int num_frames, const RelativeConfidences &rel_confs,
+                                        cv::detail::Graph &eff_corresp, RelativeConfidences *rel_confs_eff = 0);
+
+    /** Computes absolute rotation matrices from relative ones according to the
+      * efficient correspondeces subgraph.
+      *
+      * \param rel_rmats Pairwise rotations
+      * \param eff_corresp Efficient correspondeces subgraph
+      * \param ref_frame_idx Reference frame index
+      * \param abs_rmats Absolute rotations
+      */
+    void GetAbsoluteRotations(const RelativeRotationMats &rel_rmats, const cv::detail::Graph &eff_corresp,
+                              int ref_frame_idx, AbsoluteRotationMats &abs_rmats);
 
 
 } // namespace autocalib

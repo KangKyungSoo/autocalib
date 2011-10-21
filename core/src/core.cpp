@@ -431,21 +431,13 @@ namespace autocalib {
     } // namespace
 
 
-    int ExtractEfficientCorrespondences(const RelativeConfidences &rel_confs, detail::Graph &graph)
+    int ExtractEfficientCorrespondences(int num_frames, const RelativeConfidences &rel_confs,
+                                        detail::Graph &eff_corresp, RelativeConfidences *rel_confs_eff)
     {
-
-        // Collect all vertices
-
-        set<int> vertices;
-        for (RelativeConfidences::const_iterator iter = rel_confs.begin(); iter != rel_confs.end(); ++iter) {
-            vertices.insert(iter->first.first);
-            vertices.insert(iter->first.second);
-        }
-
         // Find connected components
 
         detail::DisjointSets cc_as_djs;
-        cc_as_djs.createOneElemSets(vertices.size());
+        cc_as_djs.createOneElemSets(num_frames);
 
         for (RelativeConfidences::const_iterator iter = rel_confs.begin(); iter != rel_confs.end(); ++iter) {
             int comp_from = cc_as_djs.findSetByElem(iter->first.first);
@@ -460,9 +452,9 @@ namespace autocalib {
                           - cc_as_djs.size.begin();
 
         set<int> max_comp;
-        for (set<int>::iterator iter = vertices.begin(); iter != vertices.end(); ++iter)
-            if (cc_as_djs.findSetByElem(*iter) == max_comp_id)
-                max_comp.insert(*iter);
+        for (int i = 0; i < num_frames; ++i)
+            if (cc_as_djs.findSetByElem(i) == max_comp_id)
+                max_comp.insert(i);
 
         // Leave only the biggest component data
 
@@ -478,7 +470,7 @@ namespace autocalib {
 
         // Find a maximum spanning tree of the maximum component using the Kruskal algorithm
 
-        detail::Graph &span_tree = graph;
+        detail::Graph &span_tree = eff_corresp;
         span_tree.create(max_comp.size());
 
         detail::Graph span_tree_bidirect;
@@ -489,6 +481,9 @@ namespace autocalib {
         cc_as_djs.createOneElemSets(max_comp.size());
         max_comp_edges.sort(greater<detail::GraphEdge>());
 
+        if (rel_confs_eff)
+            rel_confs_eff->clear();
+
         for (list<detail::GraphEdge>::iterator iter = max_comp_edges.begin();
              iter != max_comp_edges.end(); ++iter)
         {
@@ -497,22 +492,29 @@ namespace autocalib {
 
             if (comp_from != comp_to) {
                 cc_as_djs.mergeSets(comp_from, comp_to);
+
                 span_tree.addEdge(iter->from, iter->to, iter->weight);
 
                 span_tree_bidirect.addEdge(iter->from, iter->to, iter->weight);
                 span_tree_bidirect.addEdge(iter->to, iter->from, iter->weight);
 
+                if (rel_confs_eff) {
+                    double confidence = rel_confs.find(make_pair(iter->from, iter->to))->second;
+                    (*rel_confs_eff)[make_pair(iter->from, iter->to)] = confidence;
+                    (*rel_confs_eff)[make_pair(iter->to, iter->from)] = confidence;
+                }
+
                 map<int, int>::iterator iter_ = span_tree_powers.find(iter->from);
                 if (iter_ != span_tree_powers.end())
                     iter_->second++;
                 else
-                    span_tree_powers.insert(make_pair(iter->from, 0));
+                    span_tree_powers[iter->from] = 1;
 
                 iter_ = span_tree_powers.find(iter->to);
                 if (iter_ != span_tree_powers.end())
                     iter_->second++;
                 else
-                    span_tree_powers.insert(make_pair(iter->to, 0));
+                    span_tree_powers[iter->to] = 1;
             }
         }
 
@@ -538,22 +540,42 @@ namespace autocalib {
             span_tree_bidirect.walkBreadthFirst(*iter, IncrementDistance(distances));
 
             int arg_max;
-            int max_distance = numeric_limits<int>::max();
+            int max_distance = numeric_limits<int>::min();
 
             for (map<int, int>::iterator iter_ = distances.begin(); iter_ != distances.end(); ++iter_) {
-                if (iter_->second > max_distance) {
-                    arg_max = iter_->first;
+                if (iter_->second > max_distance)
                     max_distance = iter_->second;
-                }
             }
 
             if (max_distance < radius) {
-                center = arg_max;
                 radius = max_distance;
+                center = *iter;
             }
         }
 
         return center;
+    }
+
+
+    namespace {
+
+        class CalculateRotations {
+        public:
+            CalculateRotations(const RelativeRotationMats &rel_rmats,
+                               AbsoluteRotationMats &abs_rmats)
+                : rel_rmats(&rel_rmats), abs_rmats(&abs_rmats) {}
+
+            const RelativeRotationMats *rel_rmats;
+            AbsoluteRotationMats *abs_rmats;
+        };
+
+    } // namespace
+
+
+    void GetAbsoluteRotations(const RelativeRotationMats &rel_rmats, const detail::Graph &eff_corresp,
+                              int ref_frame_idx, AbsoluteRotationMats &abs_rmats)
+    {
+
     }
 
 } // namespace autocalib
