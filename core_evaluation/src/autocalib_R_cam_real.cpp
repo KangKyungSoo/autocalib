@@ -201,7 +201,7 @@ int main(int argc, char **argv) {
                 cout << "Estimating H between '" << img_names[from] << "' and '" << img_names[to]
                      << "'... #matches = " << matches.size();
 
-                if (matches.size() < min_num_matches) {
+                if (static_cast<int>(matches.size()) < min_num_matches) {
                     cout << ", not enough matches\n";
                     continue;
                 }
@@ -354,11 +354,11 @@ void ParseArgs(int argc, char **argv) {
             i++;
         }
         else if (string(argv[i]) == "--match-conf")
-            matcher_creator.match_conf = atof(argv[++i]);
+            matcher_creator.match_conf = static_cast<float>(atof(argv[++i]));
         else if (string(argv[i]) == "--min-num-matches")
             min_num_matches = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-thresh")
-            H_est_thresh = atof(argv[++i]);
+            H_est_thresh = static_cast<float>(atof(argv[++i]));
         else if (string(argv[i]) == "--K-init") {
             K_init = Mat::eye(3, 3, CV_64F);
             K_init(0, 0) = atof(argv[i + 1]);
