@@ -3,12 +3,14 @@
 
 #include <vector>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <limits>
 #include <cmath>
 #include <iostream>
 #include <opencv2/core/core.hpp>
+#include <opencv2/features2d/features2d.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
 #include <opencv2/stitching/detail/util.hpp>
 #include <config.h>
@@ -299,6 +301,123 @@ namespace autocalib {
       */
     void GetAbsoluteRotations(const RelativeRotationMats &rel_rmats, const cv::detail::Graph &eff_corresp,
                               int ref_frame_idx, AbsoluteRotationMats &abs_rmats);
+
+
+    /** Describes an ORB features finder. */
+    class OrbFeaturesFinder : public cv::detail::FeaturesFinder {
+    public:
+
+        /** Constructs ORB features finder.
+          *
+          * \param num_features Number of desired features
+          */
+        OrbFeaturesFinder(int num_features) : orb_(num_features) {}
+
+    private:
+        virtual void find(const cv::Mat &image, cv::detail::ImageFeatures &features) {
+            orb_(image, cv::Mat(), features.keypoints, features.descriptors);
+        }
+
+        cv::ORB orb_;
+    };
+
+
+    /** Base class for features finder creators */
+    class FeaturesFinderCreator {
+    public:
+        virtual ~FeaturesFinderCreator() {}
+
+        /** Creates a features finder.
+          *
+          * \return Pointer to features finder object
+          */
+        virtual cv::Ptr<cv::detail::FeaturesFinder> Create() = 0;
+    };
+
+
+    class SurfFeaturesFinderCreator : public FeaturesFinderCreator {
+    public:
+        SurfFeaturesFinderCreator() : hess_thresh(300), num_octaves(3), num_layers(4) {}
+
+        virtual cv::Ptr<cv::detail::FeaturesFinder> Create() {
+            return new cv::detail::SurfFeaturesFinder(hess_thresh, num_octaves, num_layers);
+        }
+
+        double hess_thresh;
+        int num_octaves;
+        int num_layers;
+    };
+
+
+    class OrbFeaturesFinderCreator : public FeaturesFinderCreator {
+    public:
+        OrbFeaturesFinderCreator() : num_features(500) {}
+
+        virtual cv::Ptr<cv::detail::FeaturesFinder> Create() {
+            return new OrbFeaturesFinder(num_features);
+        }
+
+        int num_features;
+    };
+
+
+    class BestOf2NearestMatcher : public cv::detail::FeaturesMatcher {
+    public:
+        BestOf2NearestMatcher(cv::Ptr<cv::DescriptorMatcher> &matcher, float match_conf)
+            : matcher_(matcher), match_conf_(match_conf) {}
+
+        virtual void match(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
+                           cv::detail::MatchesInfo &mi)
+        {
+            using namespace cv;
+            using namespace std;
+
+            vector<vector<DMatch> > matches;
+            set<pair<int, int> > matches12;
+
+            matcher_->knnMatch(f1.descriptors, f2.descriptors, matches, 2);
+            for (size_t i = 0; i < matches.size(); ++i) {
+                if (matches[i].size() < 2)
+                    continue;
+                const DMatch &m1 = matches[i][0];
+                const DMatch &m2 = matches[i][1];
+                if (m1.distance < (1.f - match_conf_) * m2.distance)
+                    matches12.insert(make_pair(m1.queryIdx, m1.trainIdx));
+            }
+
+            mi.matches.clear();
+            matcher_->knnMatch(f2.descriptors, f1.descriptors, matches, 2);
+            for (size_t i = 0; i < matches.size(); ++i) {
+                if (matches[i].size() < 2)
+                    continue;
+                const DMatch &m1 = matches[i][0];
+                const DMatch &m2 = matches[i][1];
+                if (m1.distance < (1.f - match_conf_) * m2.distance &&
+                    matches12.find(make_pair(m1.trainIdx, m1.queryIdx)) != matches12.end())
+                {
+                    mi.matches.push_back(DMatch(m1.trainIdx, m1.queryIdx, m1.distance));
+                }
+            }
+        }
+
+    private:
+        cv::Ptr<cv::DescriptorMatcher> matcher_;
+        float match_conf_;
+    };
+
+
+    class BestOf2NearestMatcherCreator {
+    public:
+        BestOf2NearestMatcherCreator()
+            : matcher(new cv::FlannBasedMatcher()), match_conf(0.65f) {}
+
+        cv::Ptr<cv::detail::FeaturesMatcher> Create() {
+            return new BestOf2NearestMatcher(matcher, match_conf);
+        }
+
+        cv::Ptr<cv::DescriptorMatcher> matcher;
+        float match_conf;
+    };
 
 } // namespace autocalib
 
