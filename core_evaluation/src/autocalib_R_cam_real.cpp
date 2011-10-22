@@ -18,9 +18,6 @@ void ParseArgs(int argc, char **argv);
 vector<string> img_names;
 vector<Mat> imgs;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
-string features_file;
-bool save_features = false;
-bool load_features = false;
 BestOf2NearestMatcherCreator matcher_creator;
 FeaturesCollection features_collection;
 int min_num_matches = 6;
@@ -39,65 +36,19 @@ int main(int argc, char **argv) {
 
         // Find features
 
-        if (!load_features) {
-            cout << "Finding features...\n";
-            Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
+        cout << "Finding features...\n";
+        Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
 
-            for (int i = 0; i < num_frames; ++i) {
-                int64 t = getTickCount();
-                cout << "Finding features in '" << img_names[i] << "'... ";
+        for (int i = 0; i < num_frames; ++i) {
+            int64 t = getTickCount();
+            cout << "Finding features in '" << img_names[i] << "'... ";
 
-                Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
-                (*features_finder)(imgs[i], *features);
-                features_collection[i] = features;
+            Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
+            (*features_finder)(imgs[i], *features);
+            features_collection[i] = features;
 
-                cout << "#features = " << features_collection.find(i)->second->keypoints.size()
-                     << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
-            }
-        }
-        else {
-            FileStorage f(features_file, FileStorage::READ);
-            int num_frames_cached;
-            f["num_frames"] >> num_frames_cached;
-            CV_Assert(num_frames == num_frames_cached);
-
-            for (int i = 0; i < num_frames_cached; ++i) {
-                Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
-
-                stringstream name;
-                name << "keypoints" << i;
-                Mat keypoints;
-                f[name.str()] >> keypoints;
-                features->keypoints.resize(keypoints.rows);
-                for (size_t j = 0; j < keypoints.rows; ++j)
-                    features->keypoints[j].pt = keypoints.at<Point2f>(j, 0);
-
-                name.str("");
-                name << "descriptors" << i;
-                f[name.str()] >> features->descriptors;
-
-                features_collection[i] = features;
-            }
-        }
-
-        if (save_features) {
-            FileStorage f(features_file, FileStorage::WRITE);
-            f << "num_frames" <<  num_frames;
-
-            for (FeaturesCollection::iterator iter = features_collection.begin();
-                 iter != features_collection.end(); ++iter)
-            {
-                stringstream name;
-                name << "keypoints" << iter->first;
-                Mat keypoints(iter->second->keypoints.size(), 2, CV_32F);
-                for (size_t i = 0; i < iter->second->keypoints.size(); ++i)
-                    keypoints.at<Point2f>(i, 0) = iter->second->keypoints[i].pt;
-                f << name.str() << keypoints;
-
-                name.str("");
-                name << "descriptors" << iter->first;
-                f << name.str() << iter->second->descriptors;
-            }
+            cout << "#features = " << features_collection.find(i)->second->keypoints.size()
+                 << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
         }
 
         // Match all pairs
@@ -284,14 +235,6 @@ void ParseArgs(int argc, char **argv) {
             if (!offc)
                 throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
             offc->num_features = atoi(argv[++i]);
-        }
-        else if (string(argv[i]) == "--save-features") {
-            features_file = argv[++i];
-            save_features = true;
-        }
-        else if (string(argv[i]) == "--load-features") {
-            features_file = argv[++i];
-            load_features = true;
         }
         else if (string(argv[i]) == "--matcher") {
             if (string(argv[i + 1]) == "bfm_l1")
