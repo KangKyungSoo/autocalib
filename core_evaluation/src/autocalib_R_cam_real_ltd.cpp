@@ -2,7 +2,6 @@
 #include <vector>
 #include <set>
 #include <stdexcept>
-#include <fstream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -133,9 +132,6 @@ void ParseArgs(int argc, char **argv);
 vector<string> img_names;
 vector<Mat> imgs;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
-string features_file;
-bool save_features = false;
-bool load_features = false;
 BestOf2NearestMatcherCreator matcher_creator;
 FeaturesCollection features_collection;
 int min_num_matches = 6;
@@ -148,71 +144,25 @@ int main(int argc, char **argv) {
     try {
         ParseArgs(argc, argv);
 
-        int num_frames = static_cast<int>(imgs.size());
-        if (num_frames < 1)
+        int num_cameras = static_cast<int>(imgs.size());
+        if (num_cameras < 1)
             throw runtime_error("Need at least one camera");
 
         // Find features
 
-        if (!load_features) {
-            cout << "Finding features...\n";
-            Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
+        cout << "Finding features...\n";
+        Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
 
-            for (int i = 0; i < num_frames; ++i) {
-                int64 t = getTickCount();
-                cout << "Finding features in '" << img_names[i] << "'... ";
+        for (int i = 0; i < num_cameras; ++i) {
+            int64 t = getTickCount();
+            cout << "Finding features in '" << img_names[i] << "'... ";
 
-                Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
-                (*features_finder)(imgs[i], *features);
-                features_collection[i] = features;
+            Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
+            (*features_finder)(imgs[i], *features);
+            features_collection[i] = features;
 
-                cout << "#features = " << features_collection.find(i)->second->keypoints.size()
-                     << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
-            }
-        }
-        else {
-            FileStorage f(features_file, FileStorage::READ);
-            int num_frames_cached;
-            f["num_frames"] >> num_frames_cached;
-            CV_Assert(num_frames == num_frames_cached);
-
-            for (int i = 0; i < num_frames_cached; ++i) {
-                Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
-
-                stringstream name;
-                name << "keypoints" << i;
-                Mat keypoints;
-                f[name.str()] >> keypoints;
-                features->keypoints.resize(keypoints.rows);
-                for (size_t j = 0; j < keypoints.rows; ++j)
-                    features->keypoints[j].pt = keypoints.at<Point2f>(j, 0);
-
-                name.str("");
-                name << "descriptors" << i;
-                f[name.str()] >> features->descriptors;
-
-                features_collection[i] = features;
-            }
-        }
-
-        if (save_features) {
-            FileStorage f(features_file, FileStorage::WRITE);
-            f << "num_frames" <<  num_frames;
-
-            for (FeaturesCollection::iterator iter = features_collection.begin();
-                 iter != features_collection.end(); ++iter)
-            {
-                stringstream name;
-                name << "keypoints" << iter->first;
-                Mat keypoints(iter->second->keypoints.size(), 2, CV_32F);
-                for (size_t i = 0; i < iter->second->keypoints.size(); ++i)
-                    keypoints.at<Point2f>(i, 0) = iter->second->keypoints[i].pt;
-                f << name.str() << keypoints;
-
-                name.str("");
-                name << "descriptors" << iter->first;
-                f << name.str() << iter->second->descriptors;
-            }
+            cout << "#features = " << features_collection.find(i)->second->keypoints.size()
+                 << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
         }
 
         // Match all pairs
@@ -232,7 +182,6 @@ int main(int argc, char **argv) {
                 (*matcher)(*(from_iter->second), *(to_iter->second), mi);
                 matches_collection[make_pair(from_iter->first, to_iter->first)]
                         = new vector<DMatch>(mi.matches);
-                cout.flush();
             }
         }
         cout << endl;
@@ -240,12 +189,13 @@ int main(int argc, char **argv) {
         // Estimate homographies
 
         HomographiesP2 Hs;
+        vector<Mat> Hs_from_0;
         RelativeConfidences rel_confs;
         Mat keypoints1, keypoints2;
 
         cout << "Estimating Hs...\n";
-        for (int from = 0; from < num_frames - 1; ++from) {
-            for (int to = from + 1; to < num_frames; ++to) {
+        for (int from = 0; from < num_cameras - 1; ++from) {
+            for (int to = from + 1; to < num_cameras; ++to) {
                 const vector<DMatch> &matches = *(matches_collection.find(make_pair(from, to))->second);
 
                 cout << "Estimating H between '" << img_names[from] << "' and '" << img_names[to]
@@ -290,20 +240,16 @@ int main(int argc, char **argv) {
                 // by Matthew Brown and David G. Lowe, IJCV 2007 for the explanation
                 double confidence = num_inliers / (8 + 0.3 * matches.size()) - 1;
 
+                rel_confs[make_pair(from, to)] = confidence;
                 cout << ", conf = " << confidence;
+
                 cout << endl;
 
-                if (confidence > 0) {
-                    rel_confs[make_pair(from, to)] = confidence;
-                    Hs[make_pair(from, to)] = H;
-                }
+                Hs[make_pair(from, to)] = H;
+                if (from == 0)
+                    Hs_from_0.push_back(H);
             }
         }
-
-        // Find efficient correspondences graph
-
-        detail::Graph eff_corresps;
-        int ref_frame_idx = ExtractEfficientCorrespondences(num_frames, rel_confs, eff_corresps);
 
         // Linear calibration
 
@@ -316,36 +262,28 @@ int main(int argc, char **argv) {
             cout << "K_init =\n" << K_init << endl;
         }
 
-        RelativeRotationMats rel_Rs;
-        for (HomographiesP2::iterator iter = Hs.begin(); iter != Hs.end(); ++iter)
-            rel_Rs[iter->first] = K_init.inv() * iter->second * K_init;
-
         // Non-linear refinement
 
         cout << "Refining camera...\n";
 
-        AbsoluteRotationMats Rs;
-        GetAbsoluteRotations(rel_Rs, eff_corresps, ref_frame_idx, Rs);
-
-        cout << "The following pairs will be used: \n";
-        MatchesCollection eff_matches_collection;
-        for (MatchesCollection::iterator iter = matches_collection.begin();
-             iter != matches_collection.end(); ++iter)
-        {
-            if (Rs.find(iter->first.first) != Rs.end() && Rs.find(iter->first.second) != Rs.end() &&
-                rel_confs.find(iter->first) != rel_confs.end())
-            {
-                cout << "'" << img_names[iter->first.first] << "'->'" << img_names[iter->first.second] << "'\n";
-                eff_matches_collection[iter->first] = iter->second;
-            }
+        if (Hs_from_0.size() != num_cameras - 1) {
+            stringstream msg;
+            msg << "Refinement requires Hs between first and all other images, "
+                << "but only " << Hs_from_0.size() << " were/was found";
+            throw runtime_error(msg.str());
         }
+
+        map<int, Mat> Rs;
+        Rs[0] = Mat::eye(3, 3, CV_64F);
+        for (int i = 1; i < num_cameras; ++i)
+            Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
 
         Mat_<double> K_refined = K_init.clone();
         if (refine_skew)
-            RefineRigidCamera(K_refined, Rs, features_collection, eff_matches_collection);
+            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection);
         else {
             K_refined(0, 1) = 0;
-            RefineRigidCamera(K_refined, Rs, features_collection, eff_matches_collection,
+            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection,
                               REFINE_FLAG_ALL & ~REFINE_FLAG_SKEW);
         }
         cout << "K_refined =\n" << K_refined << endl;
@@ -399,14 +337,6 @@ void ParseArgs(int argc, char **argv) {
             if (!offc)
                 throw runtime_error(string("Inconsistent features finder option: ") + argv[i + 1]);
             offc->num_features = atoi(argv[++i]);
-        }
-        else if (string(argv[i]) == "--save-features") {
-            features_file = argv[++i];
-            save_features = true;
-        }
-        else if (string(argv[i]) == "--load-features") {
-            features_file = argv[++i];
-            load_features = true;
         }
         else if (string(argv[i]) == "--matcher") {
             if (string(argv[i + 1]) == "bfm_l1")
