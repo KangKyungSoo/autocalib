@@ -103,11 +103,11 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
-                int num_inliers = 0;
+                Ptr<vector<DMatch> > inliers = new vector<DMatch>();
                 for (size_t i = 0; i < matches.size(); ++i)
                     if (inliers_mask[i])
-                        num_inliers++;
-                cout << ", #inliers = " << num_inliers;
+                        inliers->push_back(matches[i]);
+                cout << ", #inliers = " << inliers->size();
 
                 double rms_err = 0;
                 for (int i = 0; i < keypoints1.cols; ++i) {
@@ -124,10 +124,12 @@ int main(int argc, char **argv) {
 
                 // See "Automatic Panoramic Image Stitching using Invariant Features"
                 // by Matthew Brown and David G. Lowe, IJCV 2007 for the explanation
-                double confidence = num_inliers / (8 + 0.3 * matches.size()) - 1;
+                double confidence = inliers->size() / (8 + 0.3 * matches.size()) - 1;
 
                 cout << ", conf = " << confidence;
                 cout << endl;
+
+                matches_collection[make_pair(from, to)] = inliers;
 
                 if (confidence > 0) {
                     rel_confs[make_pair(from, to)] = confidence;
