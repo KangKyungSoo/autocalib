@@ -74,6 +74,7 @@ int main(int argc, char **argv) {
         // Estimate homographies
 
         HomographiesP2 Hs;
+        HomographiesP2 good_Hs;
         vector<Mat> Hs_from_0;
         RelativeConfidences rel_confs;
         Mat keypoints1, keypoints2;
@@ -126,11 +127,13 @@ int main(int argc, char **argv) {
                 double confidence = num_inliers / (8 + 0.3 * matches.size()) - 1;
 
                 rel_confs[make_pair(from, to)] = confidence;
-                cout << ", conf = " << confidence;
+                cout << ", conf = " << confidence;                
 
-                cout << endl;
+                cout << endl;                                
 
                 Hs[make_pair(from, to)] = H;
+                if (confidence > 0)
+                    good_Hs[make_pair(from, to)] = H;
                 if (from == 0)
                     Hs_from_0.push_back(H);
             }
@@ -141,9 +144,9 @@ int main(int argc, char **argv) {
         if (K_init.empty()) {
             cout << "Linear calibrating...\n";
             if (lin_est_skew)
-                K_init = CalibRotationalCameraLinear(Hs);
+                K_init = CalibRotationalCameraLinear(good_Hs);
             else
-                K_init = CalibRotationalCameraLinearNoSkew(Hs);
+                K_init = CalibRotationalCameraLinearNoSkew(good_Hs);
             cout << "K_init =\n" << K_init << endl;
         }
 
