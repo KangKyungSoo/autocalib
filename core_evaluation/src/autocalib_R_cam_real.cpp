@@ -155,8 +155,11 @@ int main(int argc, char **argv) {
         }
 
         RelativeRotationMats rel_Rs;
-        for (HomographiesP2::iterator iter = Hs.begin(); iter != Hs.end(); ++iter)
-            rel_Rs[iter->first] = K_init.inv() * iter->second * K_init;
+        for (HomographiesP2::iterator iter = Hs.begin(); iter != Hs.end(); ++iter) {
+            Mat R = K_init.inv() * iter->second * K_init;
+            SVD svd(R, SVD::FULL_UV);
+            rel_Rs[iter->first] = svd.u * svd.vt;
+        }
 
         // Non-linear refinement
 
