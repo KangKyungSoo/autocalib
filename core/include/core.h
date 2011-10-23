@@ -19,6 +19,8 @@ namespace autocalib {
 
     typedef std::map<int, cv::Ptr<cv::detail::ImageFeatures> > FeaturesCollection;
     typedef std::map<std::pair<int, int>, cv::Ptr<std::vector<cv::DMatch> > > MatchesCollection;
+    
+    /** 2D projective space homographies collection. */
     typedef std::map<std::pair<int, int>, cv::Mat> HomographiesP2;
     typedef std::map<std::pair<int, int>, cv::Mat> RelativeRotationMats;
     typedef std::map<std::pair<int, int>, double> RelativeConfidences;
