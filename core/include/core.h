@@ -22,6 +22,7 @@ namespace autocalib {
     
     /** 2D projective space homographies collection. */
     typedef std::map<std::pair<int, int>, cv::Mat> HomographiesP2;
+    
     typedef std::map<std::pair<int, int>, cv::Mat> RelativeRotationMats;
     typedef std::map<std::pair<int, int>, double> RelativeConfidences;
     typedef std::map<int, cv::Mat> AbsoluteRotationMats;
