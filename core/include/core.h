@@ -230,83 +230,7 @@ namespace autocalib {
 
 
     //============================================================================
-    // Other
-
-    /** Constructs anti-diagonal matrix of ones.
-      *
-      * \param rows Number of rows
-      * \param cols Number of cols
-      * \param type Matrix type
-      * \return Anti-diagonal matrix
-      */
-    cv::Mat Antidiag(int rows, int cols, int type);
-
-
-    /** Finds the Cholesky decomposition.
-      *
-      * \param src Symmetric positive-definite matrix
-      * \return Lower traingular matrix L, such as L * L.t() == src,
-                or empty matrix if the decomposition doesn't exist
-      */
-    cv::Mat DecomposeCholesky(cv::InputArray src);
-
-
-    /** Finds a decomposition of a matrix into the product of an upper triangular and its transpose.
-      *
-      * \param src Symmetric positive-definite matrix
-      * \return Upper traingular matrix U, such as U * U.t() == src,
-                or empty matrix if the decomposition doesn't exist
-      */
-    cv::Mat DecomposeUUt(cv::InputArray src);
-
-
-    /** Extracts matched keypoints.
-      *
-      * \param f1 First image features
-      * \param f2 Second image features
-      * \param matches Matches vector
-      * \param kps1 First image keypoints
-      * \param kps2 Second image keypoints
-      */
-    void ExtractMatchedKeypoints(const cv::detail::ImageFeatures &f1,
-                                 const cv::detail::ImageFeatures &f2,
-                                 const std::vector<cv::DMatch> &matches,
-                                 cv::OutputArray kps1, cv::OutputArray kps2);
-
-
-    /** Applies a rigid traform to a point.
-      *
-      * \param point Source point
-      * \param R Rotation matrix
-      * \param T Translation vector
-      * \return Transformed point
-      */
-    cv::Point3d TransformRigid(const cv::Point3d& point, const cv::Mat &R, const cv::Mat &T);
-
-
-    /** Extracts an efficient correspondences subgraph.
-      *
-      * \param num_frames Number of frames
-      * \param rel_confs Pairwise matches confidences
-      * \param graph Efficient correspondences subgraph (it's an oriented graph and it's a tree)
-      * \param rel_confs_eff Efficient pairwise matches confiedences (optional)
-      * \return Extracted graph center (if many then one of)
-      */
-    int ExtractEfficientCorrespondences(int num_frames, const RelativeConfidences &rel_confs,
-                                        cv::detail::Graph &eff_corresp, RelativeConfidences *rel_confs_eff = 0);
-
-
-    /** Computes absolute rotation matrices from relative ones according to the
-      * efficient correspondeces subgraph.
-      *
-      * \param rel_rmats Pairwise rotations
-      * \param eff_corresp Efficient correspondeces subgraph
-      * \param ref_frame_idx Reference frame index
-      * \param abs_rmats Absolute rotations
-      */
-    void GetAbsoluteRotations(const RelativeRotationMats &rel_rmats, const cv::detail::Graph &eff_corresp,
-                              int ref_frame_idx, AbsoluteRotationMats &abs_rmats);
-
+    // Features related stuff
 
     /** Describes an ORB features finder. */
     class OrbFeaturesFinder : public cv::detail::FeaturesFinder {
@@ -423,6 +347,85 @@ namespace autocalib {
         cv::Ptr<cv::DescriptorMatcher> matcher;
         float match_conf;
     };
+
+
+    //============================================================================
+    // Other
+
+    /** Constructs anti-diagonal matrix of ones.
+      *
+      * \param rows Number of rows
+      * \param cols Number of cols
+      * \param type Matrix type
+      * \return Anti-diagonal matrix
+      */
+    cv::Mat Antidiag(int rows, int cols, int type);
+
+
+    /** Finds the Cholesky decomposition.
+      *
+      * \param src Symmetric positive-definite matrix
+      * \return Lower traingular matrix L, such as L * L.t() == src,
+                or empty matrix if the decomposition doesn't exist
+      */
+    cv::Mat DecomposeCholesky(cv::InputArray src);
+
+
+    /** Finds a decomposition of a matrix into the product of an upper triangular and its transpose.
+      *
+      * \param src Symmetric positive-definite matrix
+      * \return Upper traingular matrix U, such as U * U.t() == src,
+                or empty matrix if the decomposition doesn't exist
+      */
+    cv::Mat DecomposeUUt(cv::InputArray src);
+
+
+    /** Extracts matched keypoints.
+      *
+      * \param f1 First image features
+      * \param f2 Second image features
+      * \param matches Matches vector
+      * \param kps1 First image keypoints
+      * \param kps2 Second image keypoints
+      */
+    void ExtractMatchedKeypoints(const cv::detail::ImageFeatures &f1,
+                                 const cv::detail::ImageFeatures &f2,
+                                 const std::vector<cv::DMatch> &matches,
+                                 cv::OutputArray kps1, cv::OutputArray kps2);
+
+
+    /** Applies a rigid traform to a point.
+      *
+      * \param point Source point
+      * \param R Rotation matrix
+      * \param T Translation vector
+      * \return Transformed point
+      */
+    cv::Point3d TransformRigid(const cv::Point3d& point, const cv::Mat &R, const cv::Mat &T);
+
+
+    /** Extracts an efficient correspondences subgraph.
+      *
+      * \param num_frames Number of frames
+      * \param rel_confs Pairwise matches confidences
+      * \param graph Efficient correspondences subgraph (it's an oriented graph and it's a tree)
+      * \param rel_confs_eff Efficient pairwise matches confiedences (optional)
+      * \return Extracted graph center (if many then one of)
+      */
+    int ExtractEfficientCorrespondences(int num_frames, const RelativeConfidences &rel_confs,
+                                        cv::detail::Graph &eff_corresp, RelativeConfidences *rel_confs_eff = 0);
+
+
+    /** Computes absolute rotation matrices from relative ones according to the
+      * efficient correspondeces subgraph.
+      *
+      * \param rel_rmats Pairwise rotations
+      * \param eff_corresp Efficient correspondeces subgraph
+      * \param ref_frame_idx Reference frame index
+      * \param abs_rmats Absolute rotations
+      */
+    void GetAbsoluteRotations(const RelativeRotationMats &rel_rmats, const cv::detail::Graph &eff_corresp,
+                              int ref_frame_idx, AbsoluteRotationMats &abs_rmats);   
 
 } // namespace autocalib
 
