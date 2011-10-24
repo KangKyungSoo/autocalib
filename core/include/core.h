@@ -273,6 +273,7 @@ namespace autocalib {
                                  const std::vector<cv::DMatch> &matches,
                                  cv::OutputArray kps1, cv::OutputArray kps2);
 
+
     /** Applies a rigid traform to a point.
       *
       * \param point Source point
@@ -293,6 +294,7 @@ namespace autocalib {
       */
     int ExtractEfficientCorrespondences(int num_frames, const RelativeConfidences &rel_confs,
                                         cv::detail::Graph &eff_corresp, RelativeConfidences *rel_confs_eff = 0);
+
 
     /** Computes absolute rotation matrices from relative ones according to the
       * efficient correspondeces subgraph.
