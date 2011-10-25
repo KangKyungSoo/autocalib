@@ -320,6 +320,45 @@ namespace autocalib {
     }
 
 
+    void BestOf2NearestMatcher::match(const cv::detail::ImageFeatures &f1, 
+                                      const cv::detail::ImageFeatures &f2,
+                                      cv::detail::MatchesInfo &mi) 
+    {
+        vector<vector<DMatch> > matches;
+        set<pair<int, int> > matches12;
+
+        matcher_->knnMatch(f1.descriptors, f2.descriptors, matches, 2);
+        for (size_t i = 0; i < matches.size(); ++i) {
+            if (matches[i].size() < 2)
+                continue;
+            const DMatch &m1 = matches[i][0];
+            const DMatch &m2 = matches[i][1];
+            if (m1.distance < (1.f - match_conf_) * m2.distance)
+                matches12.insert(make_pair(m1.queryIdx, m1.trainIdx));
+        }
+
+        mi.matches.clear();
+        matcher_->knnMatch(f2.descriptors, f1.descriptors, matches, 2);
+        for (size_t i = 0; i < matches.size(); ++i) {
+            if (matches[i].size() < 2)
+                continue;
+            const DMatch &m1 = matches[i][0];
+            const DMatch &m2 = matches[i][1];
+            if (m1.distance < (1.f - match_conf_) * m2.distance &&
+                matches12.find(make_pair(m1.trainIdx, m1.queryIdx)) != matches12.end())
+            {
+                mi.matches.push_back(DMatch(m1.trainIdx, m1.queryIdx, m1.distance));
+            }
+        }
+    }
+
+
+    void DltTriangulation::triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
+                                       InputArray xy1, InputArray xy2, InputOutputArray xyzw)
+    {
+    }
+
+
     Mat Antidiag(int rows, int cols, int type) {
         Mat dst = Mat::zeros(rows, cols, type);
         int len = min(rows, cols);
@@ -464,7 +503,8 @@ namespace autocalib {
             if (max_comp.find(iter->first.first) != max_comp.end() &&
                 max_comp.find(iter->first.second) != max_comp.end())
             {
-                max_comp_edges.push_back(detail::GraphEdge(iter->first.first, iter->first.second, iter->second));
+                max_comp_edges.push_back(detail::GraphEdge(iter->first.first, iter->first.second, 
+                                                           static_cast<float>(iter->second)));
             }
         }
 
@@ -534,7 +574,6 @@ namespace autocalib {
             map<int, int> distances = zero_distances;
             span_tree_bidirect.walkBreadthFirst(*iter, IncrementDistance(distances));
 
-            int arg_max;
             int max_distance = numeric_limits<int>::min();
 
             for (map<int, int>::iterator iter_ = distances.begin(); iter_ != distances.end(); ++iter_) {
