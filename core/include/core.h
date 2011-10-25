@@ -236,7 +236,7 @@ namespace autocalib {
     class OrbFeaturesFinder : public cv::detail::FeaturesFinder {
     public:
 
-        /** Constructs ORB features finder.
+        /** Constructs an ORB features finder.
           *
           * \param num_features Number of desired features
           */
@@ -296,38 +296,7 @@ namespace autocalib {
             : matcher_(matcher), match_conf_(match_conf) {}
 
         virtual void match(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
-                           cv::detail::MatchesInfo &mi)
-        {
-            using namespace cv;
-            using namespace std;
-
-            vector<vector<DMatch> > matches;
-            set<pair<int, int> > matches12;
-
-            matcher_->knnMatch(f1.descriptors, f2.descriptors, matches, 2);
-            for (size_t i = 0; i < matches.size(); ++i) {
-                if (matches[i].size() < 2)
-                    continue;
-                const DMatch &m1 = matches[i][0];
-                const DMatch &m2 = matches[i][1];
-                if (m1.distance < (1.f - match_conf_) * m2.distance)
-                    matches12.insert(make_pair(m1.queryIdx, m1.trainIdx));
-            }
-
-            mi.matches.clear();
-            matcher_->knnMatch(f2.descriptors, f1.descriptors, matches, 2);
-            for (size_t i = 0; i < matches.size(); ++i) {
-                if (matches[i].size() < 2)
-                    continue;
-                const DMatch &m1 = matches[i][0];
-                const DMatch &m2 = matches[i][1];
-                if (m1.distance < (1.f - match_conf_) * m2.distance &&
-                    matches12.find(make_pair(m1.trainIdx, m1.queryIdx)) != matches12.end())
-                {
-                    mi.matches.push_back(DMatch(m1.trainIdx, m1.queryIdx, m1.distance));
-                }
-            }
-        }
+                           cv::detail::MatchesInfo &mi);
 
     private:
         cv::Ptr<cv::DescriptorMatcher> matcher_;
@@ -346,6 +315,40 @@ namespace autocalib {
 
         cv::Ptr<cv::DescriptorMatcher> matcher;
         float match_conf;
+    };
+
+
+    //============================================================================
+    // Structure and motion
+
+    /** Triangulation method base class. */
+    class ITriangulationMethod {
+    public:
+        virtual ~ITriangulationMethod() {}
+
+        /** Estimates 3D projective space points coordinates from two images keypoints.
+          *
+          * \param P1 First camera
+          * \param P2 Second camera
+          * \param xy1 First image keypoints
+          * \param xy2 Second image keypoints
+          * \param xyzw 3D projective space points
+          */
+        virtual void triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2, 
+                                 cv::InputArray xy1, cv::InputArray xy2, 
+                                 cv::InputOutputArray xyzw) = 0;
+    };
+
+
+    /** DLT (homogeneous) triangulation method. 
+      *
+      * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 312.
+      */
+    class DltTriangulation : public ITriangulationMethod {
+    public:
+        virtual void triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2, 
+                                 cv::InputArray xy1, cv::InputArray xy2, 
+                                 cv::InputOutputArray xyzw);
     };
 
 
