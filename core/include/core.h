@@ -372,6 +372,17 @@ namespace autocalib {
     double CalcRmsReprojError(cv::InputArray xy, cv::InputArray P, cv::InputArray xyzw);
 
 
+    /** Finds a 3D projective space homography linearly.
+      *
+      * Note: this algorithm is very sensitive to outliers.
+      *
+      * \param xyzw1 First point cloud
+      * \param xyzw2 Second point cloud
+      * \return 3D projective sapce homography mapping xyzw1 into xyzw2
+      */
+    cv::Mat FindHomographyLinear(cv::InputArray xyzw1, cv::InputArray xyzw2);
+
+
     //============================================================================
     // Other
 
@@ -427,7 +438,7 @@ namespace autocalib {
       * \param T Translation vector
       * \return Transformed point
       */
-    cv::Point3d TransformRigid(const cv::Point3d& point, const cv::Mat &R, const cv::Mat &T);
+    cv::Point3d TransformRigid(const cv::Point3d &point, const cv::Mat &R, const cv::Mat &T);
 
 
     /** Extracts an efficient correspondences subgraph.
