@@ -360,13 +360,28 @@ namespace autocalib {
         CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy2.getMat().cols % 2 == 0);
         CV_Assert(xy2.getMat().cols == xy2.getMat().cols);
 
-        Mat_<double> xy1_ = xy1.getMat().clone();
-        Mat_<double> xy2_ = xy2.getMat().clone();
+        Mat_<double> xy1_ = xy1.getMat().clone(), xy2_ = xy2.getMat().clone();
         int num_points = xy1_.cols / 2;
 
         Mat_<double> P1_ = P1.P(), P2_ = P2.P();
-        P1_ /= norm(P1_);
-        P2_ /= norm(P2_);
+        P1_ /= norm(P1_); P2_ /= norm(P2_);
+
+        // Normalize keypoints and cameras
+
+        Mat_<double> T1 = CalcNormalizationMat(xy1_);
+        Mat_<double> T2 = CalcNormalizationMat(xy2_);
+
+        for (int i = 0; i < num_points; ++i) {
+            xy1_(0, 2 * i) = T1(0, 0) * xy1_(0, 2 * i) + T1(0, 2);
+            xy1_(0, 2 * i + 1) = T1(1, 1) * xy1_(0, 2 * i + 1) + T1(1, 2);
+            xy2_(0, 2 * i) = T2(0, 0) * xy2_(0, 2 * i) + T2(0, 2);
+            xy2_(0, 2 * i + 1) = T2(1, 1) * xy2_(0, 2 * i + 1) + T2(1, 2);
+        }
+
+        P1_ = T1 * P1_;
+        P2_ = T2 * P2_;
+
+        // Find points
 
         Mat &mat = xyzw.getMatRef();
         mat.create(1, 4 * num_points, CV_64F);
@@ -383,6 +398,8 @@ namespace autocalib {
                 A(2, j) = xy2_(0, 2 * i) * P2_(2, j) - P2_(0, j);
                 A(3, j) = xy2_(0, 2 * i + 1) * P2_(2, j) - P2_(1, j);
             }
+
+            // See http://stackoverflow.com/questions/2276445/triangulation-direct-linear-transform
             Mat(A.row(0)) /= norm(A.row(0));
             Mat(A.row(1)) /= norm(A.row(1));
             Mat(A.row(2)) /= norm(A.row(2));
