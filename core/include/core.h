@@ -352,10 +352,20 @@ namespace autocalib {
     };
 
 
+    /** Calculates an isotropic normalization transformation matrix.
+      * 
+      * See detail in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 107.
+      *
+      * \param xy Image keypoints
+      * \return Transformation matrix
+      */
+    cv::Mat CalcNormalizationMat(cv::InputArray xy);
+
+
     //============================================================================
     // Other
 
-    inline double Sqr(double x) { return x; }
+    inline double Sqr(double x) { return x * x; }
 
 
     /** Constructs anti-diagonal matrix of ones.
@@ -430,8 +440,8 @@ namespace autocalib {
       * \param ref_frame_idx Reference frame index
       * \param abs_rmats Absolute rotations
       */
-    void GetAbsoluteRotations(const RelativeRotationMats &rel_rmats, const cv::detail::Graph &eff_corresp,
-                              int ref_frame_idx, AbsoluteRotationMats &abs_rmats);   
+    void CalcAbsoluteRotations(const RelativeRotationMats &rel_rmats, const cv::detail::Graph &eff_corresp,
+                               int ref_frame_idx, AbsoluteRotationMats &abs_rmats);   
 
 } // namespace autocalib
 

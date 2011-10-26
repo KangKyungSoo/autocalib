@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
         cout << "Refining camera...\n";
 
         AbsoluteRotationMats Rs;
-        GetAbsoluteRotations(rel_Rs, eff_corresps, ref_frame_idx, Rs);
+        CalcAbsoluteRotations(rel_Rs, eff_corresps, ref_frame_idx, Rs);
 
         cout << "The following pairs will be used: \n";
         MatchesCollection eff_matches_collection;
