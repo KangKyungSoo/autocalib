@@ -498,8 +498,8 @@ namespace autocalib {
             for (int r = 0, c1 = 0; c1 < 3; ++c1) {
                 for (int c2 = c1 + 1; c2 < 4; ++c2, ++r) {
                     for (int i = 0; i < 4; ++i) {
-                        A(6 * p + r, c1) = -x[i] * y[lut[r][0]];
-                        A(6 * p + r, c2) = x[i] * y[lut[r][0]];
+                        A(6 * p + r, 4 * c1 + i) = -x[i] * y[lut[r][0]];
+                        A(6 * p + r, 4 * c2 + i) = x[i] * y[lut[r][1]];
                     }
                 }
             }
@@ -508,7 +508,7 @@ namespace autocalib {
         Mat_<double> H;
         SVD::solveZ(A, H);
 
-        return H.reshape(4).t();
+        return H.reshape(4);
     }
 
 

@@ -374,7 +374,7 @@ namespace autocalib {
 
     /** Finds a 3D projective space homography linearly.
       *
-      * Note: this algorithm is very sensitive to outliers.
+      * The algorithm is sensitive to outliers and it requires 5 points as minimum.
       *
       * \param xyzw1 First point cloud
       * \param xyzw2 Second point cloud

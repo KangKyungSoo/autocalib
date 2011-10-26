@@ -1,3 +1,4 @@
+#pragma warning(disable: 4800)
 #include <iostream>
 #include <fstream>
 #include <string>
