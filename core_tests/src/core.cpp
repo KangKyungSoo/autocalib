@@ -164,7 +164,7 @@ TEST_P(DltTriangulationProjective, CanTriangulate) {
 
     Mat_<double> H = Mat::zeros(4, 4, CV_64F);
     while (abs(determinant(H)) < 1e-3)
-        rng.fill(H, RNG::UNIFORM, 0, 1);
+        rng.fill(H, RNG::UNIFORM, -1, 1);
     H /= pow(abs(determinant(H)), 0.25);
     Mat_<double> H_inv = H.inv();
 
@@ -196,3 +196,33 @@ TEST_P(DltTriangulationProjective, CanTriangulate) {
 INSTANTIATE_TEST_CASE_P(StdSynthScenes,
                         DltTriangulationProjective,
                         testing::Values(new SphereSceneCreator(), new CubeSceneCreator()));
+
+
+TEST(FindHomographyLinear, NoiselessSynthDataset) {
+    RNG rng(0);
+    int num_points = 1000; // 5 is the minimum acceptable value
+
+    Mat_<double> H = Mat::zeros(4, 4, CV_64F);
+    while (abs(determinant(H)) < 1e-3)
+        rng.fill(H, RNG::UNIFORM, -1, 1);
+    H /= pow(abs(determinant(H)), 0.25);
+
+    Mat_<double> xyzw1(1, num_points * 4);
+    Mat_<double> xyzw2(1, num_points * 4);
+
+    rng.fill(xyzw1, RNG::UNIFORM, -1, 1);
+
+    for (int i = 0; i < num_points; ++i) {
+        xyzw2(0, 4 * i) = H(0, 0) * xyzw1(0, 4 * i) + H(0, 1) * xyzw1(0, 4 * i + 1) + H(0, 2) * xyzw1(0, 4 * i + 2) + H(0, 3) * xyzw1(0, 4 * i + 3);
+        xyzw2(0, 4 * i + 1) = H(1, 0) * xyzw1(0, 4 * i) + H(1, 1) * xyzw1(0, 4 * i + 1) + H(1, 2) * xyzw1(0, 4 * i + 2) + H(1, 3) * xyzw1(0, 4 * i + 3);
+        xyzw2(0, 4 * i + 2) = H(2, 0) * xyzw1(0, 4 * i) + H(2, 1) * xyzw1(0, 4 * i + 1) + H(2, 2) * xyzw1(0, 4 * i + 2) + H(2, 3) * xyzw1(0, 4 * i + 3);
+        xyzw2(0, 4 * i + 3) = H(3, 0) * xyzw1(0, 4 * i) + H(3, 1) * xyzw1(0, 4 * i + 1) + H(3, 2) * xyzw1(0, 4 * i + 2) + H(3, 3) * xyzw1(0, 4 * i + 3);
+    }
+
+    Mat_<double> H_found = FindHomographyLinear(xyzw1, xyzw2);
+
+    H /= H(3, 3);
+    H_found /= H_found(3, 3);
+
+    ASSERT_LT(norm(H, H_found, NORM_INF), 1e-6);
+}
