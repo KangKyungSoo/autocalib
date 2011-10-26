@@ -35,7 +35,7 @@ namespace evaluation {
         /** \return Number of points */
         virtual int pointCount() const { return static_cast<int>(points_.size()); }
 
-        /** \return 3D point in the local coordinates */
+        /** \return 3D point local coordinates */
         cv::Point3d localPointAt(int idx) const { return points_[idx]; }
 
     protected:
