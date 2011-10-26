@@ -372,16 +372,6 @@ namespace autocalib {
     double CalcRmsReprojError(cv::InputArray xy, cv::InputArray P, cv::InputArray xyzw);
 
 
-    /** Maps the first image into the second one and calculates the repojection RMS error.
-      *
-      * \param xy1 First image keypoints
-      * \param xy2 Second image keypoints
-      * \param H12 Homography mapping the first image into the second one
-      * \return RMS reprojection error
-      */
-    double CalcRmsReprojError(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray H12);
-
-
     //============================================================================
     // Other
 
