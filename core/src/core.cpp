@@ -578,10 +578,10 @@ namespace autocalib {
 
 
     void ExtractMatchedKeypoints(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
-                                 const vector<DMatch> &matches, OutputArray kps1, OutputArray kps2)
+                                 const vector<DMatch> &matches, OutputArray xy1, OutputArray xy2)
     {
-        Mat &kps1_ = kps1.getMatRef();
-        Mat &kps2_ = kps2.getMatRef();
+        Mat &kps1_ = xy1.getMatRef();
+        Mat &kps2_ = xy2.getMatRef();
 
         kps1_.create(1, (int)matches.size(), CV_32FC2);
         kps2_.create(1, (int)matches.size(), CV_32FC2);
