@@ -13,9 +13,9 @@ namespace evaluation {
     // Scenes base classes
 
     /** Synthetic scene base class. */
-    class SyntheticScene {
+    class ISyntheticScene {
     public:
-        virtual ~SyntheticScene() {}
+        virtual ~ISyntheticScene() {}
 
         /** Takes a shot of the scene.
           *
@@ -41,7 +41,7 @@ namespace evaluation {
 
 
     /** Describes a synthetic point cloud scene. */
-    class PointCloudScene : public SyntheticScene, public PointCloud {
+    class PointCloudScene : public ISyntheticScene, public PointCloud {
     public:
         virtual ~PointCloudScene() {}
 
@@ -163,7 +163,7 @@ namespace evaluation {
     class CompositeSceneBuilder;
 
     /** Describes a composite synthetic scene. */
-    class CompositeScene : public SyntheticScene {
+    class CompositeScene : public ISyntheticScene {
     public:
         typedef std::vector<cv::Ptr<PointCloudScene> > ScenesCollection;
 

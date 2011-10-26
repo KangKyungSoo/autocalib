@@ -51,6 +51,6 @@ TEST(DecomposeUUt, CanDecomposeSmallMatrix) {
 }
 
 
-TEST(DltTraingulate, CanTriangluate) {
+TEST(DltTraingulation, CanTriangluate) {
     
 }

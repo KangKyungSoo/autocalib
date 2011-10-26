@@ -10,6 +10,6 @@ include_directories(${OpenCV_INCLUDE_DIR} ${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_
 file(GLOB sources "src/*.h" "src/*.cpp")
 add_executable(${target} ${includes} ${sources})
 
-add_dependencies(${target} "${lib_name}_core")
-target_link_libraries(${target} ${OpenCV_LIBS} ${GTEST_BOTH_LIBRARIES} "${lib_name}_core")
+add_dependencies(${target} "${lib_name}_core" "${lib_name}_evaluation")
+target_link_libraries(${target} ${OpenCV_LIBS} ${GTEST_BOTH_LIBRARIES} "${lib_name}_core" "${lib_name}_evaluation")
 
