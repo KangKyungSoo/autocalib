@@ -387,7 +387,6 @@ namespace autocalib {
         mat.create(1, 4 * num_points, CV_64F);
         Mat_<double> xyzw_(mat);
 
-        SVD svd;
         Mat_<double> A(4, 4);
 
         for (int i = 0; i < num_points; ++i) {
@@ -405,9 +404,10 @@ namespace autocalib {
             Mat(A.row(2)) /= norm(A.row(2));
             Mat(A.row(3)) /= norm(A.row(3));
 
-            svd(A, SVD::FULL_UV);
+            Mat sol;
+            SVD::solveZ(A, sol);
             Mat_<double> pt = xyzw_.colRange(4 * i, 4 * (i + 1));
-            svd.vt.row(3).copyTo(pt);
+            Mat(sol.t()).copyTo(pt);
         }
     }
 
@@ -460,6 +460,55 @@ namespace autocalib {
         }
 
         return sqrt(sum_sq_error / num_points);
+    }
+
+
+    Mat FindHomographyLinear(InputArray xyzw1, InputArray xyzw2) {
+        CV_Assert(xyzw1.getMat().type() == CV_64F && xyzw1.getMat().rows == 1 && xyzw1.getMat().cols % 4 == 0);
+        CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
+        CV_Assert(xyzw1.getMat().cols / 4 == xyzw2.getMat().cols / 4);
+
+        Mat_<double> xyzw1_ = xyzw1.getMat();
+        Mat_<double> xyzw2_ = xyzw2.getMat();
+        int num_points = xyzw1_.cols / 4;
+
+        Mat_<double> A(6 * num_points, 16);
+        A.setTo(0);
+
+        /*
+        x: matrix([x0], [x1], [x2], [x3]);
+        y: matrix([y0], [y1], [y2], [y3]);
+        H: matrix([h00,h01,h02,h03], [h10,h11,h12,h13],
+                  [h20,h21,h22,h23], [h30,h31,h32,h33]);
+        H1: matrix([0,1,0,0], [-(1),0,0,0], [-(0),-(0),0,0], [-(0),-(0),-(0),0]);
+        H2: matrix([0,0,1,0], [-(0),0,0,0], [-(1),-(0),0,0], [-(0),-(0),-(0),0]);
+        H3: matrix([0,0,0,1], [-(0),0,0,0], [-(0),-(0),0,0], [-(1),-(0),-(0),0]);
+        H4: matrix([0,0,0,0], [-(0),0,1,0], [-(0),-(1),0,0], [-(0),-(0),-(0),0]);
+        H5: matrix([0,0,0,0], [-(0),0,0,1], [-(0),-(0),0,0], [-(0),-(1),-(0),0]);
+        H6: matrix([0,0,0,0], [-(0),0,0,0], [-(0),-(0),0,1], [-(0),-(0),-(1),0]);
+        coefmatrix([transpose(y).H1.H.x=0, transpose(y).H2.H.x=0, transpose(y).H3.H.x=0,
+                    transpose(y).H4.H.x=0, transpose(y).H5.H.x=0, transpose(y).H6.H.x=0],
+                   [h00, h01, h02, h03, h10, h11, h12, h13,
+                    h20, h21, h22, h23, h30, h31, h32, h33]);
+        */
+        static const int lut[][2] = {{1, 0}, {2, 0}, {3, 0}, {2, 1}, {3, 1}, {3, 2}};
+        for (int p = 0; p < num_points; ++p) {
+            double x[4] = {xyzw1_(0, 4 * p), xyzw1_(0, 4 * p + 1), xyzw1_(0, 4 * p + 2), xyzw1_(0, 4 * p + 3)};
+            double y[4] = {xyzw2_(0, 4 * p), xyzw2_(0, 4 * p + 1), xyzw2_(0, 4 * p + 2), xyzw2_(0, 4 * p + 3)};
+            for (int r = 0, c1 = 0; c1 < 3; ++c1) {
+                for (int c2 = c1 + 1; c2 < 4; ++c2, ++r) {
+                    for (int i = 0; i < 4; ++i) {
+                        A(6 * p + r, c1) = -x[i] * y[lut[r][0]];
+                        A(6 * p + r, c2) = x[i] * y[lut[r][0]];
+                    }
+                }
+            }
+        }
+
+        Mat_<double> H;
+        SVD::solveZ(A, H);
+
+        return H.reshape(4).t();
     }
 
 
