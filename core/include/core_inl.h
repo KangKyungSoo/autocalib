@@ -62,7 +62,7 @@ namespace autocalib {
                           << ", num iters = " << num_iters << std::endl);
 
         return rms_err;
-    }
+    }    
 
 } // namespace autocalib
 

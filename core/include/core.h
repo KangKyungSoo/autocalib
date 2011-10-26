@@ -355,6 +355,9 @@ namespace autocalib {
     //============================================================================
     // Other
 
+    inline double Sqr(double x) { return x; }
+
+
     /** Constructs anti-diagonal matrix of ones.
       *
       * \param rows Number of rows

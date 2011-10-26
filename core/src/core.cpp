@@ -356,6 +356,93 @@ namespace autocalib {
     void DltTriangulation::triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
                                        InputArray xy1, InputArray xy2, InputOutputArray xyzw)
     {
+        CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
+        CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy2.getMat().cols % 2 == 0);
+        CV_Assert(xy2.getMat().cols == xy2.getMat().cols);
+
+        Mat_<double> xy1_ = xy1.getMat().clone();
+        Mat_<double> xy2_ = xy2.getMat().clone();
+        int num_pts = xy1_.cols / 2;
+
+        Mat_<double> P1_ = P1.P(), P2_ = P2.P();
+
+        // Compute centroids and mean distances
+
+        double center1_x = 0, center1_y = 0;
+        for (int i = 0; i < num_pts; ++i) {
+            center1_x += xy1_(0, 2 * i);
+            center1_y += xy1_(0, 2 * i + 1);
+        }
+        center1_x /= xy1_.cols / 2;
+        center1_y /= xy1_.cols / 2;
+
+        double mean_dist1 = 0;
+        for (int i = 0; i < num_pts; ++i) 
+            mean_dist1 += sqrt(Sqr(center1_x - xy1_(0, 2 * i)) + 
+                               Sqr(center1_y - xy1_(0, 2 * i + 1)));
+        mean_dist1 /= xy1_.cols / 2;
+
+        double center2_x = 0, center2_y = 0;
+        for (int i = 0; i < num_pts; ++i) {
+            center2_x += xy2_(0, 2 * i);
+            center2_y += xy2_(0, 2 * i + 1);
+        }
+        center2_x /= xy2_.cols / 2;
+        center2_y /= xy2_.cols / 2;
+
+        double mean_dist2 = 0;
+        for (int i = 0; i < xy2_.cols / 2; ++i) 
+            mean_dist2 += sqrt(Sqr(center2_x - xy2_(0, 2 * i)) + 
+                               Sqr(center2_y - xy2_(0, 2 * i + 1)));
+        mean_dist2 /= xy2_.cols / 2;
+
+        // Normalize keypoints
+
+        double scale1 = sqrt(2.) / mean_dist1;
+        for (int i = 0; i < num_pts; ++i) {
+            xy1_(0, 2 * i) = (xy1_(0, 2 * i) - center1_x) * scale1;
+            xy1_(0, 2 * i + 1) = (xy1_(0, 2 * i + 1) - center1_y) * scale1;
+        }
+
+        double scale2 = sqrt(2.) / mean_dist2;
+        for (int i = 0; i < num_pts; ++i) {
+            xy2_(0, 2 * i) = (xy2_(0, 2 * i) - center2_x) * scale2;
+            xy2_(0, 2 * i + 1) = (xy2_(0, 2 * i + 1) - center2_y) * scale2;
+        }
+
+        // Normalize cameras
+
+        Mat_<double> T1 = Mat::eye(3, 3, CV_64F);
+        T1(0, 0) = scale1; T1(0, 2) = -center1_x * scale1;
+        T1(1, 1) = scale1; T1(1, 2) = -center1_y * scale1;
+        P1_ = T1.inv() * P1_;
+
+        Mat_<double> T2 = Mat::eye(3, 3, CV_64F);
+        T1(0, 0) = scale2; T1(0, 2) = -center2_x * scale2;
+        T1(1, 1) = scale2; T1(1, 2) = -center2_y * scale2;
+        P2_ = T2.inv() * P2_;
+
+        // Find points coordinates
+
+        Mat &mat = xyzw.getMatRef();
+        mat.create(1, 4 * num_pts, CV_64F);
+        Mat_<double> xyzw_(mat);
+
+        SVD svd;
+        Mat_<double> A(4, 4);
+
+        for (int i = 0; i < num_pts; ++i) {
+            A.setTo(0);
+            for (int j = 0; j < 4; ++j) {
+                A(0, j) = xy1_(0, 2 * i) * P1_(2, j) - P1_(0, j);
+                A(1, j) = xy1_(0, 2 * i + 1) * P1_(2, j) - P1_(1, j);
+                A(2, j) = xy2_(0, 2 * i) * P2_(2, j) - P2_(0, j);
+                A(3, j) = xy2_(0, 2 * i + 1) * P2_(2, j) - P2_(1, j);
+            }
+            svd(A, SVD::FULL_UV);
+            Mat_<double> pt = xyzw_.colRange(4 * i, 4 * (i + 1));
+            svd.vt.row(3).copyTo(pt);
+        }
     }
 
 
