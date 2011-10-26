@@ -422,13 +422,13 @@ namespace autocalib {
       * \param f1 First image features
       * \param f2 Second image features
       * \param matches Matches vector
-      * \param kps1 First image keypoints
-      * \param kps2 Second image keypoints
+      * \param xy1 First image keypoints
+      * \param xy2 Second image keypoints
       */
     void ExtractMatchedKeypoints(const cv::detail::ImageFeatures &f1,
                                  const cv::detail::ImageFeatures &f2,
                                  const std::vector<cv::DMatch> &matches,
-                                 cv::OutputArray kps1, cv::OutputArray kps2);
+                                 cv::OutputArray xy1, cv::OutputArray xy2);
 
 
     /** Applies a rigid traform to a point.
