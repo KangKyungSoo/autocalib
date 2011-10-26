@@ -102,7 +102,7 @@ namespace evaluation {
           * \param num_points Number of points
           * \param rng Pseudo random number generator
           */
-        virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) = 0;
+        virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) const = 0;
     };
 
 
@@ -130,7 +130,7 @@ namespace evaluation {
 
     class SphereSceneCreator : public PointCloudSceneCreator {
     public:
-        virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
+        virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) const {
             return new SphereScene(num_points, rng);
         }
     };
@@ -157,7 +157,7 @@ namespace evaluation {
 
     class CubeSceneCreator : public PointCloudSceneCreator {
     public:
-        virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) {
+        virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) const {
             return new CubeScene(num_points, rng);
         }
     };
