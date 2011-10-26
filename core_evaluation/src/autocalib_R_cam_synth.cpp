@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
             rng.state = seed;
 
         Mat rvec, R, T;
-        Ptr<SyntheticScene> scene;
+        Ptr<ISyntheticScene> scene;
 
         // Generate synthetic scene
         if (!scene_creator.empty()) {
@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
             rng.fill(T, RNG::UNIFORM, -2, 2);
             scene_->set_T(T);
 
-            scene = static_cast<SyntheticScene*>(scene_);
+            scene = static_cast<ISyntheticScene*>(scene_);
             scene_.addref();
         }
         else {
@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
             scene_builder.Add(cube);
 
             Ptr<CompositeScene> scene_ = scene_builder.Build();
-            scene = static_cast<SyntheticScene*>(scene_);
+            scene = static_cast<ISyntheticScene*>(scene_);
             scene_.addref();
         }
 
