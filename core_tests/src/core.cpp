@@ -190,7 +190,7 @@ TEST_P(DltTriangulationProjective, CanTriangulate) {
 
         ASSERT_NEAR(xy1(0, 2 * i), x1 / z1, 1e-6);
         ASSERT_NEAR(xy1(0, 2 * i + 1), y1 / z1, 1e-6);
-    }
+    }    
 }
 
 INSTANTIATE_TEST_CASE_P(StdSynthScenes,
