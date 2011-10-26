@@ -354,7 +354,7 @@ namespace autocalib {
 
     /** Calculates an isotropic normalization transformation matrix.
       * 
-      * See detail in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 107.
+      * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 107.
       *
       * \param xy Image keypoints
       * \return Transformation matrix
