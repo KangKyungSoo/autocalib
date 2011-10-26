@@ -358,7 +358,7 @@ namespace autocalib {
     {
         CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
         CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy2.getMat().cols % 2 == 0);
-        CV_Assert(xy2.getMat().cols == xy2.getMat().cols);
+        CV_Assert(xy2.getMat().cols / 2 == xy2.getMat().cols / 2);
 
         Mat_<double> xy1_ = xy1.getMat().clone(), xy2_ = xy2.getMat().clone();
         int num_points = xy1_.cols / 2;
@@ -436,6 +436,30 @@ namespace autocalib {
         T(1, 1) = scale; T(1, 2) = -cy * scale;
         
         return T;
+    }
+
+
+    double CalcRmsReprojError(InputArray xy, InputArray P, InputArray xyzw) {
+        CV_Assert(xy.getMat().type() == CV_64F && xy.getMat().rows == 1 && xy.getMat().cols % 2 == 0);
+        CV_Assert(P.getMat().type() == CV_64F && P.getMat().size() == Size(4, 3));
+        CV_Assert(xyzw.getMat().type() == CV_64F && xyzw.getMat().rows == 1 && xyzw.getMat().cols % 4 == 0);
+        CV_Assert(xy.getMat().cols / 2 == xyzw.getMat().cols / 4);
+
+        Mat_<double> xy_ = xy.getMat();
+        Mat_<double> P_ = P.getMat();
+        Mat_<double> xyzw_ = xyzw.getMat();
+        int num_points = xy_.cols / 2;
+
+        double sum_sq_error = 0;
+        double x, y, z;
+        for (int i = 0; i < num_points; ++i) {            
+            x = P_(0, 0) * xyzw_(0, 4 * i) + P_(0, 1) * xyzw_(0, 4 * i + 1) + P_(0, 2) * xyzw_(0, 4 * i + 2) + P_(0, 3) * xyzw_(0, 4 * i + 3);
+            y = P_(1, 0) * xyzw_(0, 4 * i) + P_(1, 1) * xyzw_(0, 4 * i + 1) + P_(1, 2) * xyzw_(0, 4 * i + 2) + P_(1, 3) * xyzw_(0, 4 * i + 3);
+            z = P_(2, 0) * xyzw_(0, 4 * i) + P_(2, 1) * xyzw_(0, 4 * i + 1) + P_(2, 2) * xyzw_(0, 4 * i + 2) + P_(2, 3) * xyzw_(0, 4 * i + 3);
+            sum_sq_error += Sqr(xy_(0, 2 * i) - x / z) + Sqr(xy_(0, 2 * i + 1) - y / z);
+        }
+
+        return sqrt(sum_sq_error / num_points);
     }
 
 
