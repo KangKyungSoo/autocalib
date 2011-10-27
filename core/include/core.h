@@ -401,20 +401,20 @@ namespace autocalib {
 
     /** Finds the Cholesky decomposition.
       *
-      * \param src Symmetric positive-definite matrix
+      * \param mat Symmetric positive-definite matrix
       * \return Lower traingular matrix L, such as L * L.t() == src,
                 or empty matrix if the decomposition doesn't exist
       */
-    cv::Mat DecomposeCholesky(cv::InputArray src);
+    cv::Mat DecomposeCholesky(cv::InputArray mat);
 
 
     /** Finds a decomposition of a matrix into the product of an upper triangular and its transpose.
       *
-      * \param src Symmetric positive-definite matrix
+      * \param mat Symmetric positive-definite matrix
       * \return Upper traingular matrix U, such as U * U.t() == src,
                 or empty matrix if the decomposition doesn't exist
       */
-    cv::Mat DecomposeUUt(cv::InputArray src);
+    cv::Mat DecomposeUUt(cv::InputArray mat);
 
 
     /** Extracts matched keypoints.
@@ -463,6 +463,9 @@ namespace autocalib {
       */
     void CalcAbsoluteRotations(const RelativeRotationMats &rel_rmats, const cv::detail::Graph &eff_corresp,
                                int ref_frame_idx, AbsoluteRotationMats &abs_rmats);   
+
+
+    void EigenDecompose(cv::InputArray mat);
 
 } // namespace autocalib
 
