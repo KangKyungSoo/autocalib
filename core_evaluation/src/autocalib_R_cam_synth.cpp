@@ -19,7 +19,7 @@ void ParseArgs(int argc, char **argv);
 
 Ptr<PointCloudSceneCreator> scene_creator = new SphereSceneCreator();
 int num_points = 1000;
-int num_cameras = 5;
+int num_frames = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
@@ -99,11 +99,11 @@ int main(int argc, char **argv) {
             scene_.addref();
         }
 
-        vector<RigidCamera> cameras(num_cameras);
+        vector<RigidCamera> cameras(num_frames);
         FeaturesCollection features_collection;
 
         // Generate cameras and shots
-        for (int i = 0; i < num_cameras; ++i) {
+        for (int i = 0; i < num_frames; ++i) {
             rvec = Mat::zeros(3, 1, CV_64F);
             rng.fill(rvec, RNG::UNIFORM, -1, 1);
             rvec /= norm(rvec) / ((double)rng * max_angle);
@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
 
         if (noise_stddev > 0) {
             cout << "Adding noise...\n";
-            for (int i = 0; i < num_cameras; ++i) {
+            for (int i = 0; i < num_frames; ++i) {
                 Mat_<float> noise(1, 2 * features_collection.find(i)->second->keypoints.size());
 
                 // Final noise RMS is determined by sqrt(noise_x^2 + noise_y^2),
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
         }
 
         if (create_images) {
-            for (int i = 0; i < num_cameras; ++i) {
+            for (int i = 0; i < num_frames; ++i) {
                 Mat img;
                 CreateImage(*(features_collection.find(i)->second), img);
 
@@ -154,8 +154,8 @@ int main(int argc, char **argv) {
         MatchesCollection matches_collection;
 
         cout << "Finding homographies...\n";        
-        for (int from = 0; from < num_cameras - 1; ++from) {
-            for (int to = from + 1; to < num_cameras; ++to) {
+        for (int from = 0; from < num_frames - 1; ++from) {
+            for (int to = from + 1; to < num_frames; ++to) {
                 MatchSyntheticShots(*(features_collection.find(from)->second),
                                     *(features_collection.find(to)->second),
                                     matches);
@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
         cout << "K_init =\n" << K_init << endl;
         
         cout << "Refining camera...\n";
-        if (Hs_from_0.size() != num_cameras - 1) {
+        if (Hs_from_0.size() != num_frames - 1) {
             stringstream msg;
             msg << "Refinement requires Hs between first and all other images, "
                 << "but only " << Hs_from_0.size() << " were/was found";
@@ -223,7 +223,7 @@ int main(int argc, char **argv) {
         // Refine camera parameters
         map<int, Mat> Rs;
         Rs[0] = Mat::eye(3, 3, CV_64F);
-        for (int i = 1; i < num_cameras; ++i)
+        for (int i = 1; i < num_frames; ++i)
             Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
 
         Mat_<double> K_refined = K_init.clone();
@@ -249,7 +249,7 @@ int main(int argc, char **argv) {
             ofstream f(log_path.c_str(), ios_base::app);
             if (!f.is_open())
                 throw runtime_error("Can't open log file: " + log_path);
-            f << num_points << " " << num_cameras << " " << noise_stddev << " ";
+            f << num_points << " " << num_frames << " " << noise_stddev << " ";
             f << K_init(0, 0) << " " << K_init(1, 1) << " " << K_init(0, 2) << " " << K_init(1, 2) << " " << K_init(0, 1) << " ";
             f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
             f << K_gold(0, 0) << " " << K_gold(1, 1) << " " << K_gold(0, 2) << " " << K_gold(1, 2) << " " << K_gold(0, 1) << " ";
@@ -280,8 +280,8 @@ void ParseArgs(int argc, char **argv) {
         }
         else if (string(argv[i]) == "--num-points")
             num_points = atoi(argv[++i]);
-        else if (string(argv[i]) == "--num-cameras")
-            num_cameras = atoi(argv[++i]);
+        else if (string(argv[i]) == "--num-frames")
+            num_frames = atoi(argv[++i]);
         else if (string(argv[i]) == "--viewport") {
             viewport = Rect(atoi(argv[i + 1]), atoi(argv[i + 2]),
                             atoi(argv[i + 3]), atoi(argv[i + 4]));
