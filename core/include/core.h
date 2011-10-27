@@ -383,6 +383,16 @@ namespace autocalib {
     cv::Mat FindHomographyLinear(cv::InputArray xyzw1, cv::InputArray xyzw2);
 
 
+    /** Calculates a plane-at-infinity coordinates from a homography.
+      *
+      * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 495.
+      *
+      * \param H Homography
+      * \return Plane-at-infinity coordinates (4x1 vector)
+      */
+    cv::Mat CalcPinf(cv::InputArray H);
+
+
     //============================================================================
     // Other
 
