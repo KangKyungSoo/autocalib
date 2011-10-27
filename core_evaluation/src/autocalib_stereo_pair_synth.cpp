@@ -102,6 +102,32 @@ int main(int argc, char **argv) {
                 imwrite(name.str(), img);
             }
         }
+
+        // Find fundmental matrix
+
+        cout << "Finding F between #0 pair images... ";
+
+        vector<DMatch> matches_lr_0;
+        MatchSyntheticShots(*(left_features_collection.find(0)->second),
+                            *(right_features_collection.find(0)->second),
+                            matches_lr_0);
+
+        cout << ", #matches = " << matches_lr_0.size();
+
+        Mat kps_l_0, kps_r_0;
+        ExtractMatchedKeypoints(*(left_features_collection.find(0)->second),
+                                *(right_features_collection.find(0)->second),
+                                matches_lr_0, kps_l_0, kps_r_0);
+
+        vector<uchar> inlier_mask;
+        Mat_<double> F = findFundamentalMat(kps_l_0.reshape(2), kps_r_0.reshape(2), inlier_mask);
+
+        int num_inliers = 0;
+        for (size_t i = 0; i < inlier_mask.size(); ++i)
+            if (inlier_mask[i])
+                num_inliers++;
+
+        cout << ", #inliers = " << num_inliers << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
