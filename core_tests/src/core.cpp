@@ -211,7 +211,7 @@ TEST(FindHomographyLinear, NoiselessSynthDataset) {
     Mat_<double> xyzw2(1, num_points * 4);
 
     rng.fill(xyzw1, RNG::UNIFORM, -1, 1);
-
+ 
     for (int i = 0; i < num_points; ++i) {
         xyzw2(0, 4 * i) = H(0, 0) * xyzw1(0, 4 * i) + H(0, 1) * xyzw1(0, 4 * i + 1) + H(0, 2) * xyzw1(0, 4 * i + 2) + H(0, 3) * xyzw1(0, 4 * i + 3);
         xyzw2(0, 4 * i + 1) = H(1, 0) * xyzw1(0, 4 * i) + H(1, 1) * xyzw1(0, 4 * i + 1) + H(1, 2) * xyzw1(0, 4 * i + 2) + H(1, 3) * xyzw1(0, 4 * i + 3);

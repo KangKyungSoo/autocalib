@@ -465,7 +465,13 @@ namespace autocalib {
                                int ref_frame_idx, AbsoluteRotationMats &abs_rmats);   
 
 
-    void EigenDecompose(cv::InputArray mat);
+    /** Finds an eigen decomposition of a general matrix.
+      *
+      * \param mat Real matrix
+      * \param vals Complex row of egenvalues
+      * \param vecs Complex matrix which rows are eigenvectors
+      */
+    void EigenDecompose(cv::InputArray mat, cv::OutputArray vals, cv::OutputArray vecs);
 
 } // namespace autocalib
 

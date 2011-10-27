@@ -3,11 +3,11 @@ cmake_minimum_required(VERSION 2.8)
 set(lib_name autocalib)
 project(${lib_name})
 
-set(EIGEN3_DIR CACHE PATH "Path to Eigen3 sources")
+include(FindEigen.cmake)
 
 find_package(OpenCV REQUIRED)
 
-include_directories("." ${EIGEN3_DIR})
+include_directories("." ${EIGEN_INCLUDE_DIRS})
 
 add_subdirectory(core)
 add_subdirectory(core_tests)
