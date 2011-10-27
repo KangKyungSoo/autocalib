@@ -779,4 +779,42 @@ namespace autocalib {
         eff_corresp.walkBreadthFirst(ref_frame_idx, CalculateRotations(rel_rmats, abs_rmats));
     }
 
+
+    void EigenDecompose(InputArray mat, InputOutputArray vals, InputOutputArray vecs) {
+        using namespace Eigen;
+
+        CV_Assert(mat.getMat().type() == CV_64F && mat.getMat().rows == mat.getMat().cols);
+        Mat_<double> mat_ = mat.getMat();
+        int n = mat_.rows;
+
+        MatrixXd eigen_mat(n, n);
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < n; ++j)
+                eigen_mat(i, j) = mat_(i, j);
+
+        EigenSolver<MatrixXd> solver(eigen_mat);
+        VectorXcd eigen_vals = solver.eigenvalues();
+        MatrixXcd eigen_vecs = solver.eigenvectors();
+
+        Mat &tmp_vals = vals.getMatRef();
+        tmp_vals.create(1, n * 2, CV_64F);
+        Mat_<double> vals_(tmp_vals);
+
+        for (int i = 0; i < n; ++i) {
+            vals_(0, 2 * i) = eigen_vals[i].real();
+            vals_(0, 2 * i + 1) = eigen_vals[i].imag();
+        }
+
+        Mat &tmp_vecs = vecs.getMatRef();
+        tmp_vecs.create(n, n * 2, CV_64F);
+        Mat_<double> vecs_(tmp_vecs);
+
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < n; ++j) {
+                vecs_(i, 2 * j) = eigen_vecs(j, i).real();
+                vecs_(i, 2 * j + 1) = eigen_vecs(j, i).imag();
+            }
+        }
+    }
+
 } // namespace autocalib
