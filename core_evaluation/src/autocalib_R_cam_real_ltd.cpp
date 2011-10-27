@@ -112,7 +112,7 @@ int main(int argc, char **argv) {
                 cout << ", #inliers = " << inliers->size();
 
                 double rms_err = 0;
-                for (int i = 0; i < keypoints1.cols; ++i) {
+                for (size_t i = 0; i < matches.size(); ++i) {
                     const Point2d &kp1 = keypoints1.at<Point2d>(0, i);
                     const Point2d &kp2 = keypoints2.at<Point2d>(0, i);
                     double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
                     x /= z; y /= z;
                     rms_err += (kp2.x - x) * (kp2.x - x) + (kp2.y - y) * (kp2.y - y);
                 }
-                rms_err = sqrt(rms_err / keypoints1.cols);
+                rms_err = sqrt(rms_err / matches.size());
                 cout << ", RMS err = " << rms_err;
 
                 // See "Automatic Panoramic Image Stitching using Invariant Features"
