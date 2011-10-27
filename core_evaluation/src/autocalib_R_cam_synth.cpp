@@ -185,13 +185,15 @@ int main(int argc, char **argv) {
                     // Compute homography reprojection error
                     double rms_err = 0;
                     for (size_t i = 0; i < matches.size(); ++i) {
-                        Point2d kp1 = keypoints1.at<Point2d>(0, i);
-                        Point2d kp2 = keypoints2.at<Point2d>(0, i);
+                        const Point2d &kp1 = keypoints1.at<Point2d>(0, i);
+                        const Point2d &kp2 = keypoints2.at<Point2d>(0, i);
                         double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
                         double y = H(1, 0) * kp1.x + H(1, 1) * kp1.y + H(1, 2);
                         double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);
-                        rms_err += (kp2.x - x / z) * (kp2.x - x / z) + (kp2.y - y / z) * (kp2.y - y / z);
+                        x /= z; y /= z;
+                        rms_err += (kp2.x - x) * (kp2.x - x) + (kp2.y - y) * (kp2.y - y);
                     }
+                    rms_err = sqrt(rms_err / matches.size());
                     cout << "H from " << from << " to " << to
                          << " RMS error = " << sqrt(rms_err / matches.size())
                          << " = sqrt(2) * " << sqrt(rms_err / matches.size()) / sqrt(2.) << endl;

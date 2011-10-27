@@ -23,6 +23,7 @@ BestOf2NearestMatcherCreator matcher_creator;
 FeaturesCollection features_collection;
 int min_num_matches = 6;
 double H_est_thresh = 3.;
+double conf_thresh = 0;
 Mat_<double> K_init;
 bool lin_est_skew = false;
 bool refine_skew = false;
@@ -112,7 +113,7 @@ int main(int argc, char **argv) {
                 cout << ", #inliers = " << inliers->size();
 
                 double rms_err = 0;
-                for (int i = 0; i < keypoints1.cols; ++i) {
+                for (size_t i = 0; i < matches.size(); ++i) {
                     const Point2d &kp1 = keypoints1.at<Point2d>(0, i);
                     const Point2d &kp2 = keypoints2.at<Point2d>(0, i);
                     double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
@@ -121,7 +122,7 @@ int main(int argc, char **argv) {
                     x /= z; y /= z;
                     rms_err += (kp2.x - x) * (kp2.x - x) + (kp2.y - y) * (kp2.y - y);
                 }
-                rms_err = sqrt(rms_err / keypoints1.cols);
+                rms_err = sqrt(rms_err / matches.size());
                 cout << ", RMS err = " << rms_err;
 
                 // See "Automatic Panoramic Image Stitching using Invariant Features"
@@ -133,7 +134,7 @@ int main(int argc, char **argv) {
 
                 matches_collection[make_pair(from, to)] = inliers;
 
-                if (confidence > 0) {
+                if (confidence > conf_thresh) {
                     rel_confs[make_pair(from, to)] = confidence;
                     Hs[make_pair(from, to)] = H;
                 }
@@ -264,6 +265,8 @@ void ParseArgs(int argc, char **argv) {
             min_num_matches = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-thresh")
             H_est_thresh = static_cast<float>(atof(argv[++i]));
+        else if (string(argv[i]) == "--conf-thresh")
+            conf_thresh = static_cast<float>(atof(argv[++i]));
         else if (string(argv[i]) == "--K-init") {
             K_init = Mat::eye(3, 3, CV_64F);
             K_init(0, 0) = atof(argv[i + 1]);
