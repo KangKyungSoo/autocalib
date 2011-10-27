@@ -243,3 +243,17 @@ TEST(EigenDecompose, CanDecomposeRotationMat) {
     ASSERT_NEAR(0, val1.real(), 1e-6);
     ASSERT_NEAR(1, max(val1.imag(), val2.imag()), 1e-6);
 }
+
+
+TEST(CalcPinf, CanCalcFromEuclideanTransformation) {
+    Mat_<double> H = Mat::eye(4, 4, CV_64F);
+    H(0, 0) = 1 / sqrt(2.); H(0, 1) = -1 / sqrt(2.);
+    H(1, 0) = 1 / sqrt(2.); H(1, 1) = 1 / sqrt(2.);
+    H(2, 3) = 1;
+
+    Mat_<double> pinf = CalcPinf(H);
+    ASSERT_NEAR(0, pinf(0, 0), 1e-6);
+    ASSERT_NEAR(0, pinf(1, 0), 1e-6);
+    ASSERT_NEAR(0, pinf(2, 0), 1e-6);
+    ASSERT_NEAR(1, pinf(3, 0), 1e-6);
+}
