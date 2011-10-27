@@ -226,3 +226,20 @@ TEST(FindHomographyLinear, NoiselessSynthDataset) {
 
     ASSERT_LT(norm(H, H_found, NORM_INF), 1e-6);
 }
+
+
+TEST(EigenDecompose, CanDecomposeRotationMat) {
+    Mat_<double> mat(2, 2);
+    mat(0, 0) = 0; mat(0, 1) = -1;
+    mat(1, 0) = 1; mat(1, 1) = 0;
+
+    Mat_<double> vals, vecs;
+    EigenDecompose(mat, vals, vecs);
+
+    complex<double> val1(vals(0, 0), vals(0, 1));
+    complex<double> val2(vals(0, 2), vals(0, 3));
+    ASSERT_NEAR(val1.real(), val2.real(), 1e-6);
+    ASSERT_NEAR(val1.imag(), -val2.imag(), 1e-6);
+    ASSERT_NEAR(0, val1.real(), 1e-6);
+    ASSERT_NEAR(1, max(val1.imag(), val2.imag()), 1e-6);
+}
