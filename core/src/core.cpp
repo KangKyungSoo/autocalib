@@ -543,12 +543,12 @@ namespace autocalib {
     }
 
 
-    Mat DecomposeCholesky(InputArray src) {
-        Mat src_ = src.getMat();
-        CV_Assert(src_.rows == src_.cols && src_.type() == CV_64F);
+    Mat DecomposeCholesky(InputArray mat) {
+        Mat mat_ = mat.getMat();
+        CV_Assert(mat_.rows == mat_.cols && mat_.type() == CV_64F);
 
         Mat L;
-        src_.copyTo(L);
+        mat_.copyTo(L);
 
         if (!Cholesky(L.ptr<double>(), L.step, L.cols, 0, 0, 0))
             return Mat();
@@ -564,12 +564,12 @@ namespace autocalib {
     }
 
 
-    Mat DecomposeUUt(InputArray src) {
-        Mat src_ = src.getMat();
-        CV_Assert(src_.rows == src_.cols && src_.type() == CV_64F);
+    Mat DecomposeUUt(InputArray mat) {
+        Mat mat_ = mat.getMat();
+        CV_Assert(mat_.rows == mat_.cols && mat_.type() == CV_64F);
 
         Mat adiag = Antidiag(3, 3, CV_64F);
-        Mat U_flipped = DecomposeCholesky(adiag * src_ * adiag);
+        Mat U_flipped = DecomposeCholesky(adiag * mat_ * adiag);
         if (U_flipped.empty())
             return Mat();
 
@@ -580,15 +580,15 @@ namespace autocalib {
     void ExtractMatchedKeypoints(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
                                  const vector<DMatch> &matches, OutputArray xy1, OutputArray xy2)
     {
-        Mat &kps1_ = xy1.getMatRef();
-        Mat &kps2_ = xy2.getMatRef();
+        Mat &xy1_ = xy1.getMatRef();
+        Mat &xy2_ = xy2.getMatRef();
 
-        kps1_.create(1, (int)matches.size(), CV_32FC2);
-        kps2_.create(1, (int)matches.size(), CV_32FC2);
+        xy1_.create(1, (int)matches.size() * 2, CV_64F);
+        xy2_.create(1, (int)matches.size() * 2, CV_64F);
 
         for (size_t i = 0; i < matches.size(); ++i) {
-            kps1_.at<Point2f>(0, i) = f1.keypoints[matches[i].queryIdx].pt;
-            kps2_.at<Point2f>(0, i) = f2.keypoints[matches[i].trainIdx].pt;
+            xy1_.at<Point2d>(0, i) = f1.keypoints[matches[i].queryIdx].pt;
+            xy2_.at<Point2d>(0, i) = f2.keypoints[matches[i].trainIdx].pt;
         }
     }
 

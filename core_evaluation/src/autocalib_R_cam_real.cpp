@@ -97,7 +97,8 @@ int main(int argc, char **argv) {
                                         *(features_collection.find(to)->second),
                                         matches, keypoints1, keypoints2);
                 vector<uchar> inliers_mask;
-                Mat_<double> H = findHomography(keypoints1, keypoints2, inliers_mask, RANSAC, H_est_thresh);
+                Mat_<double> H = findHomography(keypoints1.reshape(2), keypoints2.reshape(2), 
+                                                inliers_mask, RANSAC, H_est_thresh);
 
                 if (H.empty()) {
                     cout << ", can't estimate H\n";
@@ -112,8 +113,8 @@ int main(int argc, char **argv) {
 
                 double rms_err = 0;
                 for (int i = 0; i < keypoints1.cols; ++i) {
-                    const Point2f &kp1 = keypoints1.at<Point2f>(0, i);
-                    const Point2f &kp2 = keypoints2.at<Point2f>(0, i);
+                    const Point2d &kp1 = keypoints1.at<Point2d>(0, i);
+                    const Point2d &kp2 = keypoints2.at<Point2d>(0, i);
                     double x = H(0, 0) * kp1.x + H(0, 1) * kp1.y + H(0, 2);
                     double y = H(1, 0) * kp1.x + H(1, 1) * kp1.y + H(1, 2);
                     double z = H(2, 0) * kp1.x + H(2, 1) * kp1.y + H(2, 2);
