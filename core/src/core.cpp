@@ -512,6 +512,35 @@ namespace autocalib {
     }
 
 
+    Mat CalcPinf(InputArray H) {
+        CV_Assert(H.getMat().type() == CV_64F && H.getMat().size() == Size(4, 4));
+        Mat_<double> H_ = H.getMat();
+
+        Mat_<double> evals, evecs;
+        EigenDecompose(H_.t(), evals, evecs);
+
+        // Find eigenvector corresponding to eigenvalue with the smallest imaginary component
+
+        vector<pair<complex<double>, int> > evals_idx(4);
+        for (int i = 0; i < 4; ++i)
+            evals_idx[i] = make_pair(evals.at<complex<double> >(0, i), i);
+        for (int i = 0; i < 3; ++i) {
+            for (int j = i + 1; j < 4; ++j) {
+                if (abs(evals_idx[i].first.imag()) > abs(evals_idx[j].first.imag()))
+                    swap(evals_idx[i], evals_idx[j]);
+            }
+        }
+
+        Mat_<double> pinf(4, 1);
+        pinf(0, 0) = evecs(evals_idx[0].second, 0);
+        pinf(1, 0) = evecs(evals_idx[0].second, 2);
+        pinf(2, 0) = evecs(evals_idx[0].second, 4);
+        pinf(3, 0) = evecs(evals_idx[0].second, 6);
+
+        return pinf;
+    }
+
+
     Mat Antidiag(int rows, int cols, int type) {
         Mat dst = Mat::zeros(rows, cols, type);
         int len = min(rows, cols);
