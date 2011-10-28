@@ -52,7 +52,7 @@ namespace autocalib {
                 num_iters++;
                 if (opts.verbose() & MinimizeOpts::VERBOSE_ITER)
                     AUTOCALIB_LOG(std::cout << "iter = " << num_iters
-                                  << ", RMS error = " << rms_err << std::endl);
+                                            << ", RMS error = " << rms_err << std::endl);
             }
         }
 
