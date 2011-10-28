@@ -569,7 +569,7 @@ namespace autocalib {
     }
 
 
-    Mat CalcPinf(InputArray H) {
+    Mat CalcPlaneAtInfinity(InputArray H) {
         CV_Assert(H.getMat().type() == CV_64F && H.getMat().size() == Size(4, 4));
         Mat_<double> H_ = H.getMat();
 

@@ -263,13 +263,13 @@ TEST(EigenDecompose, CanDecomposeRotationMat) {
 }
 
 
-TEST(CalcPinf, CanCalcFromEuclideanTransformation) {
+TEST(CalcPlaneAtInfinity, CanCalcFromEuclideanTransformation) {
     Mat_<double> H = Mat::eye(4, 4, CV_64F);
     H(0, 0) = 1 / sqrt(2.); H(0, 1) = -1 / sqrt(2.);
     H(1, 0) = 1 / sqrt(2.); H(1, 1) = 1 / sqrt(2.);
     H(2, 3) = 1;
 
-    Mat_<double> pinf = CalcPinf(H);
+    Mat_<double> pinf = CalcPlaneAtInfinity(H);
     ASSERT_NEAR(0, pinf(0, 0), 1e-6);
     ASSERT_NEAR(0, pinf(1, 0), 1e-6);
     ASSERT_NEAR(0, pinf(2, 0), 1e-6);
