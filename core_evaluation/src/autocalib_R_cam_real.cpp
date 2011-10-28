@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 
         // Find features
 
-        cout << "Finding features...\n";
+        cout << "\nFinding features...\n";
         Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
 
         for (int i = 0; i < num_frames; ++i) {
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
 
         // Match all pairs
 
-        cout << "Matching pairs... ";
+        cout << "\nMatching pairs... ";
         MatchesCollection matches_collection;
         Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
 
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
         RelativeConfidences rel_confs;
         Mat keypoints1, keypoints2;
 
-        cout << "Estimating Hs...\n";
+        cout << "\nEstimating Hs...\n";
         for (int from = 0; from < num_frames - 1; ++from) {
             for (int to = from + 1; to < num_frames; ++to) {
                 const vector<DMatch> &matches = *(matches_collection.find(make_pair(from, to))->second);
@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
 
         double residual_error;
         if (K_init.empty()) {
-            cout << "Linear calibrating...\n";
+            cout << "\nLinear calibrating...\n";
             if (lin_est_skew)
                 K_init = CalibRotationalCameraLinear(Hs, &residual_error);
             else
@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
 
         // Non-linear refinement
 
-        cout << "Refining camera...\n";
+        cout << "\nRefining camera...\n";
 
         AbsoluteRotationMats Rs;
         CalcAbsoluteRotations(rel_Rs, eff_corresps, ref_frame_idx, Rs);
@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
         }
         cout << "K_refined =\n" << K_refined << endl;
 
-        cout << "SUMMARY\n";
+        cout << "\nSUMMARY\n";
         cout << "K_init =\n" << K_init << endl;
         cout << "K_refined =\n" << K_refined << endl;
 
