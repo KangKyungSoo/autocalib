@@ -363,6 +363,28 @@ namespace autocalib {
     }
 
 
+    void Intersect(const vector<DMatch> &matches_lr1, const vector<DMatch> &matches_lr2,
+                   const vector<DMatch> &matches_ll, vector<pair<int, int> > &indices)
+    {
+        map<int, int> l1_to_lr1_idx;
+        for (size_t i = 0; i < matches_lr1.size(); ++i)
+            l1_to_lr1_idx.insert(make_pair(matches_lr1[i].queryIdx, i));
+
+        map<int, int> l2_to_lr2_idx;
+        for (size_t i = 0; i < matches_lr2.size(); ++i)
+            l2_to_lr2_idx.insert(make_pair(matches_lr2[i].queryIdx, i));
+
+        indices.clear();
+
+        for (size_t i = 0; i < matches_ll.size(); ++i) {
+            map<int, int>::iterator i1 = l1_to_lr1_idx.find(matches_ll[i].queryIdx);
+            map<int, int>::iterator i2 = l2_to_lr2_idx.find(matches_ll[i].trainIdx);
+            if (i1 != l1_to_lr1_idx.end() && i2 != l2_to_lr2_idx.end())
+                indices.push_back(make_pair(i1->second, i2->second));
+        }
+    }
+
+
     Mat Extract2ndCameraMatFromF(InputArray F) {
         CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
         Mat F_ = F.getMat();
@@ -397,8 +419,8 @@ namespace autocalib {
 
         // Normalize keypoints and cameras
 
-        Mat_<double> T1 = CalcNormalizationMat(xy1_);
-        Mat_<double> T2 = CalcNormalizationMat(xy2_);
+        Mat_<double> T1 = CalcNormalizationMat3x3(xy1_);
+        Mat_<double> T2 = CalcNormalizationMat3x3(xy2_);
 
         for (int i = 0; i < num_points; ++i) {
             xy1_(0, 2 * i) = T1(0, 0) * xy1_(0, 2 * i) + T1(0, 2);
@@ -441,7 +463,7 @@ namespace autocalib {
     }
 
 
-    Mat CalcNormalizationMat(InputArray xy) {
+    Mat CalcNormalizationMat3x3(InputArray xy) {
         CV_Assert(xy.getMat().type() == CV_64F && xy.getMat().rows == 1 && xy.getMat().cols % 2 == 0);
         Mat_<double> xy_ = xy.getMat();
         int num_points = xy_.cols / 2;
@@ -499,7 +521,8 @@ namespace autocalib {
 
         Mat_<double> xyzw1_ = xyzw1.getMat();
         Mat_<double> xyzw2_ = xyzw2.getMat();
-        int num_points = xyzw1_.cols / 4;
+
+        int num_points = xyzw1_.cols / 4;       
 
         Mat_<double> A(6 * num_points, 16);
         A.setTo(0);
@@ -534,10 +557,14 @@ namespace autocalib {
             }
         }
 
+        for (int i = 0; i < A.rows; ++i)
+            Mat(A.row(i)) /= norm(A.row(i));
+
         Mat_<double> H;
         SVD::solveZ(A, H);
+        H = H.reshape(4);
 
-        return H.reshape(4);
+        return H;
     }
 
 

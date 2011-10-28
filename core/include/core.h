@@ -334,6 +334,20 @@ namespace autocalib {
     cv::Mat Extract2ndCameraMatFromF(cv::InputArray F);
 
 
+    /** Intersects matches between images in stereo pairs with matches between stereo pairs.
+      *
+      * The functions does assumption that matches_lr_* are injective mappings from left image
+      * to right image keypoints.
+      *
+      * \param matches_lr1 First stereo pair matches
+      * \param matches_lr2 Second stereo pair matches
+      * \param matches_ll Matches between left images of stereo pairs
+      * \param indices Matches indices pairs vector
+      */
+    void Intersect(const std::vector<cv::DMatch> &matches_lr1, const std::vector<cv::DMatch> &matches_lr2,
+                   const std::vector<cv::DMatch> &matches_ll, std::vector<std::pair<int, int> > &indices);
+
+
     /** Triangulation method base class. */
     class ITriangulationMethod {
     public:
@@ -362,7 +376,7 @@ namespace autocalib {
         virtual void triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2, 
                                  cv::InputArray xy1, cv::InputArray xy2, 
                                  cv::InputOutputArray xyzw);
-    };
+    };    
 
 
     /** Calculates an isotropic normalization transformation matrix.
@@ -372,7 +386,7 @@ namespace autocalib {
       * \param xy Image keypoints
       * \return Transformation matrix
       */
-    cv::Mat CalcNormalizationMat(cv::InputArray xy);
+    cv::Mat CalcNormalizationMat3x3(cv::InputArray xy);
 
 
     /** Calculates the reprojection RMS error.
