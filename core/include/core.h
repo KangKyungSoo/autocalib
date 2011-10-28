@@ -336,7 +336,7 @@ namespace autocalib {
 
     /** Intersects matches between images in stereo pairs with matches between stereo pairs.
       *
-      * The functions does assumption that matches_lr_* are injective mappings from left image
+      * The functions does assumption that matches_lr* are injective mappings from left image
       * to right image keypoints.
       *
       * \param matches_lr1 First stereo pair matches
