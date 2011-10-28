@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
         }
 
         if (noise_stddev > 0) {
-            cout << "Adding noise...\n";
+            cout << "\nAdding noise...\n";
             for (int i = 0; i < num_frames; ++i) {
                 Mat_<float> noise(1, 2 * features_collection.find(i)->second->keypoints.size());
 
@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
         vector<DMatch> matches;
         MatchesCollection matches_collection;
 
-        cout << "Finding homographies...\n";        
+        cout << "\nFinding homographies...\n";
         for (int from = 0; from < num_frames - 1; ++from) {
             for (int to = from + 1; to < num_frames; ++to) {
                 MatchSyntheticShots(*(features_collection.find(from)->second),
@@ -205,7 +205,7 @@ int main(int argc, char **argv) {
         int64 calib_start_time = getTickCount();
 
         if (K_init.empty()) {
-            cout << "Linear calibrating...\n";
+            cout << "\nLinear calibrating...\n";
             if (lin_est_skew)
                 K_init = CalibRotationalCameraLinear(Hs);
             else
@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
         }
         cout << "K_init =\n" << K_init << endl;
         
-        cout << "Refining camera...\n";
+        cout << "\nRefining camera...\n";
         if (Hs_from_0.size() != num_frames - 1) {
             stringstream msg;
             msg << "Refinement requires Hs between first and all other images, "
@@ -240,7 +240,7 @@ int main(int argc, char **argv) {
 
         int64 calib_time = getTickCount() - calib_start_time;
 
-        cout << "SUMMARY\n";
+        cout << "\nSUMMARY\n";
         cout << "K_gold =\n" << K_gold << endl;
         cout << "K_init =\n" << K_init << endl;
         cout << "K_refined =\n" << K_refined << endl;

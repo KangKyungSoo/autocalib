@@ -199,6 +199,23 @@ int main(int argc, char **argv) {
         cout << "(F1) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
              << reproj_rms_error_l_0_ << " " << reproj_rms_error_r_0_ << " "
              << reproj_rms_error_l_1_ << " " << reproj_rms_error_r_1_ << ")\n";
+
+        // Match two stereo pairs
+
+        cout << "\nMatching two stereo pairs using left images...";
+
+        vector<DMatch> matches_ll;
+        MatchSyntheticShots(*(left_features_collection.find(0)->second),
+                            *(left_features_collection.find(1)->second),
+                            matches_ll);
+
+        cout << " #matches = " << matches_ll.size() << endl;
+
+//        // Find homography mapping 1st cloud to 2nd one
+
+//        Mat_<double> H12 = FindHomographyLinear(xyzw0, xyzw1);
+
+//        cout << "\nH12 = \n" << H12 << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
