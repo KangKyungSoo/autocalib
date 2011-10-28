@@ -417,7 +417,7 @@ namespace autocalib {
       * \param H Homography
       * \return Plane-at-infinity coordinates (4x1 vector)
       */
-    cv::Mat CalcPinf(cv::InputArray H);
+    cv::Mat CalcPlaneAtInfinity(cv::InputArray H);
 
 
     //============================================================================

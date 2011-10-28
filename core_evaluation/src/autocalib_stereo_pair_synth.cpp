@@ -283,13 +283,28 @@ int main(int argc, char **argv) {
 
         // Finding Pinf
 
-        cout << "\nFinding Pinf...\n";
+        cout << "\nFinding plane-at-infinity...\n";
 
         Mat evals, evecs;
         EigenDecompose(H01.t(), evals, evecs);
         cout << "Eigenvalues of H01.t() = " << evals << endl;
 
-        cout << "Pinf = " << CalcPinf(H01) << endl;
+        Mat_<double> p_inf = CalcPlaneAtInfinity(H01);
+        p_inf /= p_inf(3, 0);
+        cout << "Plane-at-infinity = " << p_inf << endl;
+
+        // Linear autocalibration
+
+        cout << "\nLinear calibrating...\n";
+
+        HomographiesP2 Hs_inf;
+
+        Mat A = P_r(Rect(0, 0, 3, 3));
+        Mat a = P_r(Rect(3, 0, 1, 3));
+        Hs_inf[make_pair(0, 1)] = A - a * p_inf.rowRange(0, 3).t();
+
+        Mat_<double> K_linear = CalibRotationalCameraLinearNoSkew(Hs_inf);
+        cout << "K_linear = \n" << K_linear << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
