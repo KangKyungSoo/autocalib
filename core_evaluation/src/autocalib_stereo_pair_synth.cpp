@@ -38,8 +38,11 @@ int main(int argc, char **argv) {
         cout << "K_gold =\n" << K_gold << endl;
 
         RNG rng;
-        if (seed > 0)
+        if (seed > 0) {
             rng.state = seed;
+            theRNG() = rng;
+            srand(seed);
+        }
 
         Mat_<double> rvec, R;
         Ptr<PointCloudScene> scene;
