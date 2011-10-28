@@ -170,7 +170,7 @@ namespace evaluation {
         img_.create(features.img_size, CV_8U);
         img_.setTo(0);
         for (size_t i = 0; i < features.keypoints.size(); ++i)
-            circle(img_, features.keypoints[i].pt, 1, Scalar::all(255), 2);
+            circle(img_, features.keypoints[i].pt, 1, Scalar::all(255), 1);
     }
 
 } // namespace evaluation
