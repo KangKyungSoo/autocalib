@@ -107,53 +107,51 @@ int main(int argc, char **argv) {
 
         cout << "\nFinding F between #0 pair images...";
 
-        vector<DMatch> matches_lr_0;
+        vector<DMatch> matches_lr0;
         MatchSyntheticShots(*(left_features_collection.find(0)->second),
                             *(right_features_collection.find(0)->second),
-                            matches_lr_0);
+                            matches_lr0);
 
-        cout << " #matches = " << matches_lr_0.size();
+        cout << " #matches = " << matches_lr0.size();
 
-        Mat xy_l_0, xy_r_0;
+        Mat_<double> xy_l0, xy_r0;
         ExtractMatchedKeypoints(*(left_features_collection.find(0)->second),
                                 *(right_features_collection.find(0)->second),
-                                matches_lr_0, xy_l_0, xy_r_0);
+                                matches_lr0, xy_l0, xy_r0);
 
         vector<uchar> inlier_mask0;
-        Mat_<double> F0 = findFundamentalMat(xy_l_0.reshape(2), xy_r_0.reshape(2), inlier_mask0, RANSAC, 0.1);
+        Mat_<double> F0 = findFundamentalMat(Mat(xy_l0).reshape(2), Mat(xy_r0).reshape(2), inlier_mask0, RANSAC, 0.1);
 
         int num_inliers0 = 0;
         for (size_t i = 0; i < inlier_mask0.size(); ++i)
             if (inlier_mask0[i])
                 num_inliers0++;
 
-        cout << ", #inliers = " << num_inliers0 << endl
-             << "F0 = \n" << F0 << endl;
+        cout << ", #inliers = " << num_inliers0 << endl;
 
         cout << "Finding F between #1 pair images...";
 
-        vector<DMatch> matches_lr_1;
+        vector<DMatch> matches_lr1;
         MatchSyntheticShots(*(left_features_collection.find(1)->second),
                             *(right_features_collection.find(1)->second),
-                            matches_lr_1);
+                            matches_lr1);
 
-        cout << " #matches = " << matches_lr_1.size();
+        cout << " #matches = " << matches_lr1.size();
 
-        Mat xy_l_1, xy_r_1;
+        Mat_<double> xy_l1, xy_r1;
         ExtractMatchedKeypoints(*(left_features_collection.find(1)->second),
                                 *(right_features_collection.find(1)->second),
-                                matches_lr_1, xy_l_1, xy_r_1);
+                                matches_lr1, xy_l1, xy_r1);
 
         vector<uchar> inlier_mask1;
-        Mat_<double> F1 = findFundamentalMat(xy_l_1.reshape(2), xy_r_1.reshape(2), inlier_mask1, RANSAC, 0.1);
+        Mat_<double> F1 = findFundamentalMat(Mat(xy_l1).reshape(2), Mat(xy_r1).reshape(2), inlier_mask1, RANSAC, 0.1);
 
         int num_inliers1 = 0;
         for (size_t i = 0; i < inlier_mask1.size(); ++i)
             if (inlier_mask1[i])
                 num_inliers1++;
 
-        cout << ", #inliers = " << num_inliers1 << endl
-             << "F1 = \n" << F1 << endl;
+        cout << ", #inliers = " << num_inliers1 << endl;
 
         // Extract camera matrices
 
@@ -165,40 +163,40 @@ int main(int argc, char **argv) {
         DltTriangulation dlt;
 
         Mat_<double> xyzw0;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r), xy_l_0, xy_r_0, xyzw0);
+        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r), xy_l0, xy_r0, xyzw0);
 
-        double reproj_rms_error_l_0 = CalcRmsReprojError(xy_l_0, P_l, xyzw0);
-        double reproj_rms_error_r_0 = CalcRmsReprojError(xy_r_0, P_r, xyzw0);
+        double reproj_rms_error_l0 = CalcRmsReprojError(xy_l0, P_l, xyzw0);
+        double reproj_rms_error_r0 = CalcRmsReprojError(xy_r0, P_r, xyzw0);
 
         Mat_<double> xyzw1;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r), xy_l_1, xy_r_1, xyzw1);
+        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r), xy_l1, xy_r1, xyzw1);
 
-        double reproj_rms_error_l_1 = CalcRmsReprojError(xy_l_1, P_l, xyzw1);
-        double reproj_rms_error_r_1 = CalcRmsReprojError(xy_r_1, P_r, xyzw1);
+        double reproj_rms_error_l1 = CalcRmsReprojError(xy_l1, P_l, xyzw1);
+        double reproj_rms_error_r1 = CalcRmsReprojError(xy_r1, P_r, xyzw1);
 
         cout << "\n(F0) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << reproj_rms_error_l_0 << " " << reproj_rms_error_r_0 << " "
-             << reproj_rms_error_l_1 << " " << reproj_rms_error_r_1 << ")\n";
+             << reproj_rms_error_l0 << " " << reproj_rms_error_r0 << " "
+             << reproj_rms_error_l1 << " " << reproj_rms_error_r1 << ")\n";
 
         // Check if we can find structure using F1 instead of F0
 
         Mat_<double> P_r_ = Extract2ndCameraMatFromF(F1);
 
         Mat_<double> xyzw0_;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l_0, xy_r_0, xyzw0_);
+        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l0, xy_r0, xyzw0_);
 
-        double reproj_rms_error_l_0_ = CalcRmsReprojError(xy_l_0, P_l, xyzw0_);
-        double reproj_rms_error_r_0_ = CalcRmsReprojError(xy_r_0, P_r_, xyzw0_);
+        double reproj_rms_error_l0_ = CalcRmsReprojError(xy_l0, P_l, xyzw0_);
+        double reproj_rms_error_r0_ = CalcRmsReprojError(xy_r0, P_r_, xyzw0_);
 
         Mat_<double> xyzw1_;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l_1, xy_r_1, xyzw1_);
+        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l1, xy_r1, xyzw1_);
 
-        double reproj_rms_error_l_1_ = CalcRmsReprojError(xy_l_1, P_l, xyzw1_);
-        double reproj_rms_error_r_1_ = CalcRmsReprojError(xy_r_1, P_r_, xyzw1_);
+        double reproj_rms_error_l1_ = CalcRmsReprojError(xy_l1, P_l, xyzw1_);
+        double reproj_rms_error_r1_ = CalcRmsReprojError(xy_r1, P_r_, xyzw1_);
 
         cout << "(F1) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << reproj_rms_error_l_0_ << " " << reproj_rms_error_r_0_ << " "
-             << reproj_rms_error_l_1_ << " " << reproj_rms_error_r_1_ << ")\n";
+             << reproj_rms_error_l0_ << " " << reproj_rms_error_r0_ << " "
+             << reproj_rms_error_l1_ << " " << reproj_rms_error_r1_ << ")\n";
 
         // Match two stereo pairs
 
@@ -211,11 +209,81 @@ int main(int argc, char **argv) {
 
         cout << " #matches = " << matches_ll.size() << endl;
 
-//        // Find homography mapping 1st cloud to 2nd one
+        // Leave only common part of point clouds
 
-//        Mat_<double> H12 = FindHomographyLinear(xyzw0, xyzw1);
+        vector<pair<int, int> > lr0_lr1_indices;
+        Intersect(matches_lr0, matches_lr1, matches_ll, lr0_lr1_indices);
 
-//        cout << "\nH12 = \n" << H12 << endl;
+        Mat_<double> xy_l0_buf(1, lr0_lr1_indices.size() * 2);
+        Mat_<double> xy_r0_buf(1, lr0_lr1_indices.size() * 2);
+        Mat_<double> xy_l1_buf(1, lr0_lr1_indices.size() * 2);
+        Mat_<double> xy_r1_buf(1, lr0_lr1_indices.size() * 2);
+        Mat_<double> xyzw0_buf(1, lr0_lr1_indices.size() * 4);
+        Mat_<double> xyzw1_buf(1, lr0_lr1_indices.size() * 4);
+
+        for (size_t i = 0; i < lr0_lr1_indices.size(); ++i) {
+            int i0 = lr0_lr1_indices[i].first;
+            int i1 = lr0_lr1_indices[i].second;
+
+            xy_l0_buf(0, 2 * i) = xy_l0(0, 2 * i0);
+            xy_l0_buf(0, 2 * i + 1) = xy_l0(0, 2 * i0 + 1);
+
+            xy_r0_buf(0, 2 * i) = xy_r0(0, 2 * i0);
+            xy_r0_buf(0, 2 * i + 1) = xy_r0(0, 2 * i0 + 1);
+
+            xy_l1_buf(0, 2 * i) = xy_l1(0, 2 * i1);
+            xy_l1_buf(0, 2 * i + 1) = xy_l1(0, 2 * i1 + 1);
+
+            xy_r1_buf(0, 2 * i) = xy_r1(0, 2 * i1);
+            xy_r1_buf(0, 2 * i + 1) = xy_r1(0, 2 * i1 + 1);
+
+            xyzw0_buf(0, 4 * i) = xyzw0(0, 4 * i0);
+            xyzw0_buf(0, 4 * i + 1) = xyzw0(0, 4 * i0 + 1);
+            xyzw0_buf(0, 4 * i + 2) = xyzw0(0, 4 * i0 + 2);
+            xyzw0_buf(0, 4 * i + 3) = xyzw0(0, 4 * i0 + 3);
+
+            xyzw1_buf(0, 4 * i) = xyzw1(0, 4 * i1);
+            xyzw1_buf(0, 4 * i + 1) = xyzw1(0, 4 * i1 + 1);
+            xyzw1_buf(0, 4 * i + 2) = xyzw1(0, 4 * i1 + 2);
+            xyzw1_buf(0, 4 * i + 3) = xyzw1(0, 4 * i1 + 3);
+        }
+
+        xy_l0 = xy_l0_buf;
+        xy_r0 = xy_r0_buf;
+        xy_l1 = xy_l1_buf;
+        xy_r1 = xy_r1_buf;
+        xyzw0 = xyzw0_buf;
+        xyzw1 = xyzw1_buf;
+
+        // Find homography mapping the 1st cloud to the 2nd one
+
+        int num_points_common = xyzw0.cols / 4;
+
+        cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n";
+
+        Mat_<double> H01 = FindHomographyLinear(xyzw0, xyzw1);
+        cout << "H01 = \n" << H01 << endl;
+
+        Mat_<double> xyzw1_mapped(xyzw0.size(), xyzw0.type());
+        for (int i = 0; i < num_points_common; ++i) {
+            xyzw1_mapped(0, 4 * i) = H01(0, 0) * xyzw0(0, 4 * i) + H01(0, 1) * xyzw0(0, 4 * i + 1) + H01(0, 2) * xyzw0(0, 4 * i + 2) + H01(0, 3) * xyzw0(0, 4 * i + 3);
+            xyzw1_mapped(0, 4 * i + 1) = H01(1, 0) * xyzw0(0, 4 * i) + H01(1, 1) * xyzw0(0, 4 * i + 1) + H01(1, 2) * xyzw0(0, 4 * i + 2) + H01(1, 3) * xyzw0(0, 4 * i + 3);
+            xyzw1_mapped(0, 4 * i + 2) = H01(2, 0) * xyzw0(0, 4 * i) + H01(2, 1) * xyzw0(0, 4 * i + 1) + H01(2, 2) * xyzw0(0, 4 * i + 2) + H01(2, 3) * xyzw0(0, 4 * i + 3);
+            xyzw1_mapped(0, 4 * i + 3) = H01(3, 0) * xyzw0(0, 4 * i) + H01(3, 1) * xyzw0(0, 4 * i + 1) + H01(3, 2) * xyzw0(0, 4 * i + 2) + H01(3, 3) * xyzw0(0, 4 * i + 3);
+        }
+
+        double reproj_rms_error_l1_mapped = CalcRmsReprojError(xy_l1, P_l, xyzw1_mapped);
+        double reproj_rms_error_r1_mapped = CalcRmsReprojError(xy_r1, P_r, xyzw1_mapped);
+
+        cout << "Reprojection RMS error after mapping (l1 r1) = ("
+             << reproj_rms_error_l1_mapped << " "
+             << reproj_rms_error_r1_mapped << ")\n";
+
+        // Finding Pinf
+
+        cout << "\nFinding Pinf...\n";
+
+        cout << "Pinf = " << CalcPinf(H01) << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
@@ -258,3 +326,4 @@ void ParseArgs(int argc, char **argv) {
             throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
     }
 }
+
