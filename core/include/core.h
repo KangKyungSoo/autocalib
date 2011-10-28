@@ -189,9 +189,10 @@ namespace autocalib {
       * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
       *
       * \param Hs Projective plane homographies
+      * \param residual_error Relative residual error (optional)
       * \return Camera intrinsics
       */
-    cv::Mat CalibRotationalCameraLinear(const HomographiesP2 &Hs);
+    cv::Mat CalibRotationalCameraLinear(const HomographiesP2 &Hs, double *residual_error = 0);
 
 
     /** Calculates rotational camera intrinsics using a linear algorithm with the zero skew assumption.
@@ -199,9 +200,10 @@ namespace autocalib {
       * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
       *
       * \param Hs Projective plane homographies
+      * \param residual_error Relative residual error (optional)
       * \return Camera intrinsics, where skew is zero
       */
-    cv::Mat CalibRotationalCameraLinearNoSkew(const HomographiesP2 &Hs);
+    cv::Mat CalibRotationalCameraLinearNoSkew(const HomographiesP2 &Hs, double *residual_error = 0);
 
 
     /** Rigid camera refinement method flags. */
@@ -222,11 +224,12 @@ namespace autocalib {
       * \param features Features collection
       * \param matches Matches collection
       * \param params_to_refine Flags indicating parameters which should be refined
+      * \return Reprojection RMS error
       * \see RefineFlag
       */
-    void RefineRigidCamera(cv::InputOutputArray K, AbsoluteRotationMats Rs,
-                           const FeaturesCollection &features, const MatchesCollection &matches,
-                           int params_to_refine = REFINE_FLAG_ALL);
+    double RefineRigidCamera(cv::InputOutputArray K, AbsoluteRotationMats Rs,
+                             const FeaturesCollection &features, const MatchesCollection &matches,
+                             int params_to_refine = REFINE_FLAG_ALL);
 
 
     //============================================================================
@@ -320,6 +323,16 @@ namespace autocalib {
 
     //============================================================================
     // Structure and motion
+
+    /** Extracts the second camera matrix from the fundamental matrix.
+      *
+      * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 256.
+      *
+      * \param F Fundamental matrix
+      * \return Camera matrix for the second image in pair
+      */
+    cv::Mat Extract2ndCameraMatFromF(cv::InputArray F);
+
 
     /** Triangulation method base class. */
     class ITriangulationMethod {
@@ -482,6 +495,16 @@ namespace autocalib {
       * \param vecs Complex matrix which rows are eigenvectors
       */
     void EigenDecompose(cv::InputArray mat, cv::OutputArray vals, cv::OutputArray vecs);
+
+
+    /** Returns skew-symmetric matrix representing cross product.
+      *
+      * See http://en.wikipedia.org/wiki/Cross_product.
+      *
+      * \param vec 3x1 vector
+      * \return Cross product matrix
+      */
+    cv::Mat CrossProductMat(cv::InputArray vec);
 
 } // namespace autocalib
 

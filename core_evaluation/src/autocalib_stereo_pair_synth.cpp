@@ -105,14 +105,14 @@ int main(int argc, char **argv) {
 
         // Find fundmental matrix
 
-        cout << "Finding F between #0 pair images... ";
+        cout << "Finding F between #0 pair images...";
 
         vector<DMatch> matches_lr_0;
         MatchSyntheticShots(*(left_features_collection.find(0)->second),
                             *(right_features_collection.find(0)->second),
                             matches_lr_0);
 
-        cout << ", #matches = " << matches_lr_0.size();
+        cout << " #matches = " << matches_lr_0.size();
 
         Mat kps_l_0, kps_r_0;
         ExtractMatchedKeypoints(*(left_features_collection.find(0)->second),

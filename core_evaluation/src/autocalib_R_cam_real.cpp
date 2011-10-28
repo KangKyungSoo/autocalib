@@ -1,5 +1,6 @@
 #pragma warning(disable: 4800)
 #include <iostream>
+#include <algorithm>
 #include <vector>
 #include <set>
 #include <stdexcept>
@@ -18,6 +19,7 @@ void ParseArgs(int argc, char **argv);
 
 vector<string> img_names;
 vector<Mat> imgs;
+int num_frames = 0; // Use all source frames
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
 FeaturesCollection features_collection;
@@ -27,14 +29,30 @@ double conf_thresh = 0;
 Mat_<double> K_init;
 bool lin_est_skew = false;
 bool refine_skew = false;
+string log_file;
 
 int main(int argc, char **argv) {
     try {
         ParseArgs(argc, argv);
 
-        int num_frames = static_cast<int>(imgs.size());
-        if (num_frames < 1)
-            throw runtime_error("Need at least one camera");
+        srand(0);
+
+        if (num_frames > 0 && num_frames <= static_cast<int>(img_names.size())) {
+            random_shuffle(img_names.begin(), img_names.end());
+            img_names.resize(num_frames);
+        }
+        else
+            num_frames = static_cast<int>(img_names.size());
+
+        if (img_names.size() < 1)
+            throw runtime_error("Need at least one frame");
+
+        for (size_t i = 0; i < img_names.size(); ++i) {
+            Mat img = imread(img_names[i]);
+            if (img.empty())
+                throw runtime_error("Can't open image: " + img_names[i]);
+            imgs.push_back(img);
+        }
 
         // Find features
 
@@ -148,12 +166,13 @@ int main(int argc, char **argv) {
 
         // Linear calibration
 
+        double residual_error;
         if (K_init.empty()) {
             cout << "Linear calibrating...\n";
             if (lin_est_skew)
-                K_init = CalibRotationalCameraLinear(Hs);
+                K_init = CalibRotationalCameraLinear(Hs, &residual_error);
             else
-                K_init = CalibRotationalCameraLinearNoSkew(Hs);
+                K_init = CalibRotationalCameraLinearNoSkew(Hs, &residual_error);
             cout << "K_init =\n" << K_init << endl;
         }
 
@@ -185,18 +204,29 @@ int main(int argc, char **argv) {
         }
 
         Mat_<double> K_refined = K_init.clone();
+        double final_reproj_error;
         if (refine_skew)
-            RefineRigidCamera(K_refined, Rs, features_collection, eff_matches_collection);
+            final_reproj_error = RefineRigidCamera(K_refined, Rs, features_collection, eff_matches_collection);
         else {
             K_refined(0, 1) = 0;
-            RefineRigidCamera(K_refined, Rs, features_collection, eff_matches_collection,
-                              REFINE_FLAG_ALL & ~REFINE_FLAG_SKEW);
+            final_reproj_error = RefineRigidCamera(K_refined, Rs, features_collection, eff_matches_collection,
+                                                 REFINE_FLAG_ALL & ~REFINE_FLAG_SKEW);
         }
         cout << "K_refined =\n" << K_refined << endl;
 
         cout << "SUMMARY\n";
         cout << "K_init =\n" << K_init << endl;
         cout << "K_refined =\n" << K_refined << endl;
+
+        if (!log_file.empty()) {
+            ofstream f(log_file.c_str(), ios_base::app);
+            f << K_init(0, 0) << ";" << K_init(1, 1) << ";" << K_init(0, 2) << ";" << K_init(1, 2) << ";" << K_init(0, 1) << ";"
+              << K_refined(0, 0) << ";" << K_refined(1, 1) << ";" << K_refined(0, 2) << ";" << K_refined(1, 2) << ";" << K_refined(0, 1) << ";"
+              << residual_error << ";" << final_reproj_error << ";";
+            for (int i = 0; i < argc; ++i)
+                f << argv[i] << " ";
+            f << ";\n";
+        }
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
@@ -207,7 +237,9 @@ int main(int argc, char **argv) {
 
 void ParseArgs(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
-        if (string(argv[i]) == "--features") {
+        if (string(argv[i]) == "--num-frames")
+            num_frames = atoi(argv[++i]);
+        else if (string(argv[i]) == "--features") {
             if (string(argv[i + 1]) == "surf")
                 features_finder_creator = new SurfFeaturesFinderCreator();
             else if (string(argv[i + 1]) == "orb")
@@ -280,12 +312,10 @@ void ParseArgs(int argc, char **argv) {
             lin_est_skew = atoi(argv[++i]);
         else if (string(argv[i]) == "--refine-skew")
             refine_skew = atoi(argv[++i]);
+        else if (string(argv[i]) == "--log-file")
+            log_file = argv[++i];
         else {
-            Mat img = imread(argv[i]);
-            if (img.empty())
-                throw runtime_error(string("Can't open image: ") + argv[i]);
             img_names.push_back(argv[i]);
-            imgs.push_back(img);
         }
     }
 }

@@ -6,7 +6,7 @@ using namespace cv;
 
 namespace autocalib {
 
-    Mat CalibRotationalCameraLinear(const HomographiesP2 &Hs) {
+    Mat CalibRotationalCameraLinear(const HomographiesP2 &Hs, double *residual_error) {
         int num_Hs = (int)Hs.size();
         if (num_Hs < 1)
             throw runtime_error("Need at least one homography");
@@ -49,7 +49,11 @@ namespace autocalib {
         Mat_<double> x;
         solve(A, b, x, DECOMP_SVD);
         Mat err = A * x - b;
-        AUTOCALIB_LOG(cout << "solve() norm(A*x - b) / norm(b) = " << sqrt(err.dot(err) / b.dot(b)) << endl);
+
+        double residual_error_ = sqrt(err.dot(err) / b.dot(b));
+        if (residual_error)
+            *residual_error = residual_error_;
+        AUTOCALIB_LOG(cout << "solve() norm(A*x - b) / norm(b) = " << residual_error_ << endl);
 
         // Dual Image of the Absolute Conic == K * K.t()
         Mat_<double> diac = Mat::eye(3, 3, CV_64F);
@@ -72,7 +76,7 @@ namespace autocalib {
     }
 
 
-    Mat CalibRotationalCameraLinearNoSkew(const HomographiesP2 &Hs) {
+    Mat CalibRotationalCameraLinearNoSkew(const HomographiesP2 &Hs, double *residual_error) {
         int num_Hs = (int)Hs.size();
         if (num_Hs < 1)
             throw runtime_error("Need at least one homography");
@@ -116,7 +120,11 @@ namespace autocalib {
         Mat_<double> x;
         solve(A, b, x, DECOMP_SVD);
         Mat err = A * x - b;
-        AUTOCALIB_LOG(cout << "solve() norm(A*x - b) / norm(b) = " << sqrt(err.dot(err) / b.dot(b)) << endl);
+
+        double residual_error_ = sqrt(err.dot(err) / b.dot(b));
+        if (residual_error)
+            *residual_error = residual_error_;
+        AUTOCALIB_LOG(cout << "solve() norm(A*x - b) / norm(b) = " << residual_error_ << endl);
 
         // Image of the Absolute Conic == (K * K.t()).inv()
         Mat_<double> iac = Mat::eye(3, 3, CV_64F);
@@ -274,9 +282,9 @@ namespace autocalib {
     } // namespace
 
 
-    void RefineRigidCamera(InputOutputArray K, AbsoluteRotationMats Rs,
-                           const FeaturesCollection &features, const MatchesCollection &matches,
-                           int params_to_refine)
+    double RefineRigidCamera(InputOutputArray K, AbsoluteRotationMats Rs,
+                             const FeaturesCollection &features, const MatchesCollection &matches,
+                             int params_to_refine)
     {
         CV_Assert(K.getMatRef().size() == Size(3, 3) && K.getMatRef().type() == CV_64F);
         Mat_<double> K_(K.getMatRef());
@@ -303,7 +311,7 @@ namespace autocalib {
         }
 
         ReprojErrorFixedKR func(features, matches, params_to_refine, Rs_indices);
-        MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
+        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K_(0, 0) = arg(0, 0);
         K_(0, 1) = arg(0, 1);
@@ -317,6 +325,8 @@ namespace autocalib {
             rvec(0, 2) = arg(0, 5 + 3 * (i - 1) + 2);
             Rodrigues(rvec, Rs.find(Rs_indices[i])->second);
         }
+
+        return rms_error;
     }
 
 
@@ -350,6 +360,25 @@ namespace autocalib {
                 mi.matches.push_back(DMatch(m1.trainIdx, m1.queryIdx, m1.distance));
             }
         }
+    }
+
+
+    Mat Extract2ndCameraMatFromF(InputArray F) {
+        CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
+        Mat F_ = F.getMat();
+
+        Mat epipole;
+        SVD::solveZ(F_.t(), epipole);
+
+        Mat P(3, 4, CV_64F);
+
+        Mat A(P(Rect(0, 0, 3, 3)));
+        Mat(CrossProductMat(epipole) * F_).copyTo(A);
+
+        Mat a(P(Rect(3, 0, 1, 3)));
+        epipole.copyTo(a);
+
+        return P;
     }
 
 
@@ -840,6 +869,18 @@ namespace autocalib {
                 vecs_(i, 2 * j + 1) = eigen_vecs(j, i).imag();
             }
         }
+    }
+
+
+    Mat CrossProductMat(InputArray vec) {
+        CV_Assert(vec.getMat().type() == CV_64F && vec.getMat().size() == Size(1, 3));
+        Mat_<double> vec_ = vec.getMat();
+
+        Mat_<double> mat = Mat::zeros(3, 3, CV_64F);
+        mat(0, 1) = -vec_(2, 0); mat(0, 2) = vec_(1, 0); mat(1, 2) = -vec_(0, 0);
+        mat(1, 0) = -mat(0, 1); mat(2, 0) = -mat(0, 2); mat(2, 1) = -mat(1, 2);
+
+        return mat;
     }
 
 } // namespace autocalib

@@ -53,6 +53,24 @@ TEST(DecomposeUUt, CanDecomposeSmallMatrix) {
 }
 
 
+TEST(CrossProductMat, CanRepresentCrossProduct) {
+    RNG rng(0);
+    Mat vec1(3, 1, CV_64F), vec2(3, 1, CV_64F);
+    rng.fill(vec1, RNG::UNIFORM, -1, 1);
+    rng.fill(vec2, RNG::UNIFORM, -1, 1);
+
+    ASSERT_LT(norm(CrossProductMat(vec1) * vec2, vec1.cross(vec2), NORM_INF), 1e-6);
+}
+
+
+TEST(Extract2ndCameraMatFromF, CanRun) {
+    Mat_<double> F = Mat::eye(3, 3, CV_64F);
+    F(2, 2) = 0;
+
+    ASSERT_NO_THROW(Mat P = Extract2ndCameraMatFromF(F));
+}
+
+
 class DltTriangulationMetric : public testing::TestWithParam<Ptr<PointCloudSceneCreator> > { };
 
 TEST_P(DltTriangulationMetric, CanTriangulate) {
