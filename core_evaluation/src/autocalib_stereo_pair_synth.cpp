@@ -262,7 +262,6 @@ int main(int argc, char **argv) {
         cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n";
 
         Mat_<double> H01 = FindHomographyLinear(xyzw0, xyzw1);
-        cout << "H01 = \n" << H01 << endl;
 
         Mat_<double> xyzw1_mapped(xyzw0.size(), xyzw0.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -282,6 +281,10 @@ int main(int argc, char **argv) {
         // Finding Pinf
 
         cout << "\nFinding Pinf...\n";
+
+        Mat evals, evecs;
+        EigenDecompose(H01.t(), evals, evecs);
+        cout << "Eigenvalues of H01.t() = " << evals << endl;
 
         cout << "Pinf = " << CalcPinf(H01) << endl;
     }

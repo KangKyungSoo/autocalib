@@ -396,6 +396,7 @@ namespace autocalib {
 
         Mat A(P(Rect(0, 0, 3, 3)));
         Mat(CrossProductMat(epipole) * F_).copyTo(A);
+        A /= norm(A);
 
         Mat a(P(Rect(3, 0, 1, 3)));
         epipole.copyTo(a);
@@ -564,7 +565,7 @@ namespace autocalib {
         SVD::solveZ(A, H);
         H = H.reshape(4);
 
-        return H;
+        return H / pow(abs(determinant(H)), 0.25);
     }
 
 
