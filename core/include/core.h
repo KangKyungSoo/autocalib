@@ -27,6 +27,17 @@ namespace autocalib {
     typedef std::map<std::pair<int, int>, double> RelativeConfidences;
     typedef std::map<int, cv::Mat> AbsoluteRotationMats;
 
+    /** Describes a motion data. */
+    struct Motion {
+        Motion() {}
+        Motion(cv::Mat R, cv::Mat T) : R(R), T(T) {}
+
+        cv::Mat R;
+        cv::Mat T;
+    };
+
+    typedef std::map<int, Motion> AbsoluteMotions;
+
     //============================================================================
     // Cameras
 
@@ -246,12 +257,13 @@ namespace autocalib {
       * 2*i+1 is the right frame.
       *
       * \param cam Stereo camera parameters
-      * \param Rs_l Absolute rotations of stereo pairs left cameras
+      * \param motions_l Absolute motions (R,T) of stereo pairs left cameras
       * \param features Frames features
       * \param matches Matches between left frames of stereo pairs and between
                        left and right frames of stereo pairs
+      * \return Epipolar error
       */
-    double RefineStereoCamera(RigidCamera &cam, AbsoluteRotationMats Rs_l,
+    double RefineStereoCamera(RigidCamera &cam, AbsoluteRotationMats motions_l,
                               const FeaturesCollection &features, const MatchesCollection &matches);
 
 
