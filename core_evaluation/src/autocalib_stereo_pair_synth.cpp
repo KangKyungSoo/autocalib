@@ -62,23 +62,31 @@ int main(int argc, char **argv) {
 
         // Generate cameras and shots
 
-        Mat_<double> offset(3, 1);
-        offset(0, 0) = 1; offset(1, 0) = offset(2, 0) = 0;
+        Mat_<double> rel_T(3, 1);
+        rel_T(0, 0) = 1; rel_T(1, 0) = rel_T(2, 0) = 0;
+
+        // See in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 480. for
+        // the typical ambiguities description
+        Mat_<double> rel_rvec(3, 1);
+        rel_rvec(0, 0) = CV_PI / 30; rel_rvec(1, 0) = CV_PI / 30; rel_rvec(2, 0) = 0;
+
+        Mat_<double> rel_R;
+        Rodrigues(rel_rvec, rel_R);
 
         rvec = Mat::zeros(3, 1, CV_64F);
-        rvec(0, 0) = rvec(2, 0) = CV_PI / 40; rvec(1, 0) = CV_PI / 20;
+        rvec(0, 0) = rvec(2, 0) = rvec(1, 0) = CV_PI / 40;
         Rodrigues(rvec, R);
 
         Mat_<double> T(3, 1);
-        T(0, 0) = -2; T(1, 0) = 0; T(2, 0) = -10;
+        T(0, 0) = -2; T(1, 0) = 0; T(2, 0) = -20;
 
-        left_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R, -R * offset + T));
-        right_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R, R * offset + T));
+        left_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R * rel_R, -R * rel_T + T));
+        right_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R * rel_R.t(), R * rel_T + T));
 
-        T(0, 0) = 2; T(1, 0) = 0; T(2, 0) = -10;
+        T(0, 0) = 2; T(1, 0) = 0; T(2, 0) = -20;
 
-        left_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R.t(), -R.t() * offset + T));
-        right_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R.t(), R.t() * offset + T));
+        left_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R.t() * rel_R, -R.t() * rel_T + T));
+        right_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R.t() * rel_R.t(), R.t() * rel_T + T));
 
         for (int i = 0; i < num_frames; ++i) {
             Ptr<detail::ImageFeatures> left_features = new detail::ImageFeatures();
@@ -293,7 +301,7 @@ int main(int argc, char **argv) {
         p_inf /= p_inf(3, 0);
         cout << "Plane-at-infinity = " << p_inf << endl;
 
-        // Linear autocalibration
+        // Linear calibration
 
         cout << "\nLinear calibrating...\n";
 

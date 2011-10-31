@@ -16,7 +16,10 @@ namespace autocalib {
         for (HomographiesP2::const_iterator iter = Hs.begin(); iter != Hs.end(); ++iter) {
             Mat H = iter->second;
             CV_Assert(H.size() == Size(3, 3) && H.type() == CV_64F);
-            Hs_normed.push_back(H / pow(determinant(H), 1. / 3.));
+
+            double det = determinant(H);
+            double norm = pow(abs(det), 1. / 3.) * (det < 0. ? -1. : 1.);
+            Hs_normed.push_back(H / norm);
         }
 
         Mat_<double> A(6 * num_Hs, 5);
@@ -86,7 +89,10 @@ namespace autocalib {
         for (HomographiesP2::const_iterator iter = Hs.begin(); iter != Hs.end(); ++iter) {
             Mat H = iter->second;
             CV_Assert(H.size() == Size(3, 3) && H.type() == CV_64F);
-            Hs_normed_t.push_back((H / pow(determinant(H), 1. / 3.)).t());
+
+            double det = determinant(H);
+            double norm = pow(abs(det), 1. / 3.) * (det < 0. ? -1. : 1.);
+            Hs_normed_t.push_back((H / norm).t());
         }
 
         Mat_<double> A(6 * num_Hs, 4);
