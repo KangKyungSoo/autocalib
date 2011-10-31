@@ -361,7 +361,7 @@ namespace autocalib {
         public:
             EpipError_FixedK_StereoCam(const FeaturesCollection &features,
                                        const MatchesCollection &matches,
-                                       const vector<int> &Rs_l_indices)
+                                       const vector<int> &motion_l_indices)
                 : features_(&features), matches_(&matches), step_(1e-4)
             {
                 num_matches_ = 0;
@@ -369,9 +369,9 @@ namespace autocalib {
                      iter != matches_->end(); ++iter)
                     num_matches_ += (int)iter->second->size();
 
-                Rs_l_indices_inv_.assign(*max_element(Rs_l_indices.begin(), Rs_l_indices.end()) + 1, -1);
-                for (size_t i = 0; i < Rs_l_indices.size(); ++i)
-                    Rs_l_indices_inv_[Rs_l_indices[i]] = i;
+                motion_l_indices_inv_.assign(*max_element(motion_l_indices.begin(), motion_l_indices.end()) + 1, -1);
+                for (size_t i = 0; i < motion_l_indices.size(); ++i)
+                    motion_l_indices_inv_[motion_l_indices[i]] = i;
             }
 
             void operator()(const Mat &arg, Mat &err);
@@ -383,7 +383,7 @@ namespace autocalib {
             const FeaturesCollection *features_;
             const MatchesCollection *matches_;
             int num_matches_;
-            vector<int> Rs_l_indices_inv_;
+            vector<int> motion_l_indices_inv_;
 
             const double step_;
             Mat_<double> err_;
@@ -411,7 +411,20 @@ namespace autocalib {
             Mat R_rel;
             Rodrigues(rvec_rel, R_rel);
 
-            // TODO
+            Mat_<double> T_rel(3, 1);
+            T_rel(0, 0) = arg_(0, 8);
+            T_rel(1, 0) = arg_(0, 9);
+            T_rel(2, 0) = arg_(0, 10);
+
+            int pos = 0;
+            for (MatchesCollection::const_iterator iter = matches_->begin();
+                 iter != matches_->end(); ++iter)
+            {
+                int from = iter->first.first;
+                int to = iter->first.second;
+
+                // TODO
+            }
         }
 
 
