@@ -98,6 +98,7 @@ int main(int argc, char **argv) {
         HomographiesP2 Hs;
         RelativeConfidences rel_confs;
         Mat keypoints1, keypoints2;
+        double total_confidence = 0;
         double total_init_R_error = 0;
 
         cout << "\nEstimating Hs...\n";
@@ -155,6 +156,7 @@ int main(int argc, char **argv) {
                 if (confidence > conf_thresh) {
                     rel_confs[make_pair(from, to)] = confidence;
                     Hs[make_pair(from, to)] = H;
+                    total_confidence += confidence;
 
                     if (!K_init.empty()) {
                         Mat R = K_init.inv() * H * K_init;
@@ -166,10 +168,12 @@ int main(int argc, char **argv) {
                 }
 
                 cout << endl;
-            }
+            }     
         }
 
-        cout << "Avg. init R error = " << total_init_R_error / Hs.size() << endl;
+        cout << "Avg. confidence = " << total_confidence / Hs.size() << endl;
+        if (!K_init.empty())
+            cout << "Avg. init R error = " << total_init_R_error / Hs.size() << endl;
 
         // Find efficient correspondences graph
 
