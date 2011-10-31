@@ -416,6 +416,8 @@ namespace autocalib {
             T_rel(1, 0) = arg_(0, 9);
             T_rel(2, 0) = arg_(0, 10);
 
+            Mat_<double> F_rel = K_inv.t() * CrossProductMat(T_rel) * R_rel * K_inv;
+
             int pos = 0;
             for (MatchesCollection::const_iterator iter = matches_->begin();
                  iter != matches_->end(); ++iter)
@@ -423,7 +425,59 @@ namespace autocalib {
                 int from = iter->first.first;
                 int to = iter->first.second;
 
-                // TODO
+                const vector<KeyPoint> &kps_from = features_->find(from)->second->keypoints;
+                const vector<KeyPoint> &kps_to = features_->find(to)->second->keypoints;
+
+                if (from % 2 == 0 && to % 2 == 0) {
+                    // We're working with left to left matches between different stereo pairs
+
+                    const vector<DMatch> &matches = *(iter->second);
+                    for (size_t i = 0; i < matches.size(); ++i) {
+                        const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
+                        const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
+
+                        double x1 = F_rel(0, 0) * p1.x + F_rel(0, 1) * p1.y + F_rel(0, 2);
+                        double y1 = F_rel(1, 0) * p1.x + F_rel(1, 1) * p1.y + F_rel(1, 2);
+                        double z1 = F_rel(2, 0) * p1.x + F_rel(2, 1) * p1.y + F_rel(2, 2);
+
+                        double x0 = F_rel(0, 0) * p0.x + F_rel(1, 0) * p0.y + F_rel(2, 0);
+                        double y0 = F_rel(0, 1) * p0.x + F_rel(1, 1) * p0.y + F_rel(2, 1);
+
+                        err_(pos++, 0) = abs(p0.x * x1 + p0.y * y1 + z1) * (1 / sqrt(x1 * x1 + y1 * y1) + 1 / sqrt(x0 * x0 + y0 * y0));
+                    }
+                }
+                else if (to == from + 1) {
+                    // We're working with matches between left and right frames of a stereo pair
+
+                    Mat_<double> rvec_from(1, 3);
+                    rvec_from(0, 0) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1));
+                    rvec_from(0, 1) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 1);
+                    rvec_from(0, 2) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 2);
+                    Mat R_from;
+                    Rodrigues(rvec_from, R_from);
+
+                    Mat_<double> rvec_to(1, 3);
+                    rvec_to(0, 0) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1));
+                    rvec_to(0, 1) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 1);
+                    rvec_to(0, 2) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 2);
+                    Mat R_to;
+                    Rodrigues(rvec_to, R_to);
+
+                    Mat_<double> T_from(3, 1);
+                    T_from(0, 0) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 3);
+                    T_from(0, 1) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 4);
+                    T_from(0, 2) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 5);
+
+                    Mat_<double> T_to(3, 1);
+                    T_to(0, 0) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 3);
+                    T_to(0, 1) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 4);
+                    T_to(0, 2) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 5);
+
+                    // TODO
+                }
+                else {
+                    CV_Error(CV_StsError, "bad matches");
+                }
             }
         }
 
@@ -494,10 +548,11 @@ namespace autocalib {
             arg(0, 11 + 6 * (i - 1)) = rvec_l(0, 0);
             arg(0, 11 + 6 * (i - 1) + 1) = rvec_l(0, 1);
             arg(0, 11 + 6 * (i - 1) + 2) = rvec_l(0, 2);
+
             Mat_<double> T_l = motions_l.find(motion_l_indices[i])->second.T;
-            arg(0, 11 + 6 * (i - 1)) = T_l(0, 0);
-            arg(0, 11 + 6 * (i - 1) + 1) = T_l(0, 1);
-            arg(0, 11 + 6 * (i - 1) + 2) = T_l(0, 2);
+            arg(0, 11 + 6 * (i - 1) + 3) = T_l(0, 0);
+            arg(0, 11 + 6 * (i - 1) + 4) = T_l(0, 1);
+            arg(0, 11 + 6 * (i - 1) + 5) = T_l(0, 2);
         }
 
         EpipError_FixedK_StereoCam func(features, matches, motion_l_indices);
@@ -527,6 +582,7 @@ namespace autocalib {
             rvec_l(0, 1) = arg(0, 11 + 6 * (i - 1) + 1);
             rvec_l(0, 2) = arg(0, 11 + 6 * (i - 1) + 2);
             Rodrigues(rvec_l, motions_l.find(motion_l_indices[i])->second.R);
+
             Mat_<double> T_l;
             T_l(0, 0) = arg(0, 11 + 6 * (i - 1) + 3);
             T_l(0, 1) = arg(0, 11 + 6 * (i - 1) + 4);
