@@ -423,7 +423,7 @@ namespace autocalib {
     //============================================================================
     // Other
 
-    inline double Sqr(double x) { return x * x; }
+    inline double Sqr(double x) { return x * x; }   
 
 
     /** Constructs anti-diagonal matrix of ones.
