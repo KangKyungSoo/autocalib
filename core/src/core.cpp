@@ -6,6 +6,25 @@ using namespace cv;
 
 namespace autocalib {
 
+    RigidCamera RigidCamera::FromProjectiveMat(const Mat &P) {
+        CV_Assert(P.size() == Size(4, 3) && P.type() == CV_64F);
+
+        Mat_<double> K, R, T;
+
+        RQDecomp3x3(P(Rect(0,0,3,3)), K, R);
+        T = K.inv() * P.col(3);
+        K /= K(2, 2);
+
+        if (K(0, 0) < 0 && K(1, 1) < 0) {
+            K.col(0) *= -1; K.col(1) *= -1;
+            R.row(0) *= -1; R.row(1) *= -1;
+            T(0, 0) *= -1;
+            T(1, 0) *= -1;
+        }
+
+        return RigidCamera(K, R, T);
+    }
+
     Mat CalibRotationalCameraLinear(const HomographiesP2 &Hs, double *residual_error) {
         int num_Hs = (int)Hs.size();
         if (num_Hs < 1)
