@@ -57,12 +57,17 @@ namespace autocalib {
                     A(eq_idx, 2) = H(r1, 0) * H(r2, 2) + H(r1, 2) * H(r2, 0);
                     A(eq_idx, 3) = H(r1, 1) * H(r2, 1);
                     A(eq_idx, 4) = H(r1, 1) * H(r2, 2) + H(r1, 2) * H(r2, 1);
+
                     if (r1 == 2 && r2 == 2)
                         b(eq_idx, 0) = 1 - H(r1, 2) * H(r2, 2);
                     else {
                         A(eq_idx, lut[r1][r2]) -= 1;
                         b(eq_idx, 0) = -H(r1, 2) * H(r2, 2);
                     }
+
+                    b(eq_idx, 0) /= norm(A.row(eq_idx));
+                    A.row(eq_idx) /= norm(A.row(eq_idx));
+
                     eq_idx++;
                 }
             }
@@ -129,6 +134,7 @@ namespace autocalib {
                     A(eq_idx, 1) = Ht(r1, 0) * Ht(r2, 2) + Ht(r1, 2) * Ht(r2, 0);
                     A(eq_idx, 2) = Ht(r1, 1) * Ht(r2, 1);
                     A(eq_idx, 3) = Ht(r1, 1) * Ht(r2, 2) + Ht(r1, 2) * Ht(r2, 1);
+
                     if (r1 == 2 && r2 == 2)
                         b(eq_idx, 0) = 1 - Ht(r1, 2) * Ht(r2, 2);
                     else if (r1 == 0 && r2 == 1)
@@ -137,6 +143,10 @@ namespace autocalib {
                         A(eq_idx, lut[r1][r2]) -= 1;
                         b(eq_idx, 0) = -Ht(r1, 2) * Ht(r2, 2);
                     }
+
+                    b(eq_idx, 0) /= norm(A.row(eq_idx));
+                    A.row(eq_idx) /= norm(A.row(eq_idx));
+
                     eq_idx++;
                 }
             }

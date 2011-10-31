@@ -148,7 +148,6 @@ int main(int argc, char **argv) {
                 double confidence = inliers->size() / (8 + 0.3 * matches.size()) - 1;
 
                 cout << ", conf = " << confidence;
-                cout << endl;
 
                 matches_collection[make_pair(from, to)] = inliers;
 
@@ -156,6 +155,8 @@ int main(int argc, char **argv) {
                     rel_confs[make_pair(from, to)] = confidence;
                     Hs[make_pair(from, to)] = H;
                 }
+
+                cout << endl;
             }
         }
 
