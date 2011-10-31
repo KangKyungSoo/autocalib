@@ -23,6 +23,7 @@ int num_frames = 2;
 Rect viewport = Rect(0, 0, 640, 480);
 Mat_<double> K_gold;
 int seed = 0; // No seed
+double noise_stddev = -1; // No noise
 bool create_images = false;
 
 int main(int argc, char **argv) {
@@ -96,6 +97,40 @@ int main(int argc, char **argv) {
             Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
             scene->TakeShot(right_cameras[i], viewport, *right_features);
             features_collection[2 * i + 1] = right_features;
+        }
+
+        // Add noise
+
+        if (noise_stddev > 0) {
+            cout << "\nAdding noise...\n";
+            for (int i = 0; i < num_frames; ++i) {
+                Mat_<float> noise_l(1, 2 * features_collection.find(2 * i)->second->keypoints.size());
+                Mat_<float> noise_r(1, 2 * features_collection.find(2 * i + 1)->second->keypoints.size());
+
+                // Final noise RMS is determined by sqrt(noise_x^2 + noise_y^2),
+                // so we split by sqrt(2) to get desired noise
+                rng.fill(noise_l, RNG::NORMAL, 0, noise_stddev / sqrt(2.));
+                rng.fill(noise_r, RNG::NORMAL, 0, noise_stddev / sqrt(2.));
+
+                double total_noise = 0;
+                Ptr<detail::ImageFeatures> features = features_collection.find(2 * i)->second;
+
+                for (size_t j = 0; j < features->keypoints.size(); ++j) {
+                    features->keypoints[j].pt.x += noise_l(0, 2 * j);
+                    features->keypoints[j].pt.y += noise_l(0, 2 * j + 1);
+                    total_noise += Sqr(noise_l(0, 2 * j)) + Sqr(noise_l(0, 2 * j + 1));
+                }
+                cout << "Pair #" << i << " left frame RMS error = " << sqrt(total_noise / features->keypoints.size()) << endl;
+
+                total_noise = 0;
+                features = features_collection.find(2 * i + 1)->second;
+                for (size_t j = 0; j < features->keypoints.size(); ++j) {
+                    features->keypoints[j].pt.x += noise_r(0, 2 * j);
+                    features->keypoints[j].pt.y += noise_r(0, 2 * j + 1);
+                    total_noise += Sqr(noise_r(0, 2 * j)) + Sqr(noise_r(0, 2 * j + 1));
+                }
+                cout << "Pair #" << i << " right frame RMS error = " << sqrt(total_noise / features->keypoints.size()) << endl;
+            }
         }
 
         // Save images if it's needed
@@ -401,6 +436,8 @@ void ParseArgs(int argc, char **argv) {
         }
         else if (string(argv[i]) == "--seed")
             seed = atoi(argv[++i]);
+        else if (string(argv[i]) == "--noise-stddev")
+            noise_stddev = atof(argv[++i]);
         else if (string(argv[i]) == "--create-images")
             create_images = (bool)atoi(argv[++i]);
         else
