@@ -176,18 +176,14 @@ int main(int argc, char **argv) {
         Mat_<double> xyzw0;
         dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r), xy_l0, xy_r0, xyzw0);
 
-        double reproj_rms_error_l0 = CalcRmsReprojError(xy_l0, P_l, xyzw0);
-        double reproj_rms_error_r0 = CalcRmsReprojError(xy_r0, P_r, xyzw0);
-
         Mat_<double> xyzw1;
         dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r), xy_l1, xy_r1, xyzw1);
 
-        double reproj_rms_error_l1 = CalcRmsReprojError(xy_l1, P_l, xyzw1);
-        double reproj_rms_error_r1 = CalcRmsReprojError(xy_r1, P_r, xyzw1);
-
         cout << "\n(F0) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << reproj_rms_error_l0 << " " << reproj_rms_error_r0 << " "
-             << reproj_rms_error_l1 << " " << reproj_rms_error_r1 << ")\n";
+             << CalcRmsReprojError(xy_l0, P_l, xyzw0) << " "
+             << CalcRmsReprojError(xy_r0, P_r, xyzw0) << " "
+             << CalcRmsReprojError(xy_l1, P_l, xyzw1) << " "
+             << CalcRmsReprojError(xy_r1, P_r, xyzw1) << ")\n";
 
         // Check if we can find structure using F1 instead of F0
 
@@ -196,18 +192,14 @@ int main(int argc, char **argv) {
         Mat_<double> xyzw0_;
         dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l0, xy_r0, xyzw0_);
 
-        double reproj_rms_error_l0_ = CalcRmsReprojError(xy_l0, P_l, xyzw0_);
-        double reproj_rms_error_r0_ = CalcRmsReprojError(xy_r0, P_r_, xyzw0_);
-
         Mat_<double> xyzw1_;
         dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l1, xy_r1, xyzw1_);
 
-        double reproj_rms_error_l1_ = CalcRmsReprojError(xy_l1, P_l, xyzw1_);
-        double reproj_rms_error_r1_ = CalcRmsReprojError(xy_r1, P_r_, xyzw1_);
-
         cout << "(F1) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << reproj_rms_error_l0_ << " " << reproj_rms_error_r0_ << " "
-             << reproj_rms_error_l1_ << " " << reproj_rms_error_r1_ << ")\n";
+             << CalcRmsReprojError(xy_l0, P_l, xyzw0_) << " "
+             << CalcRmsReprojError(xy_r0, P_r_, xyzw0_) << " "
+             << CalcRmsReprojError(xy_l1, P_l, xyzw1_) << " "
+             << CalcRmsReprojError(xy_r1, P_r_, xyzw1_) << ")\n";
 
         // Match two stereo pairs
 
@@ -282,12 +274,9 @@ int main(int argc, char **argv) {
             xyzw1_mapped(0, 4 * i + 3) = H01(3, 0) * xyzw0(0, 4 * i) + H01(3, 1) * xyzw0(0, 4 * i + 1) + H01(3, 2) * xyzw0(0, 4 * i + 2) + H01(3, 3) * xyzw0(0, 4 * i + 3);
         }
 
-        double reproj_rms_error_l1_mapped = CalcRmsReprojError(xy_l1, P_l, xyzw1_mapped);
-        double reproj_rms_error_r1_mapped = CalcRmsReprojError(xy_r1, P_r, xyzw1_mapped);
-
         cout << "Reprojection RMS error after mapping (l1 r1) = ("
-             << reproj_rms_error_l1_mapped << " "
-             << reproj_rms_error_r1_mapped << ")\n";
+             << CalcRmsReprojError(xy_l1, P_l, xyzw1_mapped) << " "
+             << CalcRmsReprojError(xy_r1, P_r, xyzw1_mapped) << ")\n";
 
         // Finding Pinf
 
@@ -301,15 +290,34 @@ int main(int argc, char **argv) {
         p_inf /= p_inf(3, 0);
         cout << "Plane-at-infinity = " << p_inf << endl;
 
+        // Affine rectification
+
+        cout << "\nAffine rectification...\n";
+
+        Mat_<double> Hpa = Mat::eye(4, 4, CV_64F);
+        Hpa(3, 0) = -p_inf(0, 0); Hpa(3, 1) = -p_inf(1, 0); Hpa(3, 2) = -p_inf(2, 0);
+
+        P_l = P_l * Hpa;
+        P_r = P_r * Hpa;
+
+        xyzw0 = Hpa.inv() * xyzw0.reshape(num_points_common).t();
+        xyzw1 = Hpa.inv() * xyzw1.reshape(num_points_common).t();
+        xyzw0 = Mat(xyzw0.t()).reshape(0, 1);
+        xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
+
+        cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
+             << CalcRmsReprojError(xy_l0, P_l, xyzw0) << " "
+             << CalcRmsReprojError(xy_r0, P_r, xyzw0) << " "
+             << CalcRmsReprojError(xy_l1, P_l, xyzw1) << " "
+             << CalcRmsReprojError(xy_r1, P_r, xyzw1) << ")\n";
+
         // Linear calibration
 
         cout << "\nLinear calibrating...\n";
 
         HomographiesP2 Hs_inf;
 
-        Mat A = P_r(Rect(0, 0, 3, 3));
-        Mat a = P_r(Rect(3, 0, 1, 3));
-        Hs_inf[make_pair(0, 1)] = A - a * p_inf.rowRange(0, 3).t();
+        Hs_inf[make_pair(0, 1)] = P_r(Rect(0, 0, 3, 3));
 
         Mat_<double> K_linear = CalibRotationalCameraLinearNoSkew(Hs_inf);
         cout << "K_linear = \n" << K_linear << endl;
