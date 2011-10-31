@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
         // See in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 480. for
         // the typical ambiguities description
         Mat_<double> rel_rvec(3, 1);
-        rel_rvec(0, 0) = CV_PI / 30; rel_rvec(1, 0) = CV_PI / 30; rel_rvec(2, 0) = 0;
+        rel_rvec(0, 0) = 0; rel_rvec(1, 0) = CV_PI / 30; rel_rvec(2, 0) = 0;
 
         Mat_<double> rel_R;
         Rodrigues(rel_rvec, rel_R);
@@ -168,39 +168,39 @@ int main(int argc, char **argv) {
 
         // Extract camera matrices
 
-        Mat_<double> P_l = Mat::eye(3, 4, CV_64F);
-        Mat_<double> P_r = Extract2ndCameraMatFromF(F0);
+        Mat_<double> P_l0 = Mat::eye(3, 4, CV_64F);
+        Mat_<double> P_r0 = Extract2ndCameraMatFromF(F0);
 
         // Find structure
 
         DltTriangulation dlt;
 
         Mat_<double> xyzw0;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r), xy_l0, xy_r0, xyzw0);
+        dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r0), xy_l0, xy_r0, xyzw0);
 
         Mat_<double> xyzw1;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r), xy_l1, xy_r1, xyzw1);
+        dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r0), xy_l1, xy_r1, xyzw1);
 
         cout << "\n(F0) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << CalcRmsReprojError(xy_l0, P_l, xyzw0) << " "
-             << CalcRmsReprojError(xy_r0, P_r, xyzw0) << " "
-             << CalcRmsReprojError(xy_l1, P_l, xyzw1) << " "
-             << CalcRmsReprojError(xy_r1, P_r, xyzw1) << ")\n";
+             << CalcRmsReprojError(xy_l0, P_l0, xyzw0) << " "
+             << CalcRmsReprojError(xy_r0, P_r0, xyzw0) << " "
+             << CalcRmsReprojError(xy_l1, P_l0, xyzw1) << " "
+             << CalcRmsReprojError(xy_r1, P_r0, xyzw1) << ")\n";
 
         // Check if we can find structure using F1 instead of F0
 
         Mat_<double> P_r_ = Extract2ndCameraMatFromF(F1);
 
         Mat_<double> xyzw0_;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l0, xy_r0, xyzw0_);
+        dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r_), xy_l0, xy_r0, xyzw0_);
 
         Mat_<double> xyzw1_;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l1, xy_r1, xyzw1_);
+        dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r_), xy_l1, xy_r1, xyzw1_);
 
         cout << "(F1) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << CalcRmsReprojError(xy_l0, P_l, xyzw0_) << " "
+             << CalcRmsReprojError(xy_l0, P_l0, xyzw0_) << " "
              << CalcRmsReprojError(xy_r0, P_r_, xyzw0_) << " "
-             << CalcRmsReprojError(xy_l1, P_l, xyzw1_) << " "
+             << CalcRmsReprojError(xy_l1, P_l0, xyzw1_) << " "
              << CalcRmsReprojError(xy_r1, P_r_, xyzw1_) << ")\n";
 
         // Match two stereo pairs
@@ -278,8 +278,8 @@ int main(int argc, char **argv) {
         }
 
         cout << "Reprojection RMS error after mapping (l1 r1) = ("
-             << CalcRmsReprojError(xy_l1, P_l, xyzw1_mapped) << " "
-             << CalcRmsReprojError(xy_r1, P_r, xyzw1_mapped) << ")\n";
+             << CalcRmsReprojError(xy_l1, P_l0, xyzw1_mapped) << " "
+             << CalcRmsReprojError(xy_r1, P_r0, xyzw1_mapped) << ")\n";
 
         // Finding plane-at-infinity
 
@@ -300,8 +300,10 @@ int main(int argc, char **argv) {
         Mat_<double> Hpa = Mat::eye(4, 4, CV_64F);
         Hpa(3, 0) = -p_inf(0, 0); Hpa(3, 1) = -p_inf(1, 0); Hpa(3, 2) = -p_inf(2, 0);
 
-        P_l = P_l * Hpa;
-        P_r = P_r * Hpa;
+        H01 = Hpa.inv() * H01 * Hpa;
+
+        P_l0 = P_l0 * Hpa;
+        P_r0 = P_r0 * Hpa;
 
         xyzw0 = Hpa.inv() * xyzw0.reshape(num_points_common).t();
         xyzw1 = Hpa.inv() * xyzw1.reshape(num_points_common).t();
@@ -309,10 +311,10 @@ int main(int argc, char **argv) {
         xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
 
         cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
-             << CalcRmsReprojError(xy_l0, P_l, xyzw0) << " "
-             << CalcRmsReprojError(xy_r0, P_r, xyzw0) << " "
-             << CalcRmsReprojError(xy_l1, P_l, xyzw1) << " "
-             << CalcRmsReprojError(xy_r1, P_r, xyzw1) << ")\n";
+             << CalcRmsReprojError(xy_l0, P_l0, xyzw0) << " "
+             << CalcRmsReprojError(xy_r0, P_r0, xyzw0) << " "
+             << CalcRmsReprojError(xy_l1, P_l0, xyzw1) << " "
+             << CalcRmsReprojError(xy_r1, P_r0, xyzw1) << ")\n";
 
         // Linear calibration
 
@@ -320,7 +322,8 @@ int main(int argc, char **argv) {
 
         HomographiesP2 Hs_inf;
 
-        Hs_inf[make_pair(0, 1)] = P_r(Rect(0, 0, 3, 3));
+        Hs_inf[make_pair(0, 1)] = P_r0(Rect(0, 0, 3, 3));
+        Hs_inf[make_pair(0, 2)] = Mat(P_l0 * H01.inv())(Rect(0, 0, 3, 3));
 
         Mat_<double> K_linear = CalibRotationalCameraLinearNoSkew(Hs_inf);
         cout << "K_linear = \n" << K_linear << endl;
@@ -333,14 +336,18 @@ int main(int argc, char **argv) {
         Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
         K_linear.copyTo(Ham_3x3);
 
-        P_l = P_l * Ham;
-        P_r = P_r * Ham;
+        H01 = Ham.inv() * H01 * Ham;
 
-        RigidCamera P_l_m = RigidCamera::FromProjectiveMat(P_l);
-        RigidCamera P_r_m = RigidCamera::FromProjectiveMat(P_r);
+        cout << "Metric H01 = \n" << H01 << endl;
 
-        cout << "Metric P_l: \nK = \n" << P_l_m.K() << "\nR = \n" << P_l_m.R() << "\nT = " << P_l_m.T() << endl;
-        cout << "Metric P_r: \nK = \n" << P_r_m.K() << "\nR = \n" << P_r_m.R() << "\nT = " << P_r_m.T() << endl;
+        P_l0 = P_l0 * Ham;
+        P_r0 = P_r0 * Ham;
+
+        RigidCamera P_l0_m = RigidCamera::FromProjectiveMat(P_l0);
+        RigidCamera P_r0_m = RigidCamera::FromProjectiveMat(P_r0);
+
+        cout << "Metric P_l0: \nK = \n" << P_l0_m.K() << "\nR = \n" << P_l0_m.R() << "\nT = " << P_l0_m.T() << endl;
+        cout << "Metric P_r0: \nK = \n" << P_r0_m.K() << "\nR = \n" << P_r0_m.R() << "\nT = " << P_r0_m.T() << endl;
 
         xyzw0 = Ham.inv() * xyzw0.reshape(num_points_common).t();
         xyzw1 = Ham.inv() * xyzw1.reshape(num_points_common).t();
@@ -348,10 +355,10 @@ int main(int argc, char **argv) {
         xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
 
         cout << "Reprojection RMS error after metric rectification (l0 r0 l1 r1) = ("
-             << CalcRmsReprojError(xy_l0, P_l, xyzw0) << " "
-             << CalcRmsReprojError(xy_r0, P_r, xyzw0) << " "
-             << CalcRmsReprojError(xy_l1, P_l, xyzw1) << " "
-             << CalcRmsReprojError(xy_r1, P_r, xyzw1) << ")\n";
+             << CalcRmsReprojError(xy_l0, P_l0, xyzw0) << " "
+             << CalcRmsReprojError(xy_r0, P_r0, xyzw0) << " "
+             << CalcRmsReprojError(xy_l1, P_l0, xyzw1) << " "
+             << CalcRmsReprojError(xy_r1, P_r0, xyzw1) << ")\n";
 
         // Refine reconstruction
 
