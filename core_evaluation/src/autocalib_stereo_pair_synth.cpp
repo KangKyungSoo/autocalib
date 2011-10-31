@@ -118,17 +118,18 @@ int main(int argc, char **argv) {
 
         cout << "\nFinding F between #0 pair images...";
 
-        vector<DMatch> matches_lr0;
+        Ptr<vector<DMatch> > matches_lr0 = new vector<DMatch>();
         MatchSyntheticShots(*(features_collection.find(0)->second),
                             *(features_collection.find(1)->second),
-                            matches_lr0);
+                            *matches_lr0);
+        matches_collection[make_pair(0, 1)] = matches_lr0;
 
-        cout << " #matches = " << matches_lr0.size();
+        cout << " #matches = " << matches_lr0->size();
 
         Mat_<double> xy_l0, xy_r0;
         ExtractMatchedKeypoints(*(features_collection.find(0)->second),
                                 *(features_collection.find(1)->second),
-                                matches_lr0, xy_l0, xy_r0);
+                                *matches_lr0, xy_l0, xy_r0);
 
         vector<uchar> inlier_mask0;
         Mat_<double> F0 = findFundamentalMat(Mat(xy_l0).reshape(2), Mat(xy_r0).reshape(2), inlier_mask0, RANSAC, 0.1);
@@ -142,17 +143,18 @@ int main(int argc, char **argv) {
 
         cout << "Finding F between #1 pair images...";
 
-        vector<DMatch> matches_lr1;
+        Ptr<vector<DMatch> > matches_lr1 = new vector<DMatch>();
         MatchSyntheticShots(*(features_collection.find(2)->second),
                             *(features_collection.find(3)->second),
-                            matches_lr1);
+                            *matches_lr1);
+        matches_collection[make_pair(2, 3)] = matches_lr1;
 
-        cout << " #matches = " << matches_lr1.size();
+        cout << " #matches = " << matches_lr1->size();
 
         Mat_<double> xy_l1, xy_r1;
         ExtractMatchedKeypoints(*(features_collection.find(2)->second),
                                 *(features_collection.find(3)->second),
-                                matches_lr1, xy_l1, xy_r1);
+                                *matches_lr1, xy_l1, xy_r1);
 
         vector<uchar> inlier_mask1;
         Mat_<double> F1 = findFundamentalMat(Mat(xy_l1).reshape(2), Mat(xy_r1).reshape(2), inlier_mask1, RANSAC, 0.1);
@@ -205,17 +207,18 @@ int main(int argc, char **argv) {
 
         cout << "\nMatching two stereo pairs using left images...";
 
-        vector<DMatch> matches_ll;
+        Ptr<vector<DMatch> > matches_ll = new vector<DMatch>();
         MatchSyntheticShots(*(features_collection.find(0)->second),
                             *(features_collection.find(2)->second),
-                            matches_ll);
+                            *matches_ll);
+        matches_collection[make_pair(0, 2)] = matches_ll;
 
-        cout << " #matches = " << matches_ll.size() << endl;
+        cout << " #matches = " << matches_ll->size() << endl;
 
         // Leave only common part of point clouds
 
         vector<pair<int, int> > lr0_lr1_indices;
-        Intersect(matches_lr0, matches_lr1, matches_ll, lr0_lr1_indices);
+        Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);
 
         Mat_<double> xy_l0_buf(1, lr0_lr1_indices.size() * 2);
         Mat_<double> xy_r0_buf(1, lr0_lr1_indices.size() * 2);
