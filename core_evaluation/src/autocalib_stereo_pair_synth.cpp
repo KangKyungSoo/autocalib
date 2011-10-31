@@ -321,6 +321,35 @@ int main(int argc, char **argv) {
 
         Mat_<double> K_linear = CalibRotationalCameraLinearNoSkew(Hs_inf);
         cout << "K_linear = \n" << K_linear << endl;
+
+        // Metric rectification
+
+        cout << "\nMetric rectification...\n";
+
+        Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
+        Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
+        K_linear.copyTo(Ham_3x3);
+
+        P_l = P_l * Ham;
+        P_r = P_r * Ham;
+
+        RigidCamera P_l_m = RigidCamera::FromProjectiveMat(P_l);
+        RigidCamera P_r_m = RigidCamera::FromProjectiveMat(P_r);
+
+        cout << "Metric P_l: \nK = \n" << P_l_m.K() << "\nR = \n" << P_l_m.R() << "\nT = " << P_l_m.T() << endl;
+        cout << "Metric P_r: \nK = \n" << P_r_m.K() << "\nR = \n" << P_r_m.R() << "\nT = " << P_r_m.T() << endl;
+
+        xyzw0 = Ham.inv() * xyzw0.reshape(num_points_common).t();
+        xyzw1 = Ham.inv() * xyzw1.reshape(num_points_common).t();
+        xyzw0 = Mat(xyzw0.t()).reshape(0, 1);
+        xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
+
+        cout << "Reprojection RMS error after metric rectification (l0 r0 l1 r1) = ("
+             << CalcRmsReprojError(xy_l0, P_l, xyzw0) << " "
+             << CalcRmsReprojError(xy_r0, P_r, xyzw0) << " "
+             << CalcRmsReprojError(xy_l1, P_l, xyzw1) << " "
+             << CalcRmsReprojError(xy_r1, P_r, xyzw1) << ")\n";
+
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;

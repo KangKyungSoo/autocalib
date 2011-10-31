@@ -73,6 +73,13 @@ namespace autocalib {
             return RigidCamera(K, R_inv, -R_inv * center);
         }
 
+        /** Creates a rigid camera from a projective camera matrix.
+          *
+          * \param P Projective camera matrix
+          * \return Rigid camera
+          */
+        static RigidCamera FromProjectiveMat(const cv::Mat &P);
+
         /** Default constructor. Creates an eye camara. */
         RigidCamera() {
             K_ = cv::Mat::eye(3, 3, CV_64F);
