@@ -31,7 +31,8 @@ double max_angle = 0.1;
 bool create_images = false;
 double H_est_thresh = 3;
 double noise_stddev = -1; // No noise
-string log_path;
+double noise_transl = -1; // No noise
+string log_file;
 
 int main(int argc, char **argv) {    
     try {
@@ -108,8 +109,12 @@ int main(int argc, char **argv) {
             rng.fill(rvec, RNG::UNIFORM, -1, 1);
             rvec /= norm(rvec) / ((double)rng * max_angle);
 
+            Mat T_noise = Mat::zeros(3, 1, CV_64F);
+            if (noise_transl > 0)
+                rng.fill(T_noise, RNG::NORMAL, 0, noise_transl);
+
             Rodrigues(rvec, R);
-            cameras[i] = RigidCamera::LocalToWorld(K_gold, R, camera_center);
+            cameras[i] = RigidCamera::LocalToWorld(K_gold, R, camera_center + T_noise);
 
             Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
             scene->TakeShot(cameras[i], viewport, *features);
@@ -247,10 +252,10 @@ int main(int argc, char **argv) {
         cout << "calibration time = " << fixed << setprecision(3)
              << calib_time / getTickFrequency() << " sec\n";
 
-        if (!log_path.empty()) {
-            ofstream f(log_path.c_str(), ios_base::app);
+        if (!log_file.empty()) {
+            ofstream f(log_file.c_str(), ios_base::app);
             if (!f.is_open())
-                throw runtime_error("Can't open log file: " + log_path);
+                throw runtime_error("Can't open log file: " + log_file);
             f << num_points << " " << num_frames << " " << noise_stddev << " ";
             f << K_init(0, 0) << " " << K_init(1, 1) << " " << K_init(0, 2) << " " << K_init(1, 2) << " " << K_init(0, 1) << " ";
             f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
@@ -328,8 +333,10 @@ void ParseArgs(int argc, char **argv) {
             H_est_thresh = atof(argv[++i]);
         else if (string(argv[i]) == "--noise-stddev")
             noise_stddev = atof(argv[++i]);
-        else if (string(argv[i]) == "--log-path")
-            log_path = argv[++i];
+        else if (string(argv[i]) == "--noise-transl")
+            noise_transl = atof(argv[++i]);
+        else if (string(argv[i]) == "--log-file")
+            log_file = argv[++i];
         else
             throw runtime_error(string("Can't parse command line arg: ") + argv[i]);
     }
