@@ -57,8 +57,8 @@ int main(int argc, char **argv) {
 
         vector<RigidCamera> left_cameras;
         vector<RigidCamera> right_cameras;
-        FeaturesCollection right_features_collection;
-        FeaturesCollection left_features_collection;
+        FeaturesCollection features_collection;
+        MatchesCollection matches_collection;
 
         // Generate cameras and shots
 
@@ -91,11 +91,11 @@ int main(int argc, char **argv) {
         for (int i = 0; i < num_frames; ++i) {
             Ptr<detail::ImageFeatures> left_features = new detail::ImageFeatures();
             scene->TakeShot(left_cameras[i], viewport, *left_features);
-            left_features_collection[i] = left_features;
+            features_collection[2 * i] = left_features;
 
             Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
             scene->TakeShot(right_cameras[i], viewport, *right_features);
-            right_features_collection[i] = right_features;
+            features_collection[2 * i + 1] = right_features;
         }
 
         // Save images if it's needed
@@ -104,11 +104,11 @@ int main(int argc, char **argv) {
             for (int i = 0; i < num_frames; ++i) {
                 Mat img_l, img_r;
 
-                CreateImage(*(left_features_collection.find(i)->second), img_l);
+                CreateImage(*(features_collection.find(2 * i)->second), img_l);
                 stringstream name; name << "left_camera" << i << ".jpg";
                 imwrite(name.str(), img_l);
 
-                CreateImage(*(right_features_collection.find(i)->second), img_r);
+                CreateImage(*(features_collection.find(2 * i + 1)->second), img_r);
                 name.str(""); name << "right_camera" << i << ".jpg";
                 imwrite(name.str(), img_r);
             }
@@ -119,15 +119,15 @@ int main(int argc, char **argv) {
         cout << "\nFinding F between #0 pair images...";
 
         vector<DMatch> matches_lr0;
-        MatchSyntheticShots(*(left_features_collection.find(0)->second),
-                            *(right_features_collection.find(0)->second),
+        MatchSyntheticShots(*(features_collection.find(0)->second),
+                            *(features_collection.find(1)->second),
                             matches_lr0);
 
         cout << " #matches = " << matches_lr0.size();
 
         Mat_<double> xy_l0, xy_r0;
-        ExtractMatchedKeypoints(*(left_features_collection.find(0)->second),
-                                *(right_features_collection.find(0)->second),
+        ExtractMatchedKeypoints(*(features_collection.find(0)->second),
+                                *(features_collection.find(1)->second),
                                 matches_lr0, xy_l0, xy_r0);
 
         vector<uchar> inlier_mask0;
@@ -143,15 +143,15 @@ int main(int argc, char **argv) {
         cout << "Finding F between #1 pair images...";
 
         vector<DMatch> matches_lr1;
-        MatchSyntheticShots(*(left_features_collection.find(1)->second),
-                            *(right_features_collection.find(1)->second),
+        MatchSyntheticShots(*(features_collection.find(2)->second),
+                            *(features_collection.find(3)->second),
                             matches_lr1);
 
         cout << " #matches = " << matches_lr1.size();
 
         Mat_<double> xy_l1, xy_r1;
-        ExtractMatchedKeypoints(*(left_features_collection.find(1)->second),
-                                *(right_features_collection.find(1)->second),
+        ExtractMatchedKeypoints(*(features_collection.find(2)->second),
+                                *(features_collection.find(3)->second),
                                 matches_lr1, xy_l1, xy_r1);
 
         vector<uchar> inlier_mask1;
@@ -206,8 +206,8 @@ int main(int argc, char **argv) {
         cout << "\nMatching two stereo pairs using left images...";
 
         vector<DMatch> matches_ll;
-        MatchSyntheticShots(*(left_features_collection.find(0)->second),
-                            *(left_features_collection.find(1)->second),
+        MatchSyntheticShots(*(features_collection.find(0)->second),
+                            *(features_collection.find(2)->second),
                             matches_ll);
 
         cout << " #matches = " << matches_ll.size() << endl;
@@ -278,7 +278,7 @@ int main(int argc, char **argv) {
              << CalcRmsReprojError(xy_l1, P_l, xyzw1_mapped) << " "
              << CalcRmsReprojError(xy_r1, P_r, xyzw1_mapped) << ")\n";
 
-        // Finding Pinf
+        // Finding plane-at-infinity
 
         cout << "\nFinding plane-at-infinity...\n";
 
@@ -349,6 +349,11 @@ int main(int argc, char **argv) {
              << CalcRmsReprojError(xy_r0, P_r, xyzw0) << " "
              << CalcRmsReprojError(xy_l1, P_l, xyzw1) << " "
              << CalcRmsReprojError(xy_r1, P_r, xyzw1) << ")\n";
+
+        // Refine reconstruction
+
+        cout << "\nRefining metric reconstruction...\n";
+
 
     }
     catch (const exception &e) {
