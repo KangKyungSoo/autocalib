@@ -178,12 +178,12 @@ namespace autocalib {
 
     namespace {
 
-        class ReprojErrorFixedKR {
+        class ReprojError_FixedK_OnlyR {
         public:
-            ReprojErrorFixedKR(const FeaturesCollection &features,
-                               const MatchesCollection &matches,
-                               int params_to_refine,
-                               const vector<int> &Rs_indices)
+            ReprojError_FixedK_OnlyR(const FeaturesCollection &features,
+                                     const MatchesCollection &matches,
+                                     int params_to_refine,
+                                     const vector<int> &Rs_indices)
                     : features_(&features), matches_(&matches), params_to_refine_(params_to_refine),
                       step_(1e-4)
             {
@@ -197,8 +197,8 @@ namespace autocalib {
                     Rs_indices_inv_[Rs_indices[i]] = i;
             }
 
-            void operator()(const cv::Mat &arg, cv::Mat &err);
-            void Jacobian(const cv::Mat &arg, cv::Mat &jac);
+            void operator()(const Mat &arg, Mat &err);
+            void Jacobian(const Mat &arg, Mat &jac);
 
             int dimension() const { return num_matches_ * 2; }
 
@@ -214,7 +214,7 @@ namespace autocalib {
         };
 
 
-        void ReprojErrorFixedKR::operator()(const Mat &arg, Mat &err) {
+        void ReprojError_FixedK_OnlyR::operator()(const Mat &arg, Mat &err) {
             Mat_<double> arg_(arg);
 
             err.create(dimension(), 1, CV_64F);
@@ -274,8 +274,7 @@ namespace autocalib {
         }
 
 
-        // TODO calculate analytically Jacobian in BA
-        void ReprojErrorFixedKR::Jacobian(const cv::Mat &arg, cv::Mat &jac) {
+        void ReprojError_FixedK_OnlyR::Jacobian(const Mat &arg, Mat &jac) {
             Mat_<double> arg_(arg.clone());
 
             jac.create(dimension(), arg_.cols, CV_64F);
@@ -314,8 +313,9 @@ namespace autocalib {
         CV_Assert(K.getMatRef().size() == Size(3, 3) && K.getMatRef().type() == CV_64F);
         Mat_<double> K_(K.getMatRef());
 
+        // Normalize rotations and compute indices
         vector<int> Rs_indices;
-        for (AbsoluteRotationMats::iterator iter = Rs.begin(); iter != Rs.end() ;++iter) {
+        for (AbsoluteRotationMats::iterator iter = Rs.begin(); iter != Rs.end(); ++iter) {
             CV_Assert(iter->second.size() == Size(3, 3) && iter->second.type() == CV_64F);
             iter->second = Rs.begin()->second.t() * iter->second;
             Rs_indices.push_back(iter->first);
@@ -335,7 +335,7 @@ namespace autocalib {
             arg(0, 5 + 3 * (i - 1) + 2) = rvec(0, 2);
         }
 
-        ReprojErrorFixedKR func(features, matches, params_to_refine, Rs_indices);
+        ReprojError_FixedK_OnlyR func(features, matches, params_to_refine, Rs_indices);
         double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K_(0, 0) = arg(0, 0);
@@ -349,6 +349,126 @@ namespace autocalib {
             rvec(0, 1) = arg(0, 5 + 3 * (i - 1) + 1);
             rvec(0, 2) = arg(0, 5 + 3 * (i - 1) + 2);
             Rodrigues(rvec, Rs.find(Rs_indices[i])->second);
+        }
+
+        return rms_error;
+    }
+
+
+    namespace {
+
+        class ReprojError_FixedK_StereoCam {
+        public:
+            ReprojError_FixedK_StereoCam(const FeaturesCollection &features,
+                                         const MatchesCollection &matches,
+                                         const vector<int> &Rs_l_indices)
+                : features_(&features), matches_(&matches), step_(1e-4)
+            {
+                num_matches_ = 0;
+                for (MatchesCollection::const_iterator iter = matches_->begin();
+                     iter != matches_->end(); ++iter)
+                    num_matches_ += (int)iter->second->size();
+
+                Rs_l_indices_inv_.assign(*max_element(Rs_l_indices.begin(), Rs_l_indices.end()) + 1, -1);
+                for (size_t i = 0; i < Rs_l_indices.size(); ++i)
+                    Rs_l_indices_inv_[Rs_l_indices[i]] = i;
+            }
+
+            void operator()(const Mat &arg, Mat &err);
+            void Jacobian(const Mat &arg, Mat &jac);
+
+            int dimension() const { return num_matches_ * 2; }
+
+        private:
+            const FeaturesCollection *features_;
+            const MatchesCollection *matches_;
+            int num_matches_;
+            vector<int> Rs_l_indices_inv_;
+
+            const double step_;
+            Mat_<double> err_;
+        };
+
+
+        void ReprojError_FixedK_StereoCam::operator()(const Mat &arg, Mat &err) {
+            // TODO
+        }
+
+
+        void ReprojError_FixedK_StereoCam::Jacobian(const Mat &arg, Mat &jac) {
+            // TODO
+        }
+
+    } // namespace
+
+
+    double RefineStereoCamera(RigidCamera &cam, AbsoluteRotationMats Rs_l,
+                              const FeaturesCollection &features,
+                              const MatchesCollection &matches)
+    {
+        // Normalize rotations and compute indices
+        vector<int> Rs_l_indices;
+        for (AbsoluteRotationMats::iterator iter = Rs_l.begin(); iter != Rs_l.end(); ++iter) {
+            CV_Assert(iter->second.size() == Size(3, 3) && iter->second.type() == CV_64F);
+            iter->second = Rs_l.begin()->second.t() * iter->second;
+            Rs_l_indices.push_back(iter->first);
+        }
+
+        Mat_<double> arg(1, 5/*K*/ + 3/*R*/ + 3/*T*/ + 3 * (int)Rs_l.size());
+
+        Mat_<double> K(cam.K());
+        arg(0, 0) = K(0, 0);
+        arg(0, 1) = K(0, 1);
+        arg(0, 2) = K(0, 2);
+        arg(0, 3) = K(1, 1);
+        arg(0, 4) = K(1, 2);
+
+        Mat_<double> rvec;
+        Rodrigues(cam.R(), rvec);
+        arg(0, 5) = rvec(0, 0);
+        arg(0, 6) = rvec(0, 1);
+        arg(0, 7) = rvec(0, 2);
+
+        Mat_<double> T(cam.T());
+        arg(0, 8) = T(0, 0);
+        arg(0, 9) = T(1, 0);
+        arg(0, 10) = T(2, 0);
+
+        for (size_t i = 1; i < Rs_l_indices.size(); ++i) {
+            Mat_<double> rvec_l;
+            Rodrigues(Rs_l.find(Rs_l_indices[i])->second, rvec_l);
+            arg(0, 11 + 3 * (i - 1)) = rvec_l(0, 0);
+            arg(0, 11 + 3 * (i - 1) + 1) = rvec_l(0, 1);
+            arg(0, 11 + 3 * (i - 1) + 2) = rvec_l(0, 2);
+        }
+
+        ReprojError_FixedK_StereoCam func(features, matches, Rs_l_indices);
+        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
+
+        K(0, 0) = arg(0, 0);
+        K(0, 1) = arg(0, 1);
+        K(0, 2) = arg(0, 2);
+        K(1, 1) = arg(0, 3);
+        K(1, 2) = arg(0, 4);
+
+        rvec(0, 0) = arg(0, 5);
+        rvec(0, 1) = arg(0, 6);
+        rvec(0, 2) = arg(0, 7);
+
+        T(0, 0) = arg(0, 8);
+        T(1, 0) = arg(0, 9);
+        T(2, 0) = arg(0, 10);
+
+        Mat R;
+        Rodrigues(rvec, R);
+        cam = RigidCamera(K, R, T);
+
+        for (size_t i = 1; i < Rs_l_indices.size(); ++i) {
+            Mat_<double> rvec_l;
+            rvec_l(0, 0) = arg(0, 11 + 3 * (i - 1));
+            rvec_l(0, 1) = arg(0, 11 + 3 * (i - 1) + 1);
+            rvec_l(0, 2) = arg(0, 11 + 3 * (i - 1) + 2);
+            Rodrigues(rvec_l, Rs_l.find(Rs_l_indices[i])->second);
         }
 
         return rms_error;
