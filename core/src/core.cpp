@@ -11,7 +11,7 @@ namespace autocalib {
 
         Mat_<double> K, R, T;
 
-        RQDecomp3x3(P(Rect(0,0,3,3)), K, R);
+        RQDecomp3x3(P(Rect(0, 0, 3, 3)), K, R);
         T = K.inv() * P.col(3);
         K /= K(2, 2);
 
@@ -355,13 +355,13 @@ namespace autocalib {
     }
 
 
-    namespace {
+    namespace {   
 
-        class ReprojError_FixedK_StereoCam {
+        class EpipError_FixedK_StereoCam {
         public:
-            ReprojError_FixedK_StereoCam(const FeaturesCollection &features,
-                                         const MatchesCollection &matches,
-                                         const vector<int> &Rs_l_indices)
+            EpipError_FixedK_StereoCam(const FeaturesCollection &features,
+                                       const MatchesCollection &matches,
+                                       const vector<int> &Rs_l_indices)
                 : features_(&features), matches_(&matches), step_(1e-4)
             {
                 num_matches_ = 0;
@@ -377,7 +377,7 @@ namespace autocalib {
             void operator()(const Mat &arg, Mat &err);
             void Jacobian(const Mat &arg, Mat &jac);
 
-            int dimension() const { return num_matches_ * 2; }
+            int dimension() const { return num_matches_; }
 
         private:
             const FeaturesCollection *features_;
@@ -390,31 +390,72 @@ namespace autocalib {
         };
 
 
-        void ReprojError_FixedK_StereoCam::operator()(const Mat &arg, Mat &err) {
+        void EpipError_FixedK_StereoCam::operator()(const Mat &arg, Mat &err) {
+            Mat_<double> arg_(arg);
+
+            err.create(dimension(), 1, CV_64F);
+            Mat_<double> err_(err);
+
+            Mat_<double> K = Mat::eye(3, 3, CV_64F);
+            K(0, 0) = arg_(0, 0);
+            K(0, 1) = arg_(0, 1);
+            K(0, 2) = arg_(0, 2);
+            K(0, 3) = arg_(0, 3);
+            K(0, 4) = arg_(0, 4);
+            Mat K_inv = K.inv();
+
+            Mat_<double> rvec_rel(1, 3);
+            rvec_rel(0, 0) = arg_(0, 5);
+            rvec_rel(0, 1) = arg_(0, 6);
+            rvec_rel(0, 2) = arg_(0, 7);
+            Mat R_rel;
+            Rodrigues(rvec_rel, R_rel);
+
             // TODO
         }
 
 
-        void ReprojError_FixedK_StereoCam::Jacobian(const Mat &arg, Mat &jac) {
-            // TODO
+        void EpipError_FixedK_StereoCam::Jacobian(const Mat &arg, Mat &jac) {
+            Mat_<double> arg_(arg.clone());
+
+            jac.create(dimension(), arg_.cols, CV_64F);
+            Mat_<double> jac_(jac);
+            jac_.setTo(0);
+
+            for (int i = 0; i < arg_.cols; ++i) {
+                double val = arg_(0, i);
+
+                arg_(0, i) += step_;
+                Mat tmp = jac_.col(i);
+                (*this)(arg_, tmp);
+
+                arg_(0, i) = val - step_;
+                (*this)(arg_, err_);
+                arg_(0, i) = val;
+
+                for (int j = 0; j < dimension(); ++j)
+                    jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
+            }
         }
 
     } // namespace
 
 
-    double RefineStereoCamera(RigidCamera &cam, AbsoluteRotationMats Rs_l,
+    double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions motions_l,
                               const FeaturesCollection &features,
                               const MatchesCollection &matches)
     {
         // Normalize rotations and compute indices
-        vector<int> Rs_l_indices;
-        for (AbsoluteRotationMats::iterator iter = Rs_l.begin(); iter != Rs_l.end(); ++iter) {
-            CV_Assert(iter->second.size() == Size(3, 3) && iter->second.type() == CV_64F);
-            iter->second = Rs_l.begin()->second.t() * iter->second;
-            Rs_l_indices.push_back(iter->first);
+        vector<int> motion_l_indices;
+        for (AbsoluteMotions::iterator iter = motions_l.begin(); iter != motions_l.end(); ++iter) {
+            CV_Assert(iter->second.R.size() == Size(3, 3) && iter->second.R.type() == CV_64F &&
+                      iter->second.T.size() == Size(1, 3) && iter->second.T.type() == CV_64F);
+            iter->second.R = motions_l.begin()->second.R.t() * iter->second.R;
+            iter->second.T = iter->second.T - motions_l.begin()->second.T;
+            motion_l_indices.push_back(iter->first);
         }
 
-        Mat_<double> arg(1, 5/*K*/ + 3/*R*/ + 3/*T*/ + 3 * (int)Rs_l.size());
+        Mat_<double> arg(1, 5/*K*/ + 3/*R*/ + 3/*T*/ + 6 * (int)motions_l.size());
 
         Mat_<double> K(cam.K());
         arg(0, 0) = K(0, 0);
@@ -434,15 +475,19 @@ namespace autocalib {
         arg(0, 9) = T(1, 0);
         arg(0, 10) = T(2, 0);
 
-        for (size_t i = 1; i < Rs_l_indices.size(); ++i) {
+        for (size_t i = 1; i < motion_l_indices.size(); ++i) {
             Mat_<double> rvec_l;
-            Rodrigues(Rs_l.find(Rs_l_indices[i])->second, rvec_l);
-            arg(0, 11 + 3 * (i - 1)) = rvec_l(0, 0);
-            arg(0, 11 + 3 * (i - 1) + 1) = rvec_l(0, 1);
-            arg(0, 11 + 3 * (i - 1) + 2) = rvec_l(0, 2);
+            Rodrigues(motions_l.find(motion_l_indices[i])->second.R, rvec_l);
+            arg(0, 11 + 6 * (i - 1)) = rvec_l(0, 0);
+            arg(0, 11 + 6 * (i - 1) + 1) = rvec_l(0, 1);
+            arg(0, 11 + 6 * (i - 1) + 2) = rvec_l(0, 2);
+            Mat_<double> T_l = motions_l.find(motion_l_indices[i])->second.T;
+            arg(0, 11 + 6 * (i - 1)) = T_l(0, 0);
+            arg(0, 11 + 6 * (i - 1) + 1) = T_l(0, 1);
+            arg(0, 11 + 6 * (i - 1) + 2) = T_l(0, 2);
         }
 
-        ReprojError_FixedK_StereoCam func(features, matches, Rs_l_indices);
+        EpipError_FixedK_StereoCam func(features, matches, motion_l_indices);
         double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K(0, 0) = arg(0, 0);
@@ -463,12 +508,17 @@ namespace autocalib {
         Rodrigues(rvec, R);
         cam = RigidCamera(K, R, T);
 
-        for (size_t i = 1; i < Rs_l_indices.size(); ++i) {
+        for (size_t i = 1; i < motion_l_indices.size(); ++i) {
             Mat_<double> rvec_l;
-            rvec_l(0, 0) = arg(0, 11 + 3 * (i - 1));
-            rvec_l(0, 1) = arg(0, 11 + 3 * (i - 1) + 1);
-            rvec_l(0, 2) = arg(0, 11 + 3 * (i - 1) + 2);
-            Rodrigues(rvec_l, Rs_l.find(Rs_l_indices[i])->second);
+            rvec_l(0, 0) = arg(0, 11 + 6 * (i - 1));
+            rvec_l(0, 1) = arg(0, 11 + 6 * (i - 1) + 1);
+            rvec_l(0, 2) = arg(0, 11 + 6 * (i - 1) + 2);
+            Rodrigues(rvec_l, motions_l.find(motion_l_indices[i])->second.R);
+            Mat_<double> T_l;
+            T_l(0, 0) = arg(0, 11 + 6 * (i - 1) + 3);
+            T_l(0, 1) = arg(0, 11 + 6 * (i - 1) + 4);
+            T_l(0, 2) = arg(0, 11 + 6 * (i - 1) + 5);
+            motions_l.find(motion_l_indices[i])->second.T = T_l;
         }
 
         return rms_error;
