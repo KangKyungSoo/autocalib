@@ -245,7 +245,7 @@ namespace autocalib {
                 int img_from = view->first.first;
                 const vector<KeyPoint> &kps_from = features_->find(img_from)->second->keypoints;
                 Mat_<double> rvec_from(1, 3);
-                if (img_from) {
+                if (Rs_indices_inv_[img_from] > 0) {
                     rvec_from(0, 0) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_from] - 1));
                     rvec_from(0, 1) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_from] - 1) + 1);
                     rvec_from(0, 2) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_from] - 1) + 2);
@@ -258,7 +258,7 @@ namespace autocalib {
                 int img_to = view->first.second;
                 const vector<KeyPoint> &kps_to = features_->find(img_to)->second->keypoints;
                 Mat_<double> rvec_to(1, 3);
-                if (img_to) {
+                if (Rs_indices_inv_[img_to] > 0) {
                     rvec_to(0, 0) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_to] - 1));
                     rvec_to(0, 1) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_to] - 1) + 1);
                     rvec_to(0, 2) = arg_(0, 5 + 3 * (Rs_indices_inv_[img_to] - 1) + 2);
@@ -324,10 +324,13 @@ namespace autocalib {
         Mat_<double> K_(K.getMatRef());
 
         // Normalize rotations and compute indices
+
+        Mat R_norm = Rs.begin()->second.t();
         vector<int> Rs_indices;
+
         for (AbsoluteRotationMats::iterator iter = Rs.begin(); iter != Rs.end(); ++iter) {
             CV_Assert(iter->second.size() == Size(3, 3) && iter->second.type() == CV_64F);
-            iter->second = Rs.begin()->second.t() * iter->second;
+            iter->second = R_norm * iter->second;
             Rs_indices.push_back(iter->first);
         }
 
@@ -371,7 +374,7 @@ namespace autocalib {
         public:
             EpipError_FixedK_StereoCam(const FeaturesCollection &features,
                                        const MatchesCollection &matches,
-                                       const vector<int> &motion_l_indices)
+                                       const vector<int> &motions_indices)
                 : features_(&features), matches_(&matches), step_(1e-4)
             {
                 num_matches_ = 0;
@@ -379,9 +382,9 @@ namespace autocalib {
                      iter != matches_->end(); ++iter)
                     num_matches_ += (int)iter->second->size();
 
-                motion_l_indices_inv_.assign(*max_element(motion_l_indices.begin(), motion_l_indices.end()) + 1, -1);
-                for (size_t i = 0; i < motion_l_indices.size(); ++i)
-                    motion_l_indices_inv_[motion_l_indices[i]] = i;
+                motions_indices_inv_.assign(*max_element(motions_indices.begin(), motions_indices.end()) + 1, -1);
+                for (size_t i = 0; i < motions_indices.size(); ++i)
+                    motions_indices_inv_[motions_indices[i]] = i;
             }
 
             void operator()(const Mat &arg, Mat &err);
@@ -393,7 +396,7 @@ namespace autocalib {
             const FeaturesCollection *features_;
             const MatchesCollection *matches_;
             int num_matches_;
-            vector<int> motion_l_indices_inv_;
+            vector<int> motions_indices_inv_;
 
             const double step_;
             Mat_<double> err_;
@@ -410,8 +413,8 @@ namespace autocalib {
             K(0, 0) = arg_(0, 0);
             K(0, 1) = arg_(0, 1);
             K(0, 2) = arg_(0, 2);
-            K(0, 3) = arg_(0, 3);
-            K(0, 4) = arg_(0, 4);
+            K(1, 1) = arg_(0, 3);
+            K(1, 2) = arg_(0, 4);
             Mat K_inv = K.inv();
 
             Mat_<double> rvec_rel(1, 3);
@@ -438,7 +441,70 @@ namespace autocalib {
                 const vector<KeyPoint> &kps_from = features_->find(from)->second->keypoints;
                 const vector<KeyPoint> &kps_to = features_->find(to)->second->keypoints;
 
-                if (from % 2 == 0 && to % 2 == 0) {
+                if (from / 2 != to / 2 && from % 2 == to % 2) {
+                    // We're working with matches between left and right frames of a stereo pair
+
+                    int from_ = from / 2;
+                    int to_ = to / 2;
+
+                    Mat_<double> rvec_from(1, 3);
+                    if (motions_indices_inv_[from_] > 0) {
+                        rvec_from(0, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1));
+                        rvec_from(0, 1) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 1);
+                        rvec_from(0, 2) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 2);
+                    }
+                    else
+                        rvec_from.setTo(0);
+                    Mat R_from;
+                    Rodrigues(rvec_from, R_from);
+
+                    Mat_<double> rvec_to(1, 3);
+                    if (motions_indices_inv_[to_] > 0) {
+                        rvec_to(0, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1));
+                        rvec_to(0, 1) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 1);
+                        rvec_to(0, 2) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 2);
+                    }
+                    else
+                        rvec_to.setTo(0);
+                    Mat R_to;
+                    Rodrigues(rvec_to, R_to);
+
+                    Mat_<double> T_from(3, 1);
+                    if (motions_indices_inv_[from_] > 0) {
+                        T_from(0, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 3);
+                        T_from(1, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 4);
+                        T_from(2, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 5);
+                    }
+                    else
+                        T_from.setTo(0);
+
+                    Mat_<double> T_to(3, 1);
+                    if (motions_indices_inv_[to_] > 0) {
+                        T_to(0, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 3);
+                        T_to(1, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 4);
+                        T_to(2, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 5);
+                    }
+                    else
+                        T_to.setTo(0);
+
+                    Mat_<double> F = K_inv.t() * CrossProductMat(T_to - T_from) * R_from.inv() * R_to * K_inv;
+
+                    const vector<DMatch> &matches = *(iter->second);
+                    for (size_t i = 0; i < matches.size(); ++i) {
+                        const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
+                        const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
+
+                        double x1 = F(0, 0) * p1.x + F(0, 1) * p1.y + F(0, 2);
+                        double y1 = F(1, 0) * p1.x + F(1, 1) * p1.y + F(1, 2);
+                        double z1 = F(2, 0) * p1.x + F(2, 1) * p1.y + F(2, 2);
+
+                        double x0 = F(0, 0) * p0.x + F(1, 0) * p0.y + F(2, 0);
+                        double y0 = F(0, 1) * p0.x + F(1, 1) * p0.y + F(2, 1);
+
+                        err_(pos++, 0) = abs(p0.x * x1 + p0.y * y1 + z1) * (1 / sqrt(x1 * x1 + y1 * y1) + 1 / sqrt(x0 * x0 + y0 * y0));
+                    }
+                }
+                else if (to == from + 1) {
                     // We're working with left to left matches between different stereo pairs
 
                     const vector<DMatch> &matches = *(iter->second);
@@ -446,44 +512,15 @@ namespace autocalib {
                         const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
                         const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
 
-                        double x1 = F_rel(0, 0) * p1.x + F_rel(0, 1) * p1.y + F_rel(0, 2);
-                        double y1 = F_rel(1, 0) * p1.x + F_rel(1, 1) * p1.y + F_rel(1, 2);
-                        double z1 = F_rel(2, 0) * p1.x + F_rel(2, 1) * p1.y + F_rel(2, 2);
+                        double x0 = F_rel(0, 0) * p0.x + F_rel(0, 1) * p0.y + F_rel(0, 2);
+                        double y0 = F_rel(1, 0) * p0.x + F_rel(1, 1) * p0.y + F_rel(1, 2);
+                        double z0 = F_rel(2, 0) * p0.x + F_rel(2, 1) * p0.y + F_rel(2, 2);
 
-                        double x0 = F_rel(0, 0) * p0.x + F_rel(1, 0) * p0.y + F_rel(2, 0);
-                        double y0 = F_rel(0, 1) * p0.x + F_rel(1, 1) * p0.y + F_rel(2, 1);
+                        double x1 = F_rel(0, 0) * p1.x + F_rel(1, 0) * p1.y + F_rel(2, 0);
+                        double y1 = F_rel(0, 1) * p1.x + F_rel(1, 1) * p1.y + F_rel(2, 1);
 
-                        err_(pos++, 0) = abs(p0.x * x1 + p0.y * y1 + z1) * (1 / sqrt(x1 * x1 + y1 * y1) + 1 / sqrt(x0 * x0 + y0 * y0));
+                        err_(pos++, 0) = abs(p1.x * x0 + p1.y * y0 + z0) * (1 / sqrt(x0 * x0 + y0 * y0) + 1 / sqrt(x1 * x1 + y1 * y1));
                     }
-                }
-                else if (to == from + 1) {
-                    // We're working with matches between left and right frames of a stereo pair
-
-                    Mat_<double> rvec_from(1, 3);
-                    rvec_from(0, 0) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1));
-                    rvec_from(0, 1) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 1);
-                    rvec_from(0, 2) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 2);
-                    Mat R_from;
-                    Rodrigues(rvec_from, R_from);
-
-                    Mat_<double> rvec_to(1, 3);
-                    rvec_to(0, 0) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1));
-                    rvec_to(0, 1) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 1);
-                    rvec_to(0, 2) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 2);
-                    Mat R_to;
-                    Rodrigues(rvec_to, R_to);
-
-                    Mat_<double> T_from(3, 1);
-                    T_from(0, 0) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 3);
-                    T_from(0, 1) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 4);
-                    T_from(0, 2) = arg_(0, 11 + 6 * (motion_l_indices_inv_[from] - 1) + 5);
-
-                    Mat_<double> T_to(3, 1);
-                    T_to(0, 0) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 3);
-                    T_to(0, 1) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 4);
-                    T_to(0, 2) = arg_(0, 11 + 6 * (motion_l_indices_inv_[to] - 1) + 5);
-
-                    // TODO
                 }
                 else {
                     CV_Error(CV_StsError, "bad matches");
@@ -518,21 +555,27 @@ namespace autocalib {
     } // namespace
 
 
-    double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions motions_l,
-                              const FeaturesCollection &features,
-                              const MatchesCollection &matches)
+    double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions motions,
+                              const FeaturesCollection &features, const MatchesCollection &matches)
     {
         // Normalize rotations and compute indices
-        vector<int> motion_l_indices;
-        for (AbsoluteMotions::iterator iter = motions_l.begin(); iter != motions_l.end(); ++iter) {
+
+        Mat R_norm = motions.begin()->second.R.t();
+        Mat T_norm = -motions.begin()->second.T.clone();
+
+        vector<int> motions_indices;
+
+        for (AbsoluteMotions::iterator iter = motions.begin(); iter != motions.end(); ++iter) {
             CV_Assert(iter->second.R.size() == Size(3, 3) && iter->second.R.type() == CV_64F &&
                       iter->second.T.size() == Size(1, 3) && iter->second.T.type() == CV_64F);
-            iter->second.R = motions_l.begin()->second.R.t() * iter->second.R;
-            iter->second.T = iter->second.T - motions_l.begin()->second.T;
-            motion_l_indices.push_back(iter->first);
+
+            iter->second.R = R_norm * iter->second.R;
+            iter->second.T = iter->second.T + T_norm;
+
+            motions_indices.push_back(iter->first);
         }
 
-        Mat_<double> arg(1, 5/*K*/ + 3/*R*/ + 3/*T*/ + 6 * (int)motions_l.size());
+        Mat_<double> arg(1, 5/*K*/ + 3/*R*/ + 3/*T*/ + 6 * (int)motions.size());
 
         Mat_<double> K(cam.K());
         arg(0, 0) = K(0, 0);
@@ -552,20 +595,20 @@ namespace autocalib {
         arg(0, 9) = T(1, 0);
         arg(0, 10) = T(2, 0);
 
-        for (size_t i = 1; i < motion_l_indices.size(); ++i) {
+        for (size_t i = 1; i < motions_indices.size(); ++i) {
             Mat_<double> rvec_l;
-            Rodrigues(motions_l.find(motion_l_indices[i])->second.R, rvec_l);
+            Rodrigues(motions.find(motions_indices[i])->second.R, rvec_l);
             arg(0, 11 + 6 * (i - 1)) = rvec_l(0, 0);
             arg(0, 11 + 6 * (i - 1) + 1) = rvec_l(0, 1);
             arg(0, 11 + 6 * (i - 1) + 2) = rvec_l(0, 2);
 
-            Mat_<double> T_l = motions_l.find(motion_l_indices[i])->second.T;
+            Mat_<double> T_l = motions.find(motions_indices[i])->second.T;
             arg(0, 11 + 6 * (i - 1) + 3) = T_l(0, 0);
-            arg(0, 11 + 6 * (i - 1) + 4) = T_l(0, 1);
-            arg(0, 11 + 6 * (i - 1) + 5) = T_l(0, 2);
+            arg(0, 11 + 6 * (i - 1) + 4) = T_l(1, 0);
+            arg(0, 11 + 6 * (i - 1) + 5) = T_l(2, 0);
         }
 
-        EpipError_FixedK_StereoCam func(features, matches, motion_l_indices);
+        EpipError_FixedK_StereoCam func(features, matches, motions_indices);
         double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K(0, 0) = arg(0, 0);
@@ -586,18 +629,18 @@ namespace autocalib {
         Rodrigues(rvec, R);
         cam = RigidCamera(K, R, T);
 
-        for (size_t i = 1; i < motion_l_indices.size(); ++i) {
-            Mat_<double> rvec_l;
+        for (size_t i = 1; i < motions_indices.size(); ++i) {
+            Mat_<double> rvec_l(1, 3);
             rvec_l(0, 0) = arg(0, 11 + 6 * (i - 1));
             rvec_l(0, 1) = arg(0, 11 + 6 * (i - 1) + 1);
             rvec_l(0, 2) = arg(0, 11 + 6 * (i - 1) + 2);
-            Rodrigues(rvec_l, motions_l.find(motion_l_indices[i])->second.R);
+            Rodrigues(rvec_l, motions.find(motions_indices[i])->second.R);
 
-            Mat_<double> T_l;
+            Mat_<double> T_l(3, 1);
             T_l(0, 0) = arg(0, 11 + 6 * (i - 1) + 3);
-            T_l(0, 1) = arg(0, 11 + 6 * (i - 1) + 4);
-            T_l(0, 2) = arg(0, 11 + 6 * (i - 1) + 5);
-            motions_l.find(motion_l_indices[i])->second.T = T_l;
+            T_l(1, 0) = arg(0, 11 + 6 * (i - 1) + 4);
+            T_l(2, 0) = arg(0, 11 + 6 * (i - 1) + 5);
+            motions.find(motions_indices[i])->second.T = T_l;
         }
 
         return rms_error;
