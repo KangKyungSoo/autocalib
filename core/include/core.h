@@ -257,13 +257,13 @@ namespace autocalib {
       * 2*i+1 is the right frame.
       *
       * \param cam Stereo camera parameters
-      * \param motions_l Absolute motions (R,T) of stereo pairs left cameras
+      * \param motions Absolute motions (R,T) of stereo pairs
       * \param features Frames features
       * \param matches Matches between left frames of stereo pairs and between
                        left and right frames of stereo pairs
       * \return Epipolar error
       */
-    double RefineStereoCamera(RigidCamera &cam, AbsoluteRotationMats motions_l,
+    double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions motions,
                               const FeaturesCollection &features, const MatchesCollection &matches);
 
 

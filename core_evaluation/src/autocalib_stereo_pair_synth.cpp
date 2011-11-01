@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
         // See in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 480. for
         // the typical ambiguities description
         Mat_<double> rel_rvec(3, 1);
-        rel_rvec(0, 0) = 0; rel_rvec(1, 0) = CV_PI / 30; rel_rvec(2, 0) = 0;
+        rel_rvec(0, 0) = CV_PI / 50; rel_rvec(1, 0) = CV_PI / 30; rel_rvec(2, 0) = 0;
 
         Mat_<double> rel_R;
         Rodrigues(rel_rvec, rel_R);
@@ -381,6 +381,10 @@ int main(int argc, char **argv) {
         RigidCamera P_l0_m = RigidCamera::FromProjectiveMat(P_l0);
         RigidCamera P_r0_m = RigidCamera::FromProjectiveMat(P_r0);
 
+        cout << "F0 = \n" << F0 << endl;
+        Mat_<double> tmp = K_linear.inv().t() * CrossProductMat(P_r0_m.T()) * P_r0_m.R() * K_linear.inv();
+        cout << " = \n"  << tmp / tmp(2, 2) << endl;
+
         cout << "Metric P_l0: \nK = \n" << P_l0_m.K() << "\nR = \n" << P_l0_m.R() << "\nT = " << P_l0_m.T() << endl;
         cout << "Metric P_r0: \nK = \n" << P_r0_m.K() << "\nR = \n" << P_r0_m.R() << "\nT = " << P_r0_m.T() << endl;
 
@@ -399,7 +403,14 @@ int main(int argc, char **argv) {
 
         cout << "\nRefining metric reconstruction...\n";
 
+        AbsoluteMotions motions;
+        motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
+        motions[1] = Motion(H01(Rect(0, 0, 3, 3)).inv(), -H01(Rect(0, 0, 3, 3)).inv() * H01(Rect(3, 0, 1, 3)));
 
+        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection);
+
+        Mat_<double> K_refined = P_r0_m.K();
+        cout << "K_refined = \n" << K_refined << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
