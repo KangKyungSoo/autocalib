@@ -22,6 +22,7 @@ int num_points = 1000;
 int num_frames = 2;
 Rect viewport = Rect(0, 0, 640, 480);
 Mat_<double> K_gold;
+Mat_<double> K_init;
 int seed = 0; // No seed
 double noise_stddev = -1; // No noise
 bool create_images = false;
@@ -357,19 +358,21 @@ int main(int argc, char **argv) {
 
         // Linear calibration
 
-        cout << "\nLinear calibrating...\n";
+        if (K_init.empty()) {
+            cout << "\nLinear calibrating...\n";
 
-        HomographiesP2 Hs_inf;
+            HomographiesP2 Hs_inf;
 
-        // Stereo pair relative rotation can be very close to the identity matrix. That
-        // can lead to numerical instability in K estimation process, so we avoid using those
-        // rotations in the linear autocalibration algorithm.
+            // Stereo pair relative rotation can be very close to the identity matrix. That
+            // can lead to numerical instability in K estimation process, so we avoid using those
+            // rotations in the linear autocalibration algorithm.
 
-        //Hs_inf[make_pair(0, 1)] = P_r0(Rect(0, 0, 3, 3));
-        Hs_inf[make_pair(0, 2)] = Mat(P_l0 * H01.inv())(Rect(0, 0, 3, 3));
+            //Hs_inf[make_pair(0, 1)] = P_r0(Rect(0, 0, 3, 3));
+            Hs_inf[make_pair(0, 2)] = Mat(P_l0 * H01.inv())(Rect(0, 0, 3, 3));
 
-        Mat_<double> K_linear = CalibRotationalCameraLinearNoSkew(Hs_inf);
-        cout << "K_linear = \n" << K_linear << endl;
+            K_init = CalibRotationalCameraLinearNoSkew(Hs_inf);
+            cout << "K_linear = \n" << K_init << endl;
+        }
 
         // Metric rectification
 
@@ -377,7 +380,7 @@ int main(int argc, char **argv) {
 
         Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
         Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
-        K_linear.copyTo(Ham_3x3);
+        K_init.copyTo(Ham_3x3);
 
         H01 = Ham.inv() * H01 * Ham;
         H01 /= H01(3, 3);
@@ -401,7 +404,7 @@ int main(int argc, char **argv) {
              << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
              << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
 
-        Mat_<double> F01 = K_linear.inv().t() * CrossProductMat(T01) * R01 * K_linear.inv();
+        Mat_<double> F01 = K_init.inv().t() * CrossProductMat(T01) * R01 * K_init.inv();
         cout << "Point-to-line distance RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F01) << endl;
 
         // Refine reconstruction
@@ -413,7 +416,7 @@ int main(int argc, char **argv) {
         motions[1] = Motion(R01, T01);
 
         RigidCamera P_r0_m_ = RigidCamera::FromProjectiveMat(P_r0);
-        RigidCamera P_r0_m(K_linear, P_r0_m_.R(), P_r0_m_.T());
+        RigidCamera P_r0_m(K_init, P_r0_m_.R(), P_r0_m_.T());
         RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection,
                            ~REFINE_FLAG_SKEW);
 
@@ -451,6 +454,15 @@ void ParseArgs(int argc, char **argv) {
             K_gold(0, 2) = atof(argv[i + 3]);
             K_gold(1, 1) = atof(argv[i + 4]);
             K_gold(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--K-init") {
+            K_init = Mat::eye(3, 3, CV_64F);
+            K_init(0, 0) = atof(argv[i + 1]);
+            K_init(0, 1) = atof(argv[i + 2]);
+            K_init(0, 2) = atof(argv[i + 3]);
+            K_init(1, 1) = atof(argv[i + 4]);
+            K_init(1, 2) = atof(argv[i + 5]);
             i += 5;
         }
         else if (string(argv[i]) == "--seed")
