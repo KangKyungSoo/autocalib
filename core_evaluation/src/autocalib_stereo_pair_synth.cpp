@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        // Find fundmental matrix
+        // Find fundamental matrix
 
         cout << "\nFinding F between #0 pair images...";
 
