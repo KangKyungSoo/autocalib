@@ -401,11 +401,7 @@ int main(int argc, char **argv) {
              << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
              << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
 
-        Mat_<double> F01 = K_linear.inv().t() *
-                           CrossProductMat(T01) *
-                           R01 *
-                           K_linear.inv();
-
+        Mat_<double> F01 = K_linear.inv().t() * CrossProductMat(T01) * R01 * K_linear.inv();
         cout << "Point-to-line distance RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F01) << endl;
 
         // Refine reconstruction
