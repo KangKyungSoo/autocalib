@@ -380,8 +380,12 @@ int main(int argc, char **argv) {
         K_linear.copyTo(Ham_3x3);
 
         H01 = Ham.inv() * H01 * Ham;
+        H01 /= H01(3, 3);
 
         cout << "Metric H01 = \n" << H01 << endl;
+
+        Mat_<double> R01 = H01(Rect(0, 0, 3, 3));
+        Mat_<double> T01 = H01(Rect(3, 0, 1, 3));
 
         P_l0 = P_l0 * Ham;
         P_r0 = P_r0 * Ham;
@@ -397,25 +401,26 @@ int main(int argc, char **argv) {
              << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
              << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
 
-        Mat_<double> F10 = K_linear.inv().t() *
-                           CrossProductMat(left_cameras[0].R() * left_cameras[1].R().t() * left_cameras[1].T() - left_cameras[0].T()) *
-                           left_cameras[0].R() * left_cameras[1].R().t() *
+        Mat_<double> F01 = K_linear.inv().t() *
+                           CrossProductMat(T01) *
+                           R01 *
                            K_linear.inv();
 
-        cout << "Point-to-line distance RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F10) << endl;
+        cout << "Point-to-line distance RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F01) << endl;
 
-//        // Refine reconstruction
+        // Refine reconstruction
 
-//        cout << "\nRefining metric reconstruction...\n";
+        cout << "\nRefining metric reconstruction...\n";
 
-//        AbsoluteMotions motions;
-//        motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
-//        motions[1] = Motion(R10, T10);
+        AbsoluteMotions motions;
+        motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
+        motions[1] = Motion(R01, T01);
 
-//        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection);
+        RigidCamera P_r0_m = RigidCamera::FromProjectiveMat(P_r0);
+        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection);
 
-//        Mat_<double> K_refined = P_r0_m.K();
-//        cout << "K_refined = \n" << K_refined << endl;
+        Mat_<double> K_refined = P_r0_m.K();
+        cout << "K_refined = \n" << K_refined << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
