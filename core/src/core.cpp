@@ -25,6 +25,7 @@ namespace autocalib {
         return RigidCamera(K, R, T);
     }
 
+
     Mat CalibRotationalCameraLinear(const HomographiesP2 &Hs, double *residual_error) {
         int num_Hs = (int)Hs.size();
         if (num_Hs < 1)
@@ -121,6 +122,7 @@ namespace autocalib {
 
         Mat_<double> A(6 * num_Hs, 4);
         Mat_<double> b(6 * num_Hs, 1);
+        A.setTo(0);
         b.setTo(0);
 
         static const int lut[][3] = {{0, -1, 1}, {-1, 2, 3}, {-1, -1, -1}};
@@ -128,6 +130,7 @@ namespace autocalib {
         int eq_idx = 0;
         for (int H_idx = 0; H_idx < num_Hs; ++H_idx) {
             Mat_<double> Ht = Hs_normed_t[H_idx];
+
             for (int r1 = 0; r1 < 3; ++r1) {
                 for (int r2 = r1; r2 < 3; ++r2) {
                     A(eq_idx, 0) = Ht(r1, 0) * Ht(r2, 0);
@@ -487,21 +490,24 @@ namespace autocalib {
                     else
                         T_to.setTo(0);
 
-                    Mat_<double> F = K_inv.t() * CrossProductMat(T_to - T_from) * R_from.inv() * R_to * K_inv;
+                    Mat_<double> F = K_inv.t() * CrossProductMat(T_from - T_to) * R_to.inv() * R_from * K_inv;
 
                     const vector<DMatch> &matches = *(iter->second);
                     for (size_t i = 0; i < matches.size(); ++i) {
                         const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
                         const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
 
-                        double x1 = F(0, 0) * p1.x + F(0, 1) * p1.y + F(0, 2);
-                        double y1 = F(1, 0) * p1.x + F(1, 1) * p1.y + F(1, 2);
-                        double z1 = F(2, 0) * p1.x + F(2, 1) * p1.y + F(2, 2);
+                        double x0 = F(0, 0) * p0.x + F(0, 1) * p0.y + F(0, 2);
+                        double y0 = F(1, 0) * p0.x + F(1, 1) * p0.y + F(1, 2);
+                        double z0 = F(2, 0) * p0.x + F(2, 1) * p0.y + F(2, 2);
 
-                        double x0 = F(0, 0) * p0.x + F(1, 0) * p0.y + F(2, 0);
-                        double y0 = F(0, 1) * p0.x + F(1, 1) * p0.y + F(2, 1);
+                        double x1 = F(0, 0) * p1.x + F(1, 0) * p1.y + F(2, 0);
+                        double y1 = F(0, 1) * p1.x + F(1, 1) * p1.y + F(2, 1);
 
-                        err_(pos++, 0) = abs(p0.x * x1 + p0.y * y1 + z1) * (1 / sqrt(x1 * x1 + y1 * y1) + 1 / sqrt(x0 * x0 + y0 * y0));
+//                        cout << abs(p1.x * x0 + p1.y * y0 + z0) * (1 / sqrt(x0 * x0 + y0 * y0) + 1 / sqrt(x1 * x1 + y1 * y1));
+//                        cin.get();
+
+                        err_(pos++, 0) = abs(p1.x * x0 + p1.y * y0 + z0) * (1 / sqrt(x0 * x0 + y0 * y0) + 1 / sqrt(x1 * x1 + y1 * y1));
                     }
                 }
                 else if (to == from + 1) {
@@ -808,7 +814,7 @@ namespace autocalib {
     }
 
 
-    double CalcRmsReprojError(InputArray xy, InputArray P, InputArray xyzw) {
+    double CalcRmsReprojectionError(InputArray xy, InputArray P, InputArray xyzw) {
         CV_Assert(xy.getMat().type() == CV_64F && xy.getMat().rows == 1 && xy.getMat().cols % 2 == 0);
         CV_Assert(P.getMat().type() == CV_64F && P.getMat().size() == Size(4, 3));
         CV_Assert(xyzw.getMat().type() == CV_64F && xyzw.getMat().rows == 1 && xyzw.getMat().cols % 4 == 0);
@@ -829,6 +835,35 @@ namespace autocalib {
         }
 
         return sqrt(sum_sq_error / num_points);
+    }
+
+
+    double CalcRmsEpipolarDistance(InputArray xy1, InputArray xy2, InputArray F) {
+        CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
+        CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy2.getMat().cols % 2 == 0);
+        CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
+        CV_Assert(xy1.getMat().cols / 2 == xy2.getMat().cols / 2);
+
+        Mat_<double> xy1_ = xy1.getMat();
+        Mat_<double> xy2_ = xy2.getMat();
+        Mat_<double> F_ = F.getMat();
+        int num_points = xy1_.cols / 2;
+
+        double total_err = 0;
+        double x1, y1, x2, y2, z2;
+
+        for (int i = 0; i < num_points; ++i) {
+            x2 = F_(0, 0) * xy2_(0, 2 * i) + F_(0, 1) * xy2_(0, 2 * i + 1) + F_(0, 2);
+            y2 = F_(1, 0) * xy2_(0, 2 * i) + F_(1, 1) * xy2_(0, 2 * i + 1) + F_(1, 2);
+            z2 = F_(2, 0) * xy2_(0, 2 * i) + F_(2, 1) * xy2_(0, 2 * i + 1) + F_(2, 2);
+
+            x1 = F_(0, 0) * xy1_(0, 2 * i) + F_(1, 0) * xy1_(0, 2 * i + 1) + F_(2, 0);
+            y1 = F_(0, 1) * xy1_(0, 2 * i) + F_(1, 1) * xy1_(0, 2 * i + 1) + F_(2, 1);
+
+            total_err += Sqr(xy1_(0, 2 * i) * x2 + xy1_(0, 2 * i + 1) * y2 + z2) * (1 / (x1 * x1 + y1 * y1) + 1 / (x2 * x2 + y2 * y2));
+        }
+
+        return sqrt(total_err / num_points);
     }
 
 

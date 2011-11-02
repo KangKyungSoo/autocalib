@@ -431,7 +431,17 @@ namespace autocalib {
       * \param xyzw Points
       * \return RMS reprojection error
       */
-    double CalcRmsReprojError(cv::InputArray xy, cv::InputArray P, cv::InputArray xyzw);
+    double CalcRmsReprojectionError(cv::InputArray xy, cv::InputArray P, cv::InputArray xyzw);
+
+
+    /** Calculates the point-to-epopolar-line RMS distance.
+      *
+      * \param xy1 First image keypoints
+      * \param xy2 Second image keypoints
+      * \param F Fundamental matrix, such as p1' * F * p2 = 0
+      * \return RMS point-to-epipolar distance
+      */
+    double CalcRmsEpipolarDistance(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray F);
 
 
     /** Finds a 3D projective space homography linearly.

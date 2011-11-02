@@ -143,8 +143,7 @@ int main(int argc, char **argv) {
 
         if (create_images) {
             for (int i = 0; i < num_frames; ++i) {
-                Mat img;
-                CreateImage(*(features_collection.find(i)->second), img);
+                Mat img = CreateImage(*(features_collection.find(i)->second));
 
                 stringstream name;
                 name << "camera" << i << ".jpg";
