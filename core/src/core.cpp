@@ -377,8 +377,10 @@ namespace autocalib {
         public:
             EpipError_FixedK_StereoCam(const FeaturesCollection &features,
                                        const MatchesCollection &matches,
-                                       const vector<int> &motions_indices)
-                : features_(&features), matches_(&matches), step_(1e-4)
+                                       const vector<int> &motions_indices,
+                                       int params_to_refine)
+                : features_(&features), matches_(&matches), step_(1e-4),
+                  params_to_refine_(params_to_refine)
             {
                 num_matches_ = 0;
                 for (MatchesCollection::const_iterator iter = matches_->begin();
@@ -400,6 +402,7 @@ namespace autocalib {
             const MatchesCollection *matches_;
             int num_matches_;
             vector<int> motions_indices_inv_;
+            int params_to_refine_;
 
             const double step_;
             Mat_<double> err_;
@@ -540,19 +543,25 @@ namespace autocalib {
             Mat_<double> jac_(jac);
             jac_.setTo(0);
 
+            // Maps argument index to the respective intrinsic parameter
+            static const int flags_tbl[] = {REFINE_FLAG_FX, REFINE_FLAG_SKEW, REFINE_FLAG_PPX,
+                                            REFINE_FLAG_FY, REFINE_FLAG_PPY};
+
             for (int i = 0; i < arg_.cols; ++i) {
-                double val = arg_(0, i);
+                if (i > 4 || (params_to_refine_ & flags_tbl[i])) {
+                    double val = arg_(0, i);
 
-                arg_(0, i) += step_;
-                Mat tmp = jac_.col(i);
-                (*this)(arg_, tmp);
+                    arg_(0, i) += step_;
+                    Mat tmp = jac_.col(i);
+                    (*this)(arg_, tmp);
 
-                arg_(0, i) = val - step_;
-                (*this)(arg_, err_);
-                arg_(0, i) = val;
+                    arg_(0, i) = val - step_;
+                    (*this)(arg_, err_);
+                    arg_(0, i) = val;
 
-                for (int j = 0; j < dimension(); ++j)
-                    jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
+                    for (int j = 0; j < dimension(); ++j)
+                        jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
+                }
             }
         }
 
@@ -560,7 +569,8 @@ namespace autocalib {
 
 
     double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions motions,
-                              const FeaturesCollection &features, const MatchesCollection &matches)
+                              const FeaturesCollection &features, const MatchesCollection &matches,
+                              int params_to_refine)
     {
         // Normalize rotations and compute indices
 
@@ -612,7 +622,7 @@ namespace autocalib {
             arg(0, 11 + 6 * (i - 1) + 5) = T_l(2, 0);
         }
 
-        EpipError_FixedK_StereoCam func(features, matches, motions_indices);
+        EpipError_FixedK_StereoCam func(features, matches, motions_indices, params_to_refine);
         double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K(0, 0) = arg(0, 0);
