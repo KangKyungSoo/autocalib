@@ -56,38 +56,42 @@ int main(int argc, char **argv) {
         Rodrigues(rvec, R);
         scene->set_R(R);
 
-        vector<RigidCamera> left_cameras;
-        vector<RigidCamera> right_cameras;
+        vector<RigidCamera> left_cameras(2);
+        vector<RigidCamera> right_cameras(2);
         FeaturesCollection features_collection;
         MatchesCollection matches_collection;
 
-        // Generate cameras and shots
+        // Generate cameras and shots       
 
         Mat_<double> rel_T(3, 1);
-        rel_T(0, 0) = 1; rel_T(1, 0) = rel_T(2, 0) = 0;
-
-        // See in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 480. for
-        // the typical ambiguities description
-        Mat_<double> rel_rvec(3, 1);
-        rel_rvec(0, 0) = CV_PI / 50; rel_rvec(1, 0) = CV_PI / 30; rel_rvec(2, 0) = 0;
-
-        Mat_<double> rel_R;
-        Rodrigues(rel_rvec, rel_R);
-
-        rvec = Mat::zeros(3, 1, CV_64F);
-        rvec(0, 0) = rvec(2, 0) = rvec(1, 0) = CV_PI / 40;
-        Rodrigues(rvec, R);
+        rel_T(0, 0) = 0.5; rel_T(1, 0) = rel_T(2, 0) = 0;
 
         Mat_<double> T(3, 1);
-        T(0, 0) = -2; T(1, 0) = 0; T(2, 0) = -20;
 
-        left_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R * rel_R, -R * rel_T + T));
-        right_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R * rel_R.t(), R * rel_T + T));
+        detail::ImageFeatures features;
 
-        T(0, 0) = 2; T(1, 0) = 0; T(2, 0) = -20;
+        for (int i = 0; i < num_frames; ++i) {
+            while (true) {
+                rng.fill(rvec, RNG::NORMAL, 0, 0.05);
+                Rodrigues(rvec, R);
 
-        left_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R.t() * rel_R, -R.t() * rel_T + T));
-        right_cameras.push_back(RigidCamera::LocalToWorld(K_gold, R.t() * rel_R.t(), R.t() * rel_T + T));
+                rng.fill(T, RNG::NORMAL, 0, 1);
+                T(0, 0) *= 2; T(2, 0) += -10;
+
+                left_cameras[i] = RigidCamera::LocalToWorld(K_gold, R, -R * rel_T + T);
+                right_cameras[i] = RigidCamera::LocalToWorld(K_gold, R, R * rel_T + T);
+
+                scene->TakeShot(left_cameras[i], viewport, features);
+                if (features.keypoints.size() < num_points / 3)
+                    continue;
+
+                scene->TakeShot(right_cameras[i], viewport, features);
+                if (features.keypoints.size() < num_points / 3)
+                    continue;
+
+                break;
+            }
+        }
 
         for (int i = 0; i < num_frames; ++i) {
             Ptr<detail::ImageFeatures> left_features = new detail::ImageFeatures();
@@ -137,13 +141,11 @@ int main(int argc, char **argv) {
 
         if (create_images) {
             for (int i = 0; i < num_frames; ++i) {
-                Mat img_l, img_r;
-
-                CreateImage(*(features_collection.find(2 * i)->second), img_l);
+                Mat img_l = CreateImage(*(features_collection.find(2 * i)->second));
                 stringstream name; name << "left_camera" << i << ".jpg";
                 imwrite(name.str(), img_l);
 
-                CreateImage(*(features_collection.find(2 * i + 1)->second), img_r);
+                Mat img_r = CreateImage(*(features_collection.find(2 * i + 1)->second));
                 name.str(""); name << "right_camera" << i << ".jpg";
                 imwrite(name.str(), img_r);
             }
@@ -172,9 +174,10 @@ int main(int argc, char **argv) {
         int num_inliers0 = 0;
         for (size_t i = 0; i < inlier_mask0.size(); ++i)
             if (inlier_mask0[i])
-                num_inliers0++;
+                num_inliers0++;                
 
-        cout << ", #inliers = " << num_inliers0 << endl;
+        cout << ", #inliers = " << num_inliers0
+             << ", p2l dist RMS = " << CalcRmsEpipolarDistance(xy_r0, xy_l0, F0) << endl;
 
         cout << "Finding F between #1 pair images...";
 
@@ -199,7 +202,8 @@ int main(int argc, char **argv) {
             if (inlier_mask1[i])
                 num_inliers1++;
 
-        cout << ", #inliers = " << num_inliers1 << endl;
+        cout << ", #inliers = " << num_inliers1
+             << ", p2l dist RMS = " << CalcRmsEpipolarDistance(xy_r1, xy_l1, F1) << endl;
 
         // Extract camera matrices
 
@@ -217,10 +221,10 @@ int main(int argc, char **argv) {
         dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r0), xy_l1, xy_r1, xyzw1);
 
         cout << "\n(F0) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << CalcRmsReprojError(xy_l0, P_l0, xyzw0) << " "
-             << CalcRmsReprojError(xy_r0, P_r0, xyzw0) << " "
-             << CalcRmsReprojError(xy_l1, P_l0, xyzw1) << " "
-             << CalcRmsReprojError(xy_r1, P_r0, xyzw1) << ")\n";
+             << CalcRmsReprojectionError(xy_l0, P_l0, xyzw0) << " "
+             << CalcRmsReprojectionError(xy_r0, P_r0, xyzw0) << " "
+             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
+             << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
 
         // Check if we can find structure using F1 instead of F0
 
@@ -233,10 +237,10 @@ int main(int argc, char **argv) {
         dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r_), xy_l1, xy_r1, xyzw1_);
 
         cout << "(F1) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << CalcRmsReprojError(xy_l0, P_l0, xyzw0_) << " "
-             << CalcRmsReprojError(xy_r0, P_r_, xyzw0_) << " "
-             << CalcRmsReprojError(xy_l1, P_l0, xyzw1_) << " "
-             << CalcRmsReprojError(xy_r1, P_r_, xyzw1_) << ")\n";
+             << CalcRmsReprojectionError(xy_l0, P_l0, xyzw0_) << " "
+             << CalcRmsReprojectionError(xy_r0, P_r_, xyzw0_) << " "
+             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1_) << " "
+             << CalcRmsReprojectionError(xy_r1, P_r_, xyzw1_) << ")\n";
 
         // Match two stereo pairs
 
@@ -313,8 +317,8 @@ int main(int argc, char **argv) {
         }
 
         cout << "Reprojection RMS error after mapping (l1 r1) = ("
-             << CalcRmsReprojError(xy_l1, P_l0, xyzw1_mapped) << " "
-             << CalcRmsReprojError(xy_r1, P_r0, xyzw1_mapped) << ")\n";
+             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1_mapped) << " "
+             << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1_mapped) << ")\n";
 
         // Finding plane-at-infinity
 
@@ -346,10 +350,10 @@ int main(int argc, char **argv) {
         xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
 
         cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
-             << CalcRmsReprojError(xy_l0, P_l0, xyzw0) << " "
-             << CalcRmsReprojError(xy_r0, P_r0, xyzw0) << " "
-             << CalcRmsReprojError(xy_l1, P_l0, xyzw1) << " "
-             << CalcRmsReprojError(xy_r1, P_r0, xyzw1) << ")\n";
+             << CalcRmsReprojectionError(xy_l0, P_l0, xyzw0) << " "
+             << CalcRmsReprojectionError(xy_r0, P_r0, xyzw0) << " "
+             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
+             << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
 
         // Linear calibration
 
@@ -357,7 +361,11 @@ int main(int argc, char **argv) {
 
         HomographiesP2 Hs_inf;
 
-        Hs_inf[make_pair(0, 1)] = P_r0(Rect(0, 0, 3, 3));
+        // Stereo pair relative rotation can be very close to the identity matrix. That
+        // can lead to numerical instability in K estimation process, so we avoid using those
+        // rotations in the linear autocalibration algorithm.
+
+        //Hs_inf[make_pair(0, 1)] = P_r0(Rect(0, 0, 3, 3));
         Hs_inf[make_pair(0, 2)] = Mat(P_l0 * H01.inv())(Rect(0, 0, 3, 3));
 
         Mat_<double> K_linear = CalibRotationalCameraLinearNoSkew(Hs_inf);
@@ -378,39 +386,36 @@ int main(int argc, char **argv) {
         P_l0 = P_l0 * Ham;
         P_r0 = P_r0 * Ham;
 
-        RigidCamera P_l0_m = RigidCamera::FromProjectiveMat(P_l0);
-        RigidCamera P_r0_m = RigidCamera::FromProjectiveMat(P_r0);
-
-        cout << "F0 = \n" << F0 << endl;
-        Mat_<double> tmp = K_linear.inv().t() * CrossProductMat(P_r0_m.T()) * P_r0_m.R() * K_linear.inv();
-        cout << " = \n"  << tmp / tmp(2, 2) << endl;
-
-        cout << "Metric P_l0: \nK = \n" << P_l0_m.K() << "\nR = \n" << P_l0_m.R() << "\nT = " << P_l0_m.T() << endl;
-        cout << "Metric P_r0: \nK = \n" << P_r0_m.K() << "\nR = \n" << P_r0_m.R() << "\nT = " << P_r0_m.T() << endl;
-
         xyzw0 = Ham.inv() * xyzw0.reshape(num_points_common).t();
         xyzw1 = Ham.inv() * xyzw1.reshape(num_points_common).t();
         xyzw0 = Mat(xyzw0.t()).reshape(0, 1);
         xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
 
         cout << "Reprojection RMS error after metric rectification (l0 r0 l1 r1) = ("
-             << CalcRmsReprojError(xy_l0, P_l0, xyzw0) << " "
-             << CalcRmsReprojError(xy_r0, P_r0, xyzw0) << " "
-             << CalcRmsReprojError(xy_l1, P_l0, xyzw1) << " "
-             << CalcRmsReprojError(xy_r1, P_r0, xyzw1) << ")\n";
+             << CalcRmsReprojectionError(xy_l0, P_l0, xyzw0) << " "
+             << CalcRmsReprojectionError(xy_r0, P_r0, xyzw0) << " "
+             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
+             << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
 
-        // Refine reconstruction
+        Mat_<double> F10 = K_linear.inv().t() *
+                           CrossProductMat(left_cameras[0].R() * left_cameras[1].R().t() * left_cameras[1].T() - left_cameras[0].T()) *
+                           left_cameras[0].R() * left_cameras[1].R().t() *
+                           K_linear.inv();
 
-        cout << "\nRefining metric reconstruction...\n";
+        cout << "Point-to-line distance RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F10) << endl;
 
-        AbsoluteMotions motions;
-        motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
-        motions[1] = Motion(H01(Rect(0, 0, 3, 3)).inv(), -H01(Rect(0, 0, 3, 3)).inv() * H01(Rect(3, 0, 1, 3)));
+//        // Refine reconstruction
 
-        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection);
+//        cout << "\nRefining metric reconstruction...\n";
 
-        Mat_<double> K_refined = P_r0_m.K();
-        cout << "K_refined = \n" << K_refined << endl;
+//        AbsoluteMotions motions;
+//        motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
+//        motions[1] = Motion(R10, T10);
+
+//        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection);
+
+//        Mat_<double> K_refined = P_r0_m.K();
+//        cout << "K_refined = \n" << K_refined << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;

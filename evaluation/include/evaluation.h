@@ -218,9 +218,9 @@ namespace evaluation {
     /** Creates an image from image features.
       *
       * \param features Image features
-      * \param image Result image
+      * \return Result image
       */
-    void CreateImage(const cv::detail::ImageFeatures &features, cv::OutputArray image);
+    cv::Mat CreateImage(const cv::detail::ImageFeatures &features);
 
 } // namespace evaluation
 } // namespace autocalib

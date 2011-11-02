@@ -165,12 +165,14 @@ namespace evaluation {
     }
 
 
-    void CreateImage(const detail::ImageFeatures &features, OutputArray image) {
-        Mat &img_ = image.getMatRef();
-        img_.create(features.img_size, CV_8U);
-        img_.setTo(0);
+    Mat CreateImage(const detail::ImageFeatures &features) {
+        Mat img(features.img_size, CV_8U);
+        img.setTo(0);
+
         for (size_t i = 0; i < features.keypoints.size(); ++i)
-            circle(img_, features.keypoints[i].pt, 1, Scalar::all(255), 1);
+            circle(img, features.keypoints[i].pt, 1, Scalar::all(255), 1);
+
+        return img;
     }
 
 } // namespace evaluation
