@@ -412,8 +412,10 @@ int main(int argc, char **argv) {
         motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
         motions[1] = Motion(R01, T01);
 
-        RigidCamera P_r0_m = RigidCamera::FromProjectiveMat(P_r0);
-        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection);
+        RigidCamera P_r0_m_ = RigidCamera::FromProjectiveMat(P_r0);
+        RigidCamera P_r0_m(K_linear, P_r0_m_.R(), P_r0_m_.T());
+        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection,
+                           ~REFINE_FLAG_SKEW);
 
         Mat_<double> K_refined = P_r0_m.K();
         cout << "K_refined = \n" << K_refined << endl;

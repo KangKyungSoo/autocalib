@@ -264,7 +264,8 @@ namespace autocalib {
       * \return Epipolar error
       */
     double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions motions,
-                              const FeaturesCollection &features, const MatchesCollection &matches);
+                              const FeaturesCollection &features, const MatchesCollection &matches,
+                              int params_to_refine = REFINE_FLAG_ALL);
 
 
     //============================================================================
