@@ -490,7 +490,8 @@ namespace autocalib {
                     else
                         T_to.setTo(0);
 
-                    Mat_<double> F = K_inv.t() * CrossProductMat(T_from - T_to) * R_to.inv() * R_from * K_inv;
+                    Mat R = R_to * R_from.t();
+                    Mat_<double> F = K_inv.t() * CrossProductMat(R * T_from - T_to) * R * K_inv;
 
                     const vector<DMatch> &matches = *(iter->second);
                     for (size_t i = 0; i < matches.size(); ++i) {
@@ -503,9 +504,6 @@ namespace autocalib {
 
                         double x1 = F(0, 0) * p1.x + F(1, 0) * p1.y + F(2, 0);
                         double y1 = F(0, 1) * p1.x + F(1, 1) * p1.y + F(2, 1);
-
-//                        cout << abs(p1.x * x0 + p1.y * y0 + z0) * (1 / sqrt(x0 * x0 + y0 * y0) + 1 / sqrt(x1 * x1 + y1 * y1));
-//                        cin.get();
 
                         err_(pos++, 0) = abs(p1.x * x0 + p1.y * y0 + z0) * (1 / sqrt(x0 * x0 + y0 * y0) + 1 / sqrt(x1 * x1 + y1 * y1));
                     }
@@ -566,8 +564,8 @@ namespace autocalib {
     {
         // Normalize rotations and compute indices
 
-        Mat R_norm = motions.begin()->second.R.t();
-        Mat T_norm = -motions.begin()->second.T.clone();
+        Mat R_norm = motions.begin()->second.R;
+        Mat T_norm = motions.begin()->second.T;
 
         vector<int> motions_indices;
 
@@ -575,8 +573,8 @@ namespace autocalib {
             CV_Assert(iter->second.R.size() == Size(3, 3) && iter->second.R.type() == CV_64F &&
                       iter->second.T.size() == Size(1, 3) && iter->second.T.type() == CV_64F);
 
-            iter->second.R = R_norm * iter->second.R;
-            iter->second.T = iter->second.T + T_norm;
+            iter->second.T = iter->second.T - iter->second.R * R_norm.t() * T_norm;
+            iter->second.R = iter->second.R * R_norm.t();
 
             motions_indices.push_back(iter->first);
         }
