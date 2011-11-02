@@ -51,15 +51,15 @@ namespace autocalib {
                 cvCopy(&tmp, solver_jac);
                 num_iters++;
                 if (opts.verbose() & MinimizeOpts::VERBOSE_ITER)
-                    AUTOCALIB_LOG(std::cout << "iter = " << num_iters
-                                            << ", RMS error = " << rms_err << std::endl);
+                    std::cout << "iter = " << num_iters
+                              << ", RMS error = " << rms_err << std::endl;
             }
         }
 
         if (opts.verbose() & MinimizeOpts::VERBOSE_SUMMARY)
-            AUTOCALIB_LOG(std::cout << "start RMS error = " << init_rms_err
-                          << ", final RMS error = " << rms_err
-                          << ", num iters = " << num_iters << std::endl);
+            std::cout << "start RMS error = " << init_rms_err
+                      << ", final RMS error = " << rms_err
+                      << ", num iters = " << num_iters << std::endl;
 
         return rms_err;
     }    
