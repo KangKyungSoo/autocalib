@@ -1187,9 +1187,9 @@ namespace autocalib {
 
     namespace {
 
-        class CalculateRotations {
+        class CalcAbsoluteRotationMat {
         public:
-            CalculateRotations(const RelativeRotationMats &rel_rmats,
+            CalcAbsoluteRotationMat(const RelativeRotationMats &rel_rmats,
                                AbsoluteRotationMats &abs_rmats)
                 : rel_rmats(&rel_rmats), abs_rmats(&abs_rmats) {}
 
@@ -1217,15 +1217,51 @@ namespace autocalib {
     {
         abs_rmats.clear();
         abs_rmats[ref_frame_idx] = Mat::eye(3, 3, CV_64F);
-        eff_corresp.walkBreadthFirst(ref_frame_idx, CalculateRotations(rel_rmats, abs_rmats));
+        eff_corresp.walkBreadthFirst(ref_frame_idx, CalcAbsoluteRotationMat(rel_rmats, abs_rmats));
     }
+
+
+    namespace {
+
+        class CalcAbsoluteMotion {
+        public:
+            CalcAbsoluteMotion(const RelativeMotions &rel_motions, AbsoluteMotions &abs_motions)
+                : rel_motions(&rel_motions), abs_motions(&abs_motions) {}
+
+            void operator()(const detail::GraphEdge &edge) {
+                Mat R, T;
+
+                RelativeMotions::const_iterator iter = rel_motions->find(make_pair(edge.from, edge.to));
+                if (iter != rel_motions->end()) {
+                    R = iter->second.R();
+                    T = iter->second.T();
+                }
+                else {
+                    iter = rel_motions->find(make_pair(edge.to, edge.from));
+                    R = iter->second.R().t();
+                    T = -iter->second.R().t() * iter->second.T();
+                }
+
+                const Motion &motion_from = (*abs_motions)[edge.from];
+                Motion &motion_to = (*abs_motions)[edge.to];
+
+                motion_to.set_R(R * motion_from.R());
+                motion_to.set_T(R * motion_from.T() + T);
+            }
+
+            const RelativeMotions *rel_motions;
+            AbsoluteMotions *abs_motions;
+        };
+
+    } // namespace
 
 
     void CalcAbsoluteMotions(const RelativeMotions &rel_motions, const detail::Graph &eff_corresp,
                              int ref_frame_idx, AbsoluteMotions &abs_motions)
     {
         abs_motions.clear();
-        //abs_motions[ref_frame_idx] = Motion::
+        abs_motions[ref_frame_idx] = Motion();
+        eff_corresp.walkBreadthFirst(ref_frame_idx, CalcAbsoluteMotion(rel_motions, abs_motions));
     }
 
 
