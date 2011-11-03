@@ -481,7 +481,7 @@ namespace autocalib {
     double CalcRmsEpipolarDistance(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray F);
 
 
-    /** Finds a 3D projective space homography linearly.
+    /** Finds the 3D projective space homography linearly.
       *
       * The algorithm is sensitive to outliers and it requires 5 points as minimum.
       *
@@ -500,6 +500,17 @@ namespace autocalib {
       * \return Plane-at-infinity coordinates (4x1 vector)
       */
     cv::Mat CalcPlaneAtInfinity(cv::InputArray H);
+
+
+    /** Finds the fundamental matrix of a stereo camera.
+      *
+      * \param features Features
+      * \param matches Matches in (2*i, 2*i+1) or reversed format, other are ignored
+      * \param thresh Error threshold
+      * \return The fundamental matrix
+      */
+    cv::Mat FindFundamentalMatFromPairs(const FeaturesCollection &features,
+                                        const MatchesCollection &matches, double thresh = 3.);
 
 
     //============================================================================

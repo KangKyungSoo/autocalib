@@ -195,16 +195,7 @@ int main(int argc, char **argv) {
                                 *(features_collection.find(3)->second),
                                 *matches_lr1, xy_l1, xy_r1);
 
-        vector<uchar> inlier_mask1;
-        Mat_<double> F1 = findFundamentalMat(Mat(xy_l1).reshape(2), Mat(xy_r1).reshape(2), inlier_mask1, RANSAC, 0.1);
-
-        int num_inliers1 = 0;
-        for (size_t i = 0; i < inlier_mask1.size(); ++i)
-            if (inlier_mask1[i])
-                num_inliers1++;
-
-        cout << ", #inliers = " << num_inliers1
-             << ", p2l dist RMS = " << CalcRmsEpipolarDistance(xy_r1, xy_l1, F1) << endl;
+        cout << ", p2l dist RMS = " << CalcRmsEpipolarDistance(xy_r1, xy_l1, F0) << endl;
 
         // Extract camera matrices
 
@@ -226,22 +217,6 @@ int main(int argc, char **argv) {
              << CalcRmsReprojectionError(xy_r0, P_r0, xyzw0) << " "
              << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
              << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
-
-        // Check if we can find structure using F1 instead of F0
-
-        Mat_<double> P_r_ = Extract2ndCameraMatFromF(F1);
-
-        Mat_<double> xyzw0_;
-        dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r_), xy_l0, xy_r0, xyzw0_);
-
-        Mat_<double> xyzw1_;
-        dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r_), xy_l1, xy_r1, xyzw1_);
-
-        cout << "(F1) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << CalcRmsReprojectionError(xy_l0, P_l0, xyzw0_) << " "
-             << CalcRmsReprojectionError(xy_r0, P_r_, xyzw0_) << " "
-             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1_) << " "
-             << CalcRmsReprojectionError(xy_r1, P_r_, xyzw1_) << ")\n";
 
         // Match two stereo pairs
 
