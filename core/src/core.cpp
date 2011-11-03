@@ -370,6 +370,162 @@ namespace autocalib {
     }
 
 
+    void AffineRectifyStereoCameraByTwoShots(
+            InputArray P_r,
+            InputOutputArray xy_l0, InputOutputArray xy_r0, InputOutputArray xy_l1, InputOutputArray xy_r1,
+            const Ptr<vector<DMatch> > &matches_lr0, const Ptr<vector<DMatch> > &matches_lr1,
+            const Ptr<vector<DMatch> > &matches_ll,
+            OutputArray Hpa, OutputArray H01, OutputArray xyzw0, OutputArray xyzw1)
+    {
+        CV_Assert(P_r.getMat().type() == CV_64F && P_r.getMat().size() == Size(4, 3));
+
+        CV_Assert(xy_l0.getMat().type() == CV_64F && xy_l0.getMat().rows == 1 && xy_l0.getMat().cols % 2 == 0);
+        CV_Assert(xy_r0.getMat().type() == CV_64F && xy_r0.getMat().rows == 1 && xy_r0.getMat().cols % 2 == 0);
+        CV_Assert(xy_l0.getMat().cols / 2 == xy_r0.getMat().cols / 2);
+
+        CV_Assert(xy_l1.getMat().type() == CV_64F && xy_l1.getMat().rows == 1 && xy_l1.getMat().cols % 2 == 0);
+        CV_Assert(xy_r1.getMat().type() == CV_64F && xy_r1.getMat().rows == 1 && xy_r1.getMat().cols % 2 == 0);
+        CV_Assert(xy_l1.getMat().cols / 2 == xy_r1.getMat().cols / 2);
+
+        Mat_<double> P_r_ = P_r.getMat().clone();
+        Mat_<double> xy_l0_(xy_l0.getMat());
+        Mat_<double> xy_r0_(xy_r0.getMat());
+        Mat_<double> xy_l1_(xy_l1.getMat());
+        Mat_<double> xy_r1_(xy_r1.getMat());
+
+        // Extract camera matrices
+
+        Mat_<double> P_l = Mat::eye(3, 4, CV_64F);
+
+        // Find structure
+
+        DltTriangulation dlt;
+
+        Mat_<double> xyzw0_;
+        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l0_, xy_r0_, xyzw0_);
+
+        Mat_<double> xyzw1_;
+        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l1_, xy_r1_, xyzw1_);
+
+        AUTOCALIB_LOG(
+            cout << "\nDLT reprojection RMS errors (l0 r0 l1 r1) = ("
+                 << CalcRmsReprojectionError(xy_l0, P_l, xyzw0_) << " "
+                 << CalcRmsReprojectionError(xy_r0, P_r_, xyzw0_) << " "
+                 << CalcRmsReprojectionError(xy_l1, P_l, xyzw1_) << " "
+                 << CalcRmsReprojectionError(xy_r1, P_r_, xyzw1_) << ")\n");
+
+        // Leave only common part of point clouds
+
+        vector<pair<int, int> > lr0_lr1_indices;
+        Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);
+
+        Mat_<double> xy_l0_buf(1, lr0_lr1_indices.size() * 2);
+        Mat_<double> xy_r0_buf(1, lr0_lr1_indices.size() * 2);
+        Mat_<double> xy_l1_buf(1, lr0_lr1_indices.size() * 2);
+        Mat_<double> xy_r1_buf(1, lr0_lr1_indices.size() * 2);
+        Mat_<double> xyzw0_buf(1, lr0_lr1_indices.size() * 4);
+        Mat_<double> xyzw1_buf(1, lr0_lr1_indices.size() * 4);
+
+        for (size_t i = 0; i < lr0_lr1_indices.size(); ++i) {
+            int i0 = lr0_lr1_indices[i].first;
+            int i1 = lr0_lr1_indices[i].second;
+
+            xy_l0_buf(0, 2 * i) = xy_l0_(0, 2 * i0);
+            xy_l0_buf(0, 2 * i + 1) = xy_l0_(0, 2 * i0 + 1);
+
+            xy_r0_buf(0, 2 * i) = xy_r0_(0, 2 * i0);
+            xy_r0_buf(0, 2 * i + 1) = xy_r0_(0, 2 * i0 + 1);
+
+            xy_l1_buf(0, 2 * i) = xy_l1_(0, 2 * i1);
+            xy_l1_buf(0, 2 * i + 1) = xy_l1_(0, 2 * i1 + 1);
+
+            xy_r1_buf(0, 2 * i) = xy_r1_(0, 2 * i1);
+            xy_r1_buf(0, 2 * i + 1) = xy_r1_(0, 2 * i1 + 1);
+
+            xyzw0_buf(0, 4 * i) = xyzw0_(0, 4 * i0);
+            xyzw0_buf(0, 4 * i + 1) = xyzw0_(0, 4 * i0 + 1);
+            xyzw0_buf(0, 4 * i + 2) = xyzw0_(0, 4 * i0 + 2);
+            xyzw0_buf(0, 4 * i + 3) = xyzw0_(0, 4 * i0 + 3);
+
+            xyzw1_buf(0, 4 * i) = xyzw1_(0, 4 * i1);
+            xyzw1_buf(0, 4 * i + 1) = xyzw1_(0, 4 * i1 + 1);
+            xyzw1_buf(0, 4 * i + 2) = xyzw1_(0, 4 * i1 + 2);
+            xyzw1_buf(0, 4 * i + 3) = xyzw1_(0, 4 * i1 + 3);
+        }
+
+        xy_l0_ = xy_l0_buf;
+        xy_r0_ = xy_r0_buf;
+        xy_l1_ = xy_l1_buf;
+        xy_r1_ = xy_r1_buf;
+        xyzw0_ = xyzw0_buf;
+        xyzw1_ = xyzw1_buf;
+
+        // Find homography mapping the 1st cloud to the 2nd one
+
+        int num_points_common = xyzw0_.cols / 4;
+
+        cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n";
+
+        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
+
+        Mat_<double> xyzw1_mapped(xyzw0_.size(), xyzw0_.type());
+        for (int i = 0; i < num_points_common; ++i) {
+            xyzw1_mapped(0, 4 * i) = H01_(0, 0) * xyzw0_(0, 4 * i) + H01_(0, 1) * xyzw0_(0, 4 * i + 1) + H01_(0, 2) * xyzw0_(0, 4 * i + 2) + H01_(0, 3) * xyzw0_(0, 4 * i + 3);
+            xyzw1_mapped(0, 4 * i + 1) = H01_(1, 0) * xyzw0_(0, 4 * i) + H01_(1, 1) * xyzw0_(0, 4 * i + 1) + H01_(1, 2) * xyzw0_(0, 4 * i + 2) + H01_(1, 3) * xyzw0_(0, 4 * i + 3);
+            xyzw1_mapped(0, 4 * i + 2) = H01_(2, 0) * xyzw0_(0, 4 * i) + H01_(2, 1) * xyzw0_(0, 4 * i + 1) + H01_(2, 2) * xyzw0_(0, 4 * i + 2) + H01_(2, 3) * xyzw0_(0, 4 * i + 3);
+            xyzw1_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
+        }
+
+        cout << "Reprojection RMS error after mapping (l1 r1) = ("
+             << CalcRmsReprojectionError(xy_l1_, P_l, xyzw1_mapped) << " "
+             << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_mapped) << ")\n";
+
+        // Finding plane-at-infinity
+
+        cout << "\nFinding plane-at-infinity...\n";
+
+        Mat evals, evecs;
+        EigenDecompose(H01_.t(), evals, evecs);
+        cout << "Eigenvalues of H01.t() = " << evals << endl;
+
+        Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
+        p_inf /= p_inf(3, 0);
+        cout << "Plane-at-infinity = " << p_inf << endl;
+
+        // Affine rectification
+
+        cout << "\nAffine rectification...\n";
+
+        Mat_<double> Hpa_ = Mat::eye(4, 4, CV_64F);
+        Hpa_(3, 0) = -p_inf(0, 0); Hpa_(3, 1) = -p_inf(1, 0); Hpa_(3, 2) = -p_inf(2, 0);
+
+        H01_ = Hpa_.inv() * H01_ * Hpa_;
+
+        P_l = P_l * Hpa_;
+        P_r_ = P_r_ * Hpa_;
+
+        xyzw0_ = Hpa_.inv() * xyzw0_.reshape(num_points_common).t();
+        xyzw1_ = Hpa_.inv() * xyzw1_.reshape(num_points_common).t();
+        xyzw0_ = Mat(xyzw0_.t()).reshape(0, 1);
+        xyzw1_ = Mat(xyzw1_.t()).reshape(0, 1);
+
+        cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
+             << CalcRmsReprojectionError(xy_l0_, P_l, xyzw0_) << " "
+             << CalcRmsReprojectionError(xy_r0_, P_r_, xyzw0_) << " "
+             << CalcRmsReprojectionError(xy_l1_, P_l, xyzw1_) << " "
+             << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_) << ")\n";
+
+        xy_l0.getMatRef() = xy_l0_;
+        xy_r0.getMatRef() = xy_r0_;
+        xy_l1.getMatRef() = xy_l1_;
+        xy_r1.getMatRef() = xy_r1_;
+        Hpa.getMatRef() = Hpa_;
+        H01.getMatRef() = H01_;
+        xyzw0.getMatRef() = xyzw0_;
+        xyzw1.getMatRef() = xyzw1_;
+    }
+
+
     namespace {   
 
         // See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 287
@@ -1345,3 +1501,4 @@ namespace autocalib {
     }
 
 } // namespace autocalib
+

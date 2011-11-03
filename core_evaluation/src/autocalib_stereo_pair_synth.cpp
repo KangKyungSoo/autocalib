@@ -201,122 +201,13 @@ int main(int argc, char **argv) {
         Mat_<double> P_l0 = Mat::eye(3, 4, CV_64F);
         Mat_<double> P_r0 = ExtractCameraMatFromFundamentalMat(F);
 
-        // Find structure
-
-        DltTriangulation dlt;
-
-        Mat_<double> xyzw0;
-        dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r0), xy_l0, xy_r0, xyzw0);
-
-        Mat_<double> xyzw1;
-        dlt.triangulate(ProjectiveCamera(P_l0), ProjectiveCamera(P_r0), xy_l1, xy_r1, xyzw1);
-
-        cout << "\n(F0) DLT reprojection RMS errors (l0 r0 l1 r1) = ("
-             << CalcRmsReprojectionError(xy_l0, P_l0, xyzw0) << " "
-             << CalcRmsReprojectionError(xy_r0, P_r0, xyzw0) << " "
-             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
-             << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
-
-        // Leave only common part of point clouds
-
-        vector<pair<int, int> > lr0_lr1_indices;
-        Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);
-
-        Mat_<double> xy_l0_buf(1, lr0_lr1_indices.size() * 2);
-        Mat_<double> xy_r0_buf(1, lr0_lr1_indices.size() * 2);
-        Mat_<double> xy_l1_buf(1, lr0_lr1_indices.size() * 2);
-        Mat_<double> xy_r1_buf(1, lr0_lr1_indices.size() * 2);
-        Mat_<double> xyzw0_buf(1, lr0_lr1_indices.size() * 4);
-        Mat_<double> xyzw1_buf(1, lr0_lr1_indices.size() * 4);
-
-        for (size_t i = 0; i < lr0_lr1_indices.size(); ++i) {
-            int i0 = lr0_lr1_indices[i].first;
-            int i1 = lr0_lr1_indices[i].second;
-
-            xy_l0_buf(0, 2 * i) = xy_l0(0, 2 * i0);
-            xy_l0_buf(0, 2 * i + 1) = xy_l0(0, 2 * i0 + 1);
-
-            xy_r0_buf(0, 2 * i) = xy_r0(0, 2 * i0);
-            xy_r0_buf(0, 2 * i + 1) = xy_r0(0, 2 * i0 + 1);
-
-            xy_l1_buf(0, 2 * i) = xy_l1(0, 2 * i1);
-            xy_l1_buf(0, 2 * i + 1) = xy_l1(0, 2 * i1 + 1);
-
-            xy_r1_buf(0, 2 * i) = xy_r1(0, 2 * i1);
-            xy_r1_buf(0, 2 * i + 1) = xy_r1(0, 2 * i1 + 1);
-
-            xyzw0_buf(0, 4 * i) = xyzw0(0, 4 * i0);
-            xyzw0_buf(0, 4 * i + 1) = xyzw0(0, 4 * i0 + 1);
-            xyzw0_buf(0, 4 * i + 2) = xyzw0(0, 4 * i0 + 2);
-            xyzw0_buf(0, 4 * i + 3) = xyzw0(0, 4 * i0 + 3);
-
-            xyzw1_buf(0, 4 * i) = xyzw1(0, 4 * i1);
-            xyzw1_buf(0, 4 * i + 1) = xyzw1(0, 4 * i1 + 1);
-            xyzw1_buf(0, 4 * i + 2) = xyzw1(0, 4 * i1 + 2);
-            xyzw1_buf(0, 4 * i + 3) = xyzw1(0, 4 * i1 + 3);
-        }
-
-        xy_l0 = xy_l0_buf;
-        xy_r0 = xy_r0_buf;
-        xy_l1 = xy_l1_buf;
-        xy_r1 = xy_r1_buf;
-        xyzw0 = xyzw0_buf;
-        xyzw1 = xyzw1_buf;
-
-        // Find homography mapping the 1st cloud to the 2nd one
-
-        int num_points_common = xyzw0.cols / 4;
-
-        cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n";
-
-        Mat_<double> H01 = FindHomographyLinear(xyzw0, xyzw1);
-
-        Mat_<double> xyzw1_mapped(xyzw0.size(), xyzw0.type());
-        for (int i = 0; i < num_points_common; ++i) {
-            xyzw1_mapped(0, 4 * i) = H01(0, 0) * xyzw0(0, 4 * i) + H01(0, 1) * xyzw0(0, 4 * i + 1) + H01(0, 2) * xyzw0(0, 4 * i + 2) + H01(0, 3) * xyzw0(0, 4 * i + 3);
-            xyzw1_mapped(0, 4 * i + 1) = H01(1, 0) * xyzw0(0, 4 * i) + H01(1, 1) * xyzw0(0, 4 * i + 1) + H01(1, 2) * xyzw0(0, 4 * i + 2) + H01(1, 3) * xyzw0(0, 4 * i + 3);
-            xyzw1_mapped(0, 4 * i + 2) = H01(2, 0) * xyzw0(0, 4 * i) + H01(2, 1) * xyzw0(0, 4 * i + 1) + H01(2, 2) * xyzw0(0, 4 * i + 2) + H01(2, 3) * xyzw0(0, 4 * i + 3);
-            xyzw1_mapped(0, 4 * i + 3) = H01(3, 0) * xyzw0(0, 4 * i) + H01(3, 1) * xyzw0(0, 4 * i + 1) + H01(3, 2) * xyzw0(0, 4 * i + 2) + H01(3, 3) * xyzw0(0, 4 * i + 3);
-        }
-
-        cout << "Reprojection RMS error after mapping (l1 r1) = ("
-             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1_mapped) << " "
-             << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1_mapped) << ")\n";
-
-        // Finding plane-at-infinity
-
-        cout << "\nFinding plane-at-infinity...\n";
-
-        Mat evals, evecs;
-        EigenDecompose(H01.t(), evals, evecs);
-        cout << "Eigenvalues of H01.t() = " << evals << endl;
-
-        Mat_<double> p_inf = CalcPlaneAtInfinity(H01);
-        p_inf /= p_inf(3, 0);
-        cout << "Plane-at-infinity = " << p_inf << endl;
-
         // Affine rectification
 
-        cout << "\nAffine rectification...\n";
+        Mat_<double> Hpa, H01, xyzw0, xyzw1;
+        AffineRectifyStereoCameraByTwoShots(P_r0, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
+                                            Hpa, H01, xyzw0, xyzw1);
 
-        Mat_<double> Hpa = Mat::eye(4, 4, CV_64F);
-        Hpa(3, 0) = -p_inf(0, 0); Hpa(3, 1) = -p_inf(1, 0); Hpa(3, 2) = -p_inf(2, 0);
-
-        H01 = Hpa.inv() * H01 * Hpa;
-
-        P_l0 = P_l0 * Hpa;
-        P_r0 = P_r0 * Hpa;
-
-        xyzw0 = Hpa.inv() * xyzw0.reshape(num_points_common).t();
-        xyzw1 = Hpa.inv() * xyzw1.reshape(num_points_common).t();
-        xyzw0 = Mat(xyzw0.t()).reshape(0, 1);
-        xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
-
-        cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
-             << CalcRmsReprojectionError(xy_l0, P_l0, xyzw0) << " "
-             << CalcRmsReprojectionError(xy_r0, P_r0, xyzw0) << " "
-             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
-             << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
+        int num_points_common = xyzw0.cols / 4;
 
         // Linear calibration
 
