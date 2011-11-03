@@ -380,7 +380,7 @@ int main(int argc, char **argv) {
              << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
 
         Mat_<double> F01 = K_init.inv().t() * CrossProductMat(T01) * R01 * K_init.inv();
-        cout << "Point-to-line distance RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F01) << endl;
+        cout << "Point-to-line distance (l0 vs. l1) RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F01) << endl;
 
         // Refine reconstruction
 

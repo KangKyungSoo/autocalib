@@ -458,7 +458,7 @@ namespace autocalib {
       * \param xy Image keypoints
       * \return Transformation matrix
       */
-    cv::Mat CalcNormalizationMat3x3(cv::InputArray xy);
+    cv::Mat CalcNormalizationMat3x3(cv::InputArray xy);       
 
 
     /** Calculates the reprojection RMS error.
@@ -479,6 +479,20 @@ namespace autocalib {
       * \return RMS point-to-epipolar line distance
       */
     double CalcRmsEpipolarDistance(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray F);
+
+
+    /** Finds inliers for the given fundamental matrix.
+      *
+      * \param f1 First frame features
+      * \param f2 Second frame features
+      * \param matches Matches
+      * \param F Fundamental matrix
+      * \param thresh Error threshold
+      * \param mask Inliers 8U mask
+      */
+    void FindFundamentalMatInliers(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
+                                   const std::vector<cv::DMatch> &matches, cv::InputArray F, double thresh,
+                                   cv::InputOutputArray mask);
 
 
     /** Finds the 3D projective space homography linearly.
@@ -507,7 +521,7 @@ namespace autocalib {
       * \param features Features
       * \param matches Matches in (2*i, 2*i+1) or reversed format, other are ignored
       * \param thresh Error threshold
-      * \return The fundamental matrix
+      * \return Fundamental matrix
       */
     cv::Mat FindFundamentalMatFromPairs(const FeaturesCollection &features,
                                         const MatchesCollection &matches, double thresh = 3.);
