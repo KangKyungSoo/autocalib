@@ -57,8 +57,8 @@ int main(int argc, char **argv) {
         Rodrigues(rvec, R);
         scene->set_R(R);
 
-        vector<RigidCamera> left_cameras(2);
-        vector<RigidCamera> right_cameras(2);
+        vector<RigidCamera> left_cameras(num_frames);
+        vector<RigidCamera> right_cameras(num_frames);
         FeaturesCollection features_collection;
         MatchesCollection matches_collection;
 
@@ -73,10 +73,10 @@ int main(int argc, char **argv) {
 
         for (int i = 0; i < num_frames; ++i) {
             while (true) {
-                rng.fill(rvec, RNG::NORMAL, 0, 0.05);
+                rng.fill(rvec, RNG::NORMAL, 0, 0.2);
                 Rodrigues(rvec, R);
 
-                rng.fill(T, RNG::NORMAL, 0, 1);
+                rng.fill(T, RNG::NORMAL, 0, 2);
                 T(0, 0) *= 2; T(2, 0) += -10;
 
                 left_cameras[i] = RigidCamera::LocalToWorld(K_gold, R, -R * rel_T + T);
@@ -178,100 +178,98 @@ int main(int argc, char **argv) {
 
         cout << endl;
 
-        // Find fundamental matrix
-
-        cout << "\nFinding the best F...\n";
+        // Find fundamental matrix and extract camera mat
 
         Mat_<double> F = FindBestFundamentalMatFromPairs(features_collection, matches_collection, 0.1);
-
-        Ptr<vector<DMatch> > matches_lr0 = matches_collection.find(make_pair(0, 1))->second;
-        Ptr<vector<DMatch> > matches_lr1 = matches_collection.find(make_pair(2, 3))->second;
-        Ptr<vector<DMatch> > matches_ll = matches_collection.find(make_pair(0, 2))->second;
-
-        Mat_<double> xy_l0, xy_r0, xy_l1, xy_r1;
-        ExtractMatchedKeypoints(*(features_collection.find(0)->second), *(features_collection.find(1)->second),
-                                *matches_lr0, xy_l0, xy_r0);
-        ExtractMatchedKeypoints(*(features_collection.find(2)->second), *(features_collection.find(3)->second),
-                                *matches_lr1, xy_l1, xy_r1);
-
-        // Extract camera matrix
-
         Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
 
-        // Affine rectification
-
-        Mat_<double> Hpa, H01, xyzw0, xyzw1;
-        AffineRectifyStereoCameraByTwoShots(P_r, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
-                                            Hpa, H01, xyzw0, xyzw1);
-
-        Mat_<double> P_l = Mat::eye(3, 4, CV_64F) * Hpa;
-
-        // Linear calibration
+        // Linear autocalibration
 
         if (K_init.empty()) {
             cout << "\nLinear calibrating...\n";
 
             HomographiesP2 Hs_inf;
 
-            // Stereo pair relative rotation can be very close to the identity matrix. That
-            // can lead to numerical instability in K estimation process, so we avoid using those
-            // rotations in the linear autocalibration algorithm.
+            for (size_t i = 0; i < num_frames - 1; ++i) {
+                for (size_t j = i + 1; j < num_frames; ++j) {
+                    Ptr<vector<DMatch> > matches_lr0 = matches_collection.find(make_pair(2 * i, 2 * i + 1))->second;
+                    Ptr<vector<DMatch> > matches_lr1 = matches_collection.find(make_pair(2 * j, 2 * j + 1))->second;
+                    Ptr<vector<DMatch> > matches_ll = matches_collection.find(make_pair(2 * i, 2 * j))->second;
 
-            //Hs_inf[make_pair(0, 1)] = P_r0(Rect(0, 0, 3, 3));
-            Hs_inf[make_pair(0, 2)] = Mat(P_l * H01.inv())(Rect(0, 0, 3, 3));
+                    Mat_<double> xy_l0, xy_r0, xy_l1, xy_r1;
+                    ExtractMatchedKeypoints(*(features_collection.find(2 * i)->second),
+                                            *(features_collection.find(2 * i + 1)->second), *matches_lr0, xy_l0, xy_r0);
+                    ExtractMatchedKeypoints(*(features_collection.find(2 * j)->second),
+                                            *(features_collection.find(2 * j + 1)->second), *matches_lr1, xy_l1, xy_r1);
+
+                    Mat_<double> Hpa, H01, xyzw0, xyzw1;
+                    Mat_<double> P_r_ = P_r.clone();
+                    AffineRectifyStereoCameraByTwoShots(P_r_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
+                                                        Hpa, H01, xyzw0, xyzw1);
+
+                    Mat_<double> P_l = Mat::eye(3, 4, CV_64F) * Hpa;
+                    Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l * H01.inv())(Rect(0, 0, 3, 3));
+
+                    // Stereo pair relative rotation can be very close to the identity matrix. That
+                    // can lead to numerical instability in K estimation process, so we avoid using those
+                    // rotations in the linear autocalibration algorithm.
+
+                    //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_(Rect(0, 0, 3, 3));
+                }
+            }
 
             K_init = CalibRotationalCameraLinearNoSkew(Hs_inf);
             cout << "K_linear = \n" << K_init << endl;
         }
 
-        // Metric rectification
+//        // Metric rectification
 
-        cout << "\nMetric rectification...\n";
+//        cout << "\nMetric rectification...\n";
 
-        Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
-        Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
-        K_init.copyTo(Ham_3x3);
+//        Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
+//        Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
+//        K_init.copyTo(Ham_3x3);
 
-        H01 = Ham.inv() * H01 * Ham;
-        H01 /= H01(3, 3);
+//        H01 = Ham.inv() * H01 * Ham;
+//        H01 /= H01(3, 3);
 
-        cout << "Metric H01 = \n" << H01 << endl;
+//        cout << "Metric H01 = \n" << H01 << endl;
 
-        Mat_<double> R01 = H01(Rect(0, 0, 3, 3));
-        Mat_<double> T01 = H01(Rect(3, 0, 1, 3));
+//        Mat_<double> R01 = H01(Rect(0, 0, 3, 3));
+//        Mat_<double> T01 = H01(Rect(3, 0, 1, 3));
 
-        P_l = P_l * Ham;
-        P_r = P_r * Ham;
+//        P_l = P_l * Ham;
+//        P_r = P_r * Ham;
 
-        xyzw0 = Ham.inv() * xyzw0.reshape(xyzw0.cols / 4).t();
-        xyzw1 = Ham.inv() * xyzw1.reshape(xyzw1.cols / 4).t();
-        xyzw0 = Mat(xyzw0.t()).reshape(0, 1);
-        xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
+//        xyzw0 = Ham.inv() * xyzw0.reshape(xyzw0.cols / 4).t();
+//        xyzw1 = Ham.inv() * xyzw1.reshape(xyzw1.cols / 4).t();
+//        xyzw0 = Mat(xyzw0.t()).reshape(0, 1);
+//        xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
 
-        cout << "Reprojection RMS error after metric rectification (l0 r0 l1 r1) = ("
-             << CalcRmsReprojectionError(xy_l0, P_l, xyzw0) << " "
-             << CalcRmsReprojectionError(xy_r0, P_r, xyzw0) << " "
-             << CalcRmsReprojectionError(xy_l1, P_l, xyzw1) << " "
-             << CalcRmsReprojectionError(xy_r1, P_r, xyzw1) << ")\n";
+//        cout << "Reprojection RMS error after metric rectification (l0 r0 l1 r1) = ("
+//             << CalcRmsReprojectionError(xy_l0, P_l, xyzw0) << " "
+//             << CalcRmsReprojectionError(xy_r0, P_r, xyzw0) << " "
+//             << CalcRmsReprojectionError(xy_l1, P_l, xyzw1) << " "
+//             << CalcRmsReprojectionError(xy_r1, P_r, xyzw1) << ")\n";
 
-        Mat_<double> F01 = K_init.inv().t() * CrossProductMat(T01) * R01 * K_init.inv();
-        cout << "Point-to-line distance (l0 vs. l1) RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F01) << endl;
+//        Mat_<double> F01 = K_init.inv().t() * CrossProductMat(T01) * R01 * K_init.inv();
+//        cout << "Point-to-line distance (l0 vs. l1) RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F01) << endl;
 
-        // Refine reconstruction
+//        // Refine reconstruction
 
-        cout << "\nRefining metric reconstruction...\n";
+//        cout << "\nRefining metric reconstruction...\n";
 
-        AbsoluteMotions motions;
-        motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
-        motions[1] = Motion(R01, T01);
+//        AbsoluteMotions motions;
+//        motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
+//        motions[1] = Motion(R01, T01);
 
-        RigidCamera P_r0_m_ = RigidCamera::FromProjectiveMat(P_r);
-        RigidCamera P_r0_m(K_init, P_r0_m_.R(), P_r0_m_.T());
-        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection,
-                           ~REFINE_FLAG_SKEW);
+//        RigidCamera P_r0_m_ = RigidCamera::FromProjectiveMat(P_r);
+//        RigidCamera P_r0_m(K_init, P_r0_m_.R(), P_r0_m_.T());
+//        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection,
+//                           ~REFINE_FLAG_SKEW);
 
-        Mat_<double> K_refined = P_r0_m.K();
-        cout << "K_refined = \n" << K_refined << endl;
+//        Mat_<double> K_refined = P_r0_m.K();
+//        cout << "K_refined = \n" << K_refined << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
@@ -290,6 +288,8 @@ void ParseArgs(int argc, char **argv) {
                 throw runtime_error(string("Unknown synthetic scene type: ") + argv[i + 1]);
             i++;
         }
+        else if (string(argv[i]) == "--num-frames")
+            num_frames = atoi(argv[++i]);
         else if (string(argv[i]) == "--num-points")
             num_points = atoi(argv[++i]);
         else if (string(argv[i]) == "--viewport") {

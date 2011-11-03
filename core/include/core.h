@@ -540,10 +540,10 @@ namespace autocalib {
       *
       * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 495.
       *
-      * \param H Homography
+      * \param H Homography (can be rescaled inside the function)
       * \return Plane-at-infinity coordinates (4x1 vector)
       */
-    cv::Mat CalcPlaneAtInfinity(cv::InputArray H);
+    cv::Mat CalcPlaneAtInfinity(cv::InputOutputArray H);
 
 
     /** Finds the best fundamental matrix from image pairs.
