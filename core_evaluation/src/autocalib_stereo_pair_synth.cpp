@@ -189,25 +189,22 @@ int main(int argc, char **argv) {
         Ptr<vector<DMatch> > matches_ll = matches_collection.find(make_pair(0, 2))->second;
 
         Mat_<double> xy_l0, xy_r0, xy_l1, xy_r1;
-        ExtractMatchedKeypoints(*(features_collection.find(0)->second),
-                                *(features_collection.find(1)->second),
+        ExtractMatchedKeypoints(*(features_collection.find(0)->second), *(features_collection.find(1)->second),
                                 *matches_lr0, xy_l0, xy_r0);
-        ExtractMatchedKeypoints(*(features_collection.find(2)->second),
-                                *(features_collection.find(3)->second),
+        ExtractMatchedKeypoints(*(features_collection.find(2)->second), *(features_collection.find(3)->second),
                                 *matches_lr1, xy_l1, xy_r1);
 
-        // Extract camera matrices
+        // Extract camera matrix
 
-        Mat_<double> P_l0 = Mat::eye(3, 4, CV_64F);
-        Mat_<double> P_r0 = ExtractCameraMatFromFundamentalMat(F);
+        Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
 
         // Affine rectification
 
         Mat_<double> Hpa, H01, xyzw0, xyzw1;
-        AffineRectifyStereoCameraByTwoShots(P_r0, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
+        AffineRectifyStereoCameraByTwoShots(P_r, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
                                             Hpa, H01, xyzw0, xyzw1);
 
-        int num_points_common = xyzw0.cols / 4;
+        Mat_<double> P_l = Mat::eye(3, 4, CV_64F) * Hpa;
 
         // Linear calibration
 
@@ -221,7 +218,7 @@ int main(int argc, char **argv) {
             // rotations in the linear autocalibration algorithm.
 
             //Hs_inf[make_pair(0, 1)] = P_r0(Rect(0, 0, 3, 3));
-            Hs_inf[make_pair(0, 2)] = Mat(P_l0 * H01.inv())(Rect(0, 0, 3, 3));
+            Hs_inf[make_pair(0, 2)] = Mat(P_l * H01.inv())(Rect(0, 0, 3, 3));
 
             K_init = CalibRotationalCameraLinearNoSkew(Hs_inf);
             cout << "K_linear = \n" << K_init << endl;
@@ -243,19 +240,19 @@ int main(int argc, char **argv) {
         Mat_<double> R01 = H01(Rect(0, 0, 3, 3));
         Mat_<double> T01 = H01(Rect(3, 0, 1, 3));
 
-        P_l0 = P_l0 * Ham;
-        P_r0 = P_r0 * Ham;
+        P_l = P_l * Ham;
+        P_r = P_r * Ham;
 
-        xyzw0 = Ham.inv() * xyzw0.reshape(num_points_common).t();
-        xyzw1 = Ham.inv() * xyzw1.reshape(num_points_common).t();
+        xyzw0 = Ham.inv() * xyzw0.reshape(xyzw0.cols / 4).t();
+        xyzw1 = Ham.inv() * xyzw1.reshape(xyzw1.cols / 4).t();
         xyzw0 = Mat(xyzw0.t()).reshape(0, 1);
         xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
 
         cout << "Reprojection RMS error after metric rectification (l0 r0 l1 r1) = ("
-             << CalcRmsReprojectionError(xy_l0, P_l0, xyzw0) << " "
-             << CalcRmsReprojectionError(xy_r0, P_r0, xyzw0) << " "
-             << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
-             << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
+             << CalcRmsReprojectionError(xy_l0, P_l, xyzw0) << " "
+             << CalcRmsReprojectionError(xy_r0, P_r, xyzw0) << " "
+             << CalcRmsReprojectionError(xy_l1, P_l, xyzw1) << " "
+             << CalcRmsReprojectionError(xy_r1, P_r, xyzw1) << ")\n";
 
         Mat_<double> F01 = K_init.inv().t() * CrossProductMat(T01) * R01 * K_init.inv();
         cout << "Point-to-line distance (l0 vs. l1) RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F01) << endl;
@@ -268,7 +265,7 @@ int main(int argc, char **argv) {
         motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
         motions[1] = Motion(R01, T01);
 
-        RigidCamera P_r0_m_ = RigidCamera::FromProjectiveMat(P_r0);
+        RigidCamera P_r0_m_ = RigidCamera::FromProjectiveMat(P_r);
         RigidCamera P_r0_m(K_init, P_r0_m_.R(), P_r0_m_.T());
         RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection,
                            ~REFINE_FLAG_SKEW);

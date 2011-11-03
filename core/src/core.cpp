@@ -371,7 +371,7 @@ namespace autocalib {
 
 
     void AffineRectifyStereoCameraByTwoShots(
-            InputArray P_r,
+            InputOutputArray P_r,
             InputOutputArray xy_l0, InputOutputArray xy_r0, InputOutputArray xy_l1, InputOutputArray xy_r1,
             const Ptr<vector<DMatch> > &matches_lr0, const Ptr<vector<DMatch> > &matches_lr1,
             const Ptr<vector<DMatch> > &matches_ll,
@@ -387,7 +387,7 @@ namespace autocalib {
         CV_Assert(xy_r1.getMat().type() == CV_64F && xy_r1.getMat().rows == 1 && xy_r1.getMat().cols % 2 == 0);
         CV_Assert(xy_l1.getMat().cols / 2 == xy_r1.getMat().cols / 2);
 
-        Mat_<double> P_r_ = P_r.getMat().clone();
+        Mat_<double> P_r_(P_r.getMat());
         Mat_<double> xy_l0_(xy_l0.getMat());
         Mat_<double> xy_r0_(xy_r0.getMat());
         Mat_<double> xy_l1_(xy_l1.getMat());
@@ -464,7 +464,8 @@ namespace autocalib {
 
         int num_points_common = xyzw0_.cols / 4;
 
-        cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n";
+        AUTOCALIB_LOG(
+            cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
         Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
 
@@ -476,25 +477,26 @@ namespace autocalib {
             xyzw1_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
         }
 
-        cout << "Reprojection RMS error after mapping (l1 r1) = ("
-             << CalcRmsReprojectionError(xy_l1_, P_l, xyzw1_mapped) << " "
-             << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_mapped) << ")\n";
+        AUTOCALIB_LOG(
+            cout << "Reprojection RMS error after mapping (l1 r1) = ("
+                 << CalcRmsReprojectionError(xy_l1_, P_l, xyzw1_mapped) << " "
+                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_mapped) << ")\n");
 
         // Finding plane-at-infinity
 
-        cout << "\nFinding plane-at-infinity...\n";
+        AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
 
         Mat evals, evecs;
         EigenDecompose(H01_.t(), evals, evecs);
-        cout << "Eigenvalues of H01.t() = " << evals << endl;
+        AUTOCALIB_LOG(cout << "Eigenvalues of H01.t() = " << evals << endl);
 
         Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
         p_inf /= p_inf(3, 0);
-        cout << "Plane-at-infinity = " << p_inf << endl;
+        AUTOCALIB_LOG(cout << "Plane-at-infinity = " << p_inf << endl);
 
         // Affine rectification
 
-        cout << "\nAffine rectification...\n";
+        AUTOCALIB_LOG(cout << "\nAffine rectification...\n");
 
         Mat_<double> Hpa_ = Mat::eye(4, 4, CV_64F);
         Hpa_(3, 0) = -p_inf(0, 0); Hpa_(3, 1) = -p_inf(1, 0); Hpa_(3, 2) = -p_inf(2, 0);
@@ -509,12 +511,14 @@ namespace autocalib {
         xyzw0_ = Mat(xyzw0_.t()).reshape(0, 1);
         xyzw1_ = Mat(xyzw1_.t()).reshape(0, 1);
 
-        cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
-             << CalcRmsReprojectionError(xy_l0_, P_l, xyzw0_) << " "
-             << CalcRmsReprojectionError(xy_r0_, P_r_, xyzw0_) << " "
-             << CalcRmsReprojectionError(xy_l1_, P_l, xyzw1_) << " "
-             << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_) << ")\n";
+        AUTOCALIB_LOG(
+            cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
+                 << CalcRmsReprojectionError(xy_l0_, P_l, xyzw0_) << " "
+                 << CalcRmsReprojectionError(xy_r0_, P_r_, xyzw0_) << " "
+                 << CalcRmsReprojectionError(xy_l1_, P_l, xyzw1_) << " "
+                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_) << ")\n");
 
+        P_r.getMatRef() = P_r_;
         xy_l0.getMatRef() = xy_l0_;
         xy_r0.getMatRef() = xy_r0_;
         xy_l1.getMatRef() = xy_l1_;
