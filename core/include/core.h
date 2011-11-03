@@ -403,7 +403,7 @@ namespace autocalib {
       * \param F Fundamental matrix
       * \return Camera matrix for the second image in pair
       */
-    cv::Mat Extract2ndCameraMatFromF(cv::InputArray F);
+    cv::Mat ExtractCameraMatFromFundamentalMat(cv::InputArray F);
 
 
     /** Intersects matches between images in stereo pairs with matches between stereo pairs.
@@ -523,8 +523,8 @@ namespace autocalib {
       * \param thresh Error threshold
       * \return Fundamental matrix
       */
-    cv::Mat FindFundamentalMatFromPairs(const FeaturesCollection &features,
-                                        const MatchesCollection &matches, double thresh = 3.);
+    cv::Mat FindBestFundamentalMatFromPairs(const FeaturesCollection &features,
+                                            const MatchesCollection &matches, double thresh = 3.);
 
 
     //============================================================================

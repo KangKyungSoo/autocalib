@@ -63,11 +63,11 @@ TEST(CrossProductMat, CanRepresentCrossProduct) {
 }
 
 
-TEST(Extract2ndCameraMatFromF, CanRun) {
+TEST(ExtractCameraMatFromFundamentalMat, CanRun) {
     Mat_<double> F = Mat::eye(3, 3, CV_64F);
     F(2, 2) = 0;
 
-    ASSERT_NO_THROW(Mat P = Extract2ndCameraMatFromF(F));
+    ASSERT_NO_THROW(Mat P = ExtractCameraMatFromFundamentalMat(F));
 }
 
 

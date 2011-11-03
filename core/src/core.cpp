@@ -712,7 +712,7 @@ namespace autocalib {
     }
 
 
-    Mat Extract2ndCameraMatFromF(InputArray F) {
+    Mat ExtractCameraMatFromFundamentalMat(InputArray F) {
         CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
         Mat F_ = F.getMat();
 
@@ -946,8 +946,8 @@ namespace autocalib {
     }
 
 
-    Mat FindFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
-                                    double thresh)
+    Mat FindBestFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
+                                        double thresh)
     {
         Mat F_best;
         double min_err = numeric_limits<double>::max();

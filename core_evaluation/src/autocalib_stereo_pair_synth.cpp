@@ -152,55 +152,54 @@ int main(int argc, char **argv) {
             }
         }
 
+        // Match synthetic shots
+
+        cout << "\nMatching...\n";
+
+        for (size_t i = 0; i < num_frames; ++i) {
+            Ptr<vector<DMatch> > matches = new vector<DMatch>();
+            MatchSyntheticShots(*(features_collection.find(2 * i)->second),
+                                *(features_collection.find(2 * i + 1)->second),
+                                *matches);
+            matches_collection[make_pair(2 * i, 2 * i + 1)] = matches;
+            cout << "(#matches from " << 2 * i << " to " << 2 * i + 1 << " = " << matches->size() << ") ";
+        }
+
+        for (size_t i = 0; i < num_frames - 1; ++i) {
+            for (size_t j = i + 1; j < num_frames; ++j) {
+                Ptr<vector<DMatch> > matches = new vector<DMatch>();
+                MatchSyntheticShots(*(features_collection.find(2 * i)->second),
+                                    *(features_collection.find(2 * j)->second),
+                                    *matches);
+                matches_collection[make_pair(2 * i, 2 * j)] = matches;
+                cout << "(#matches from " << 2 * i << " to " << 2 * j << " = " << matches->size() << ") ";
+            }
+        }
+
+        cout << endl;
+
         // Find fundamental matrix
 
-        cout << "\nFinding F between #0 pair images...";
+        cout << "\nFinding the best F...\n";
 
-        Ptr<vector<DMatch> > matches_lr0 = new vector<DMatch>();
-        MatchSyntheticShots(*(features_collection.find(0)->second),
-                            *(features_collection.find(1)->second),
-                            *matches_lr0);
-        matches_collection[make_pair(0, 1)] = matches_lr0;
+        Mat_<double> F = FindBestFundamentalMatFromPairs(features_collection, matches_collection, 0.1);
 
-        cout << " #matches = " << matches_lr0->size();
+        Ptr<vector<DMatch> > matches_lr0 = matches_collection.find(make_pair(0, 1))->second;
+        Ptr<vector<DMatch> > matches_lr1 = matches_collection.find(make_pair(2, 3))->second;
+        Ptr<vector<DMatch> > matches_ll = matches_collection.find(make_pair(0, 2))->second;
 
-        Mat_<double> xy_l0, xy_r0;
+        Mat_<double> xy_l0, xy_r0, xy_l1, xy_r1;
         ExtractMatchedKeypoints(*(features_collection.find(0)->second),
                                 *(features_collection.find(1)->second),
                                 *matches_lr0, xy_l0, xy_r0);
-
-        vector<uchar> inlier_mask0;
-        Mat_<double> F0 = findFundamentalMat(Mat(xy_l0).reshape(2), Mat(xy_r0).reshape(2), inlier_mask0, RANSAC, 0.1);
-
-        int num_inliers0 = 0;
-        for (size_t i = 0; i < inlier_mask0.size(); ++i)
-            if (inlier_mask0[i])
-                num_inliers0++;                
-
-        cout << ", #inliers = " << num_inliers0
-             << ", p2l dist RMS = " << CalcRmsEpipolarDistance(xy_r0, xy_l0, F0) << endl;
-
-        cout << "Finding F between #1 pair images...";
-
-        Ptr<vector<DMatch> > matches_lr1 = new vector<DMatch>();
-        MatchSyntheticShots(*(features_collection.find(2)->second),
-                            *(features_collection.find(3)->second),
-                            *matches_lr1);
-        matches_collection[make_pair(2, 3)] = matches_lr1;
-
-        cout << " #matches = " << matches_lr1->size();
-
-        Mat_<double> xy_l1, xy_r1;
         ExtractMatchedKeypoints(*(features_collection.find(2)->second),
                                 *(features_collection.find(3)->second),
                                 *matches_lr1, xy_l1, xy_r1);
 
-        cout << ", p2l dist RMS = " << CalcRmsEpipolarDistance(xy_r1, xy_l1, F0) << endl;
-
         // Extract camera matrices
 
         Mat_<double> P_l0 = Mat::eye(3, 4, CV_64F);
-        Mat_<double> P_r0 = Extract2ndCameraMatFromF(F0);
+        Mat_<double> P_r0 = ExtractCameraMatFromFundamentalMat(F);
 
         // Find structure
 
@@ -217,18 +216,6 @@ int main(int argc, char **argv) {
              << CalcRmsReprojectionError(xy_r0, P_r0, xyzw0) << " "
              << CalcRmsReprojectionError(xy_l1, P_l0, xyzw1) << " "
              << CalcRmsReprojectionError(xy_r1, P_r0, xyzw1) << ")\n";
-
-        // Match two stereo pairs
-
-        cout << "\nMatching two stereo pairs using left images...";
-
-        Ptr<vector<DMatch> > matches_ll = new vector<DMatch>();
-        MatchSyntheticShots(*(features_collection.find(0)->second),
-                            *(features_collection.find(2)->second),
-                            *matches_ll);
-        matches_collection[make_pair(0, 2)] = matches_ll;
-
-        cout << " #matches = " << matches_ll->size() << endl;
 
         // Leave only common part of point clouds
 
