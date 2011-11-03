@@ -315,7 +315,6 @@ namespace autocalib {
                 }
             }
         }
-
     } // namespace
 
 
@@ -372,6 +371,20 @@ namespace autocalib {
 
 
     namespace {   
+
+        // See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 287
+        inline
+        double SymEpipDist2(double x1, double y1, const Mat_<double> F12, double x2, double y2) {
+            double x2_ = F12(0, 0) * x2 + F12(0, 1) * y2 + F12(0, 2);
+            double y2_ = F12(1, 0) * x2 + F12(1, 1) * y2 + F12(1, 2);
+            double z2_ = F12(2, 0) * x2 + F12(2, 1) * y2 + F12(2, 2);
+
+            double x1_ = F12(0, 0) * x1 + F12(1, 0) * y1 + F12(2, 0);
+            double y1_ = F12(0, 1) * x1 + F12(1, 1) * y1 + F12(2, 1);
+
+            return Sqr(x1 * x2_ + y1 * y2_ + z2_) * (1 / (x1_ * x1_ + y1_ * y1_) +
+                                                     1 / (x2_ * x2_ + y2_ * y2_));
+        }
 
         class EpipError_FixedK_StereoCam {
         public:
@@ -499,16 +512,8 @@ namespace autocalib {
                     const vector<DMatch> &matches = *(iter->second);
                     for (size_t i = 0; i < matches.size(); ++i) {
                         const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
-                        const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
-
-                        double x0 = F(0, 0) * p0.x + F(0, 1) * p0.y + F(0, 2);
-                        double y0 = F(1, 0) * p0.x + F(1, 1) * p0.y + F(1, 2);
-                        double z0 = F(2, 0) * p0.x + F(2, 1) * p0.y + F(2, 2);
-
-                        double x1 = F(0, 0) * p1.x + F(1, 0) * p1.y + F(2, 0);
-                        double y1 = F(0, 1) * p1.x + F(1, 1) * p1.y + F(2, 1);
-
-                        err_(pos++, 0) = abs(p1.x * x0 + p1.y * y0 + z0) * (1 / sqrt(x0 * x0 + y0 * y0) + 1 / sqrt(x1 * x1 + y1 * y1));
+                        const Point2f &p1 = kps_to[matches[i].trainIdx].pt;                       
+                        err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F, p0.x, p0.y));
                     }
                 }
                 else if (to == from + 1) {
@@ -518,15 +523,7 @@ namespace autocalib {
                     for (size_t i = 0; i < matches.size(); ++i) {
                         const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
                         const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
-
-                        double x0 = F_rel(0, 0) * p0.x + F_rel(0, 1) * p0.y + F_rel(0, 2);
-                        double y0 = F_rel(1, 0) * p0.x + F_rel(1, 1) * p0.y + F_rel(1, 2);
-                        double z0 = F_rel(2, 0) * p0.x + F_rel(2, 1) * p0.y + F_rel(2, 2);
-
-                        double x1 = F_rel(0, 0) * p1.x + F_rel(1, 0) * p1.y + F_rel(2, 0);
-                        double y1 = F_rel(0, 1) * p1.x + F_rel(1, 1) * p1.y + F_rel(2, 1);
-
-                        err_(pos++, 0) = abs(p1.x * x0 + p1.y * y0 + z0) * (1 / sqrt(x0 * x0 + y0 * y0) + 1 / sqrt(x1 * x1 + y1 * y1));
+                        err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F_rel, p0.x, p0.y));
                     }
                 }
                 else {
@@ -857,18 +854,9 @@ namespace autocalib {
         int num_points = xy1_.cols / 2;
 
         double total_err = 0;
-        double x1, y1, x2, y2, z2;
-
-        for (int i = 0; i < num_points; ++i) {
-            x2 = F_(0, 0) * xy2_(0, 2 * i) + F_(0, 1) * xy2_(0, 2 * i + 1) + F_(0, 2);
-            y2 = F_(1, 0) * xy2_(0, 2 * i) + F_(1, 1) * xy2_(0, 2 * i + 1) + F_(1, 2);
-            z2 = F_(2, 0) * xy2_(0, 2 * i) + F_(2, 1) * xy2_(0, 2 * i + 1) + F_(2, 2);
-
-            x1 = F_(0, 0) * xy1_(0, 2 * i) + F_(1, 0) * xy1_(0, 2 * i + 1) + F_(2, 0);
-            y1 = F_(0, 1) * xy1_(0, 2 * i) + F_(1, 1) * xy1_(0, 2 * i + 1) + F_(2, 1);
-
-            total_err += Sqr(xy1_(0, 2 * i) * x2 + xy1_(0, 2 * i + 1) * y2 + z2) * (1 / (x1 * x1 + y1 * y1) + 1 / (x2 * x2 + y2 * y2));
-        }
+        for (int i = 0; i < num_points; ++i)
+            total_err += SymEpipDist2(xy1_(0, 2 * i), xy1_(0, 2 * i + 1), F_,
+                                      xy2_(0, 2 * i), xy2_(0, 2 * i + 1));
 
         return sqrt(total_err / num_points);
     }
