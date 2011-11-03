@@ -27,19 +27,13 @@ namespace autocalib {
     typedef std::map<std::pair<int, int>, double> RelativeConfidences;
     typedef std::map<int, cv::Mat> AbsoluteRotationMats;
 
-    /** Describes a motion data. */
-    struct Motion {
-        Motion() {}
-        Motion(cv::Mat R, cv::Mat T) : R(R), T(T) {}
+    class Motion;
 
-        cv::Mat R;
-        cv::Mat T;
-    };
-
+    typedef std::map<std::pair<int, int>, Motion> RelativeMotions;
     typedef std::map<int, Motion> AbsoluteMotions;
 
     //============================================================================
-    // Cameras
+    // Cameras and motions
 
     /** General projective camera interface. */
     class IProjectiveCamera {
@@ -135,6 +129,48 @@ namespace autocalib {
     private:
 
         cv::Mat_<double> K_, R_, T_;
+    };
+
+
+    /** Describes a rigid motion. */
+    class Motion {
+    public:
+
+        /** \return Identity motion object */
+        Motion() {
+            set_R(cv::Mat::eye(3, 3, CV_64F));
+            set_T(cv::Mat::zeros(3, 1, CV_64F));
+        }
+
+        /** \param R Rotation matrix
+          * \param T Translation vector
+          * \return Motion object
+          */
+        Motion(const cv::Mat &R, const cv::Mat &T) {
+            set_R(R);
+            set_T(T);
+        }
+
+        /** \return Rotation matrix */
+        const cv::Mat& R() const { return R_; }
+
+        /** \param R Rotation matrix */
+        void set_R(const cv::Mat &R) {
+            CV_Assert(R.type() == CV_64F && R.size() == cv::Size(3, 3));
+            R_ = R.clone();
+        }
+
+        /** \return Translation matrix */
+        const cv::Mat& T() const { return T_; }
+
+        /** \param T Translation vector */
+        void set_T(const cv::Mat &T) {
+            CV_Assert(T.type() == CV_64F && T.size() == cv::Size(1, 3));
+            T_ = T.clone();
+        }
+
+    private:
+        cv::Mat_<double> R_, T_;
     };
 
 
@@ -536,7 +572,7 @@ namespace autocalib {
                                         cv::detail::Graph &eff_corresp, RelativeConfidences *rel_confs_eff = 0);
 
 
-    /** Computes absolute rotation matrices from relative ones according to the
+    /** Computes absolute rotation matrices from the relative ones according to the
       * efficient correspondeces subgraph.
       *
       * \param rel_rmats Pairwise rotations
@@ -545,7 +581,19 @@ namespace autocalib {
       * \param abs_rmats Absolute rotations
       */
     void CalcAbsoluteRotations(const RelativeRotationMats &rel_rmats, const cv::detail::Graph &eff_corresp,
-                               int ref_frame_idx, AbsoluteRotationMats &abs_rmats);   
+                               int ref_frame_idx, AbsoluteRotationMats &abs_rmats);
+
+
+    /** Computes absolute motions from the relative ones according to the
+      * efficient correspondeces subgraph.
+      *
+      * \param rel_motions Pairwise motions
+      * \param eff_corresp Efficient correspondeces subgraph
+      * \param ref_frame_idx Reference frame index
+      * \param abs_motions Absolute motions
+      */
+    void CalcAbsoluteMotions(const RelativeMotions &rel_motions, const cv::detail::Graph &eff_corresp,
+                             int ref_frame_idx, AbsoluteMotions &abs_motions);
 
 
     /** Finds an eigen decomposition of a real matrix.

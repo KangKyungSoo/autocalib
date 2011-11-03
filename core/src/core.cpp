@@ -574,18 +574,14 @@ namespace autocalib {
     {
         // Normalize rotations and compute indices
 
-        Mat R_norm = motions.begin()->second.R;
-        Mat T_norm = motions.begin()->second.T;
+        Mat R_norm = motions.begin()->second.R();
+        Mat T_norm = motions.begin()->second.T();
 
         vector<int> motions_indices;
 
         for (AbsoluteMotions::iterator iter = motions.begin(); iter != motions.end(); ++iter) {
-            CV_Assert(iter->second.R.size() == Size(3, 3) && iter->second.R.type() == CV_64F &&
-                      iter->second.T.size() == Size(1, 3) && iter->second.T.type() == CV_64F);
-
-            iter->second.T = iter->second.T - iter->second.R * R_norm.t() * T_norm;
-            iter->second.R = iter->second.R * R_norm.t();
-
+            iter->second.set_T(iter->second.T() - iter->second.R() * R_norm.t() * T_norm);
+            iter->second.set_R(iter->second.R() * R_norm.t());
             motions_indices.push_back(iter->first);
         }
 
@@ -611,12 +607,12 @@ namespace autocalib {
 
         for (size_t i = 1; i < motions_indices.size(); ++i) {
             Mat_<double> rvec_l;
-            Rodrigues(motions.find(motions_indices[i])->second.R, rvec_l);
+            Rodrigues(motions.find(motions_indices[i])->second.R(), rvec_l);
             arg(0, 11 + 6 * (i - 1)) = rvec_l(0, 0);
             arg(0, 11 + 6 * (i - 1) + 1) = rvec_l(0, 1);
             arg(0, 11 + 6 * (i - 1) + 2) = rvec_l(0, 2);
 
-            Mat_<double> T_l = motions.find(motions_indices[i])->second.T;
+            Mat_<double> T_l = motions.find(motions_indices[i])->second.T();
             arg(0, 11 + 6 * (i - 1) + 3) = T_l(0, 0);
             arg(0, 11 + 6 * (i - 1) + 4) = T_l(1, 0);
             arg(0, 11 + 6 * (i - 1) + 5) = T_l(2, 0);
@@ -648,13 +644,16 @@ namespace autocalib {
             rvec_l(0, 0) = arg(0, 11 + 6 * (i - 1));
             rvec_l(0, 1) = arg(0, 11 + 6 * (i - 1) + 1);
             rvec_l(0, 2) = arg(0, 11 + 6 * (i - 1) + 2);
-            Rodrigues(rvec_l, motions.find(motions_indices[i])->second.R);
+
+            Mat R_l;
+            Rodrigues(rvec_l, R_l);
+            motions.find(motions_indices[i])->second.set_R(R_l);
 
             Mat_<double> T_l(3, 1);
             T_l(0, 0) = arg(0, 11 + 6 * (i - 1) + 3);
             T_l(1, 0) = arg(0, 11 + 6 * (i - 1) + 4);
             T_l(2, 0) = arg(0, 11 + 6 * (i - 1) + 5);
-            motions.find(motions_indices[i])->second.T = T_l;
+            motions.find(motions_indices[i])->second.set_T(T_l);
         }
 
         return rms_error;
@@ -1083,7 +1082,7 @@ namespace autocalib {
         // Select the biggest one
 
         int max_comp_id = max_element(cc_as_djs.size.begin(), cc_as_djs.size.end())
-                          - cc_as_djs.size.begin();
+                                      - cc_as_djs.size.begin();
 
         set<int> max_comp;
         for (int i = 0; i < num_frames; ++i)
@@ -1219,6 +1218,14 @@ namespace autocalib {
         abs_rmats.clear();
         abs_rmats[ref_frame_idx] = Mat::eye(3, 3, CV_64F);
         eff_corresp.walkBreadthFirst(ref_frame_idx, CalculateRotations(rel_rmats, abs_rmats));
+    }
+
+
+    void CalcAbsoluteMotions(const RelativeMotions &rel_motions, const detail::Graph &eff_corresp,
+                             int ref_frame_idx, AbsoluteMotions &abs_motions)
+    {
+        abs_motions.clear();
+        //abs_motions[ref_frame_idx] = Motion::
     }
 
 
