@@ -261,7 +261,7 @@ namespace autocalib {
       * \param features Frames features
       * \param matches Matches between left frames of stereo pairs and between
                        left and right frames of stereo pairs
-      * \return Epipolar error
+      * \return Epipolar distance error
       */
     double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions motions,
                               const FeaturesCollection &features, const MatchesCollection &matches,
@@ -440,7 +440,7 @@ namespace autocalib {
       * \param xy1 First image keypoints
       * \param xy2 Second image keypoints
       * \param F Fundamental matrix, such as p1' * F * p2 = 0
-      * \return RMS point-to-epipolar distance
+      * \return RMS point-to-epipolar line distance
       */
     double CalcRmsEpipolarDistance(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray F);
 
