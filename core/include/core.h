@@ -308,7 +308,7 @@ namespace autocalib {
       * \param xyzw1 Second pair point cloud
       */
     void AffineRectifyStereoCameraByTwoShots(
-            cv::InputArray P_r,
+            cv::InputOutputArray P_r,
             cv::InputOutputArray xy_l0, cv::InputOutputArray xy_r0,
             cv::InputOutputArray xy_l1, cv::InputOutputArray xy_r1,
             const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1,
