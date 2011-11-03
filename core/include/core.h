@@ -236,7 +236,7 @@ namespace autocalib {
 
 
     //============================================================================
-    // Autocalibration
+    // Rotation model camera autocalibration
 
     /** Calculates rotational camera intrinsics using a linear algorithm.
       *
@@ -284,6 +284,36 @@ namespace autocalib {
     double RefineRigidCamera(cv::InputOutputArray K, AbsoluteRotationMats Rs,
                              const FeaturesCollection &features, const MatchesCollection &matches,
                              int params_to_refine = REFINE_FLAG_ALL);   
+
+
+    //============================================================================
+    // Stereo camera autocalibration
+
+    /** Performs affine rectification of the stereo pair by two image pairs.
+      *
+      * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 496.
+      * When the function finishes, keypoint arrays will contain images of points shared amongst the both pairs.
+      *
+      * \param P_r Right camera projective matrix (the same for both pairs)
+      * \param xy_l0 First pair left image keypoints
+      * \param xy_r0 First pair right image keypoints
+      * \param xy_l1 Second pair left image keypoints
+      * \param xy_r1 Second pair right image keypoints
+      * \param matches_lr0 Matches between left and right images of the first pair
+      * \param matches_lr1 Matches between left and right images of the second pair
+      * \param matches_ll Matches between left images of two pairs
+      * \param Hpa Homography upgrading projective reconstruction into affine one
+      * \param H01 Homography mapping the first pair point cloud into the second pair point cloud
+      * \param xyzw0 First pair point cloud
+      * \param xyzw1 Second pair point cloud
+      */
+    void AffineRectifyStereoCameraByTwoShots(
+            cv::InputArray P_r,
+            cv::InputOutputArray xy_l0, cv::InputOutputArray xy_r0,
+            cv::InputOutputArray xy_l1, cv::InputOutputArray xy_r1,
+            const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1,
+            const cv::Ptr<std::vector<cv::DMatch> > &matches_ll,
+            cv::OutputArray Hpa, cv::OutputArray H01, cv::OutputArray xyzw0, cv::OutputArray xyzw1);
 
 
     /** Refines a stereo camera paramers.

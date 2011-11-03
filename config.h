@@ -1,7 +1,7 @@
 #ifndef AUTOCALIB_CONFIG_H_
 #define AUTOCALIB_CONFIG_H_
 
-#define LOGGING_ENABLED 0
+#define LOGGING_ENABLED 1
 
 #if LOGGING_ENABLED
     #include <iostream>
