@@ -486,13 +486,13 @@ namespace autocalib {
 
         AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
 
-        Mat evals, evecs;
-        EigenDecompose(H01_.t(), evals, evecs);
-        AUTOCALIB_LOG(cout << "Eigenvalues of H01.t() = " << evals << endl);
-
         Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
         p_inf /= p_inf(3, 0);
         AUTOCALIB_LOG(cout << "Plane-at-infinity = " << p_inf << endl);
+
+        Mat evals, evecs;
+        EigenDecompose(H01_.t(), evals, evecs);
+        AUTOCALIB_LOG(cout << "Eigenvalues of H01.t() = " << evals << endl);
 
         // Affine rectification
 
@@ -1080,27 +1080,53 @@ namespace autocalib {
     }
 
 
-    Mat CalcPlaneAtInfinity(InputArray H) {
+    Mat CalcPlaneAtInfinity(InputOutputArray H) {
         CV_Assert(H.getMat().type() == CV_64F && H.getMat().size() == Size(4, 4));
-        Mat_<double> H_ = H.getMat();
+        Mat_<double> H_(H.getMat());
 
-        Mat_<double> evals, evecs;
-        EigenDecompose(H_.t(), evals, evecs);
+        Mat_<double> evals1, evecs1;
+        EigenDecompose(H_.t(), evals1, evecs1);
 
-        int best = 0;
+        int best1 = 0;
+        double min_dist1 = numeric_limits<double>::max();
+
         for (int i = 1; i < 4; ++i) {
-            if (Sqr(evals(0, 2 * i) - 1) + Sqr(evals(0, 2 * i + 1)) <
-                Sqr(evals(0, 2 * best) - 1) + Sqr(evals(0, 2 * best + 1)))
-            {
-                best = i;
+            double dist = Sqr(evals1(0, 2 * i) - 1) + Sqr(evals1(0, 2 * i + 1));
+            if (dist < min_dist1) {
+                best1 = i;
+                min_dist1 = dist;
+            }
+        }
+
+        Mat_<double> evals2, evecs2;
+        EigenDecompose(-H_.t(), evals2, evecs2);
+
+        int best2 = 0;
+        double min_dist2 = numeric_limits<double>::max();
+
+        for (int i = 1; i < 4; ++i) {
+            double dist = Sqr(evals2(0, 2 * i) - 1) + Sqr(evals2(0, 2 * i + 1));
+            if (dist < min_dist2) {
+                best2 = i;
+                min_dist2 = dist;
             }
         }
 
         Mat_<double> pinf(4, 1);
-        pinf(0, 0) = evecs(best, 0);
-        pinf(1, 0) = evecs(best, 2);
-        pinf(2, 0) = evecs(best, 4);
-        pinf(3, 0) = evecs(best, 6);
+
+        if (min_dist1 < min_dist2) {
+            pinf(0, 0) = evecs1(best1, 0);
+            pinf(1, 0) = evecs1(best1, 2);
+            pinf(2, 0) = evecs1(best1, 4);
+            pinf(3, 0) = evecs1(best1, 6);
+        }
+        else {
+            pinf(0, 0) = evecs2(best2, 0);
+            pinf(1, 0) = evecs2(best2, 2);
+            pinf(2, 0) = evecs2(best2, 4);
+            pinf(3, 0) = evecs2(best2, 6);
+            H.getMatRef() = -H_;
+        }
 
         return pinf;
     }
