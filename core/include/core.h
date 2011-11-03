@@ -502,7 +502,7 @@ namespace autocalib {
     cv::Mat CalcPlaneAtInfinity(cv::InputArray H);
 
 
-    /** Finds the fundamental matrix of a stereo camera.
+    /** Finds the best fundamental matrix from image pairs.
       *
       * \param features Features
       * \param matches Matches in (2*i, 2*i+1) or reversed format, other are ignored
