@@ -903,10 +903,14 @@ namespace autocalib {
                    [h00, h01, h02, h03, h10, h11, h12, h13,
                     h20, h21, h22, h23, h30, h31, h32, h33]);
         */
+
         static const int lut[][2] = {{1, 0}, {2, 0}, {3, 0}, {2, 1}, {3, 1}, {3, 2}};
+
         for (int p = 0; p < num_points; ++p) {
-            double x[4] = {xyzw1_(0, 4 * p), xyzw1_(0, 4 * p + 1), xyzw1_(0, 4 * p + 2), xyzw1_(0, 4 * p + 3)};
-            double y[4] = {xyzw2_(0, 4 * p), xyzw2_(0, 4 * p + 1), xyzw2_(0, 4 * p + 2), xyzw2_(0, 4 * p + 3)};
+            double x[4] = {xyzw1_(0, 4 * p), xyzw1_(0, 4 * p + 1),
+                           xyzw1_(0, 4 * p + 2), xyzw1_(0, 4 * p + 3)};
+            double y[4] = {xyzw2_(0, 4 * p), xyzw2_(0, 4 * p + 1),
+                           xyzw2_(0, 4 * p + 2), xyzw2_(0, 4 * p + 3)};
             for (int r = 0, c1 = 0; c1 < 3; ++c1) {
                 for (int c2 = c1 + 1; c2 < 4; ++c2, ++r) {
                     for (int i = 0; i < 4; ++i) {
@@ -935,12 +939,13 @@ namespace autocalib {
         Mat_<double> evals, evecs;
         EigenDecompose(H_.t(), evals, evecs);
 
-        // Find eigenvector corresponding to eigenvalue with the smallest imaginary component
-
         int best = 0;
         for (int i = 1; i < 4; ++i) {
-            if (abs(evals.at<double>(0, 2 * i + 1)) < abs(evals.at<double>(0, 2 * best + 1)))
+            if (Sqr(evals(0, 2 * i) - 1) + Sqr(evals(0, 2 * i + 1)) <
+                Sqr(evals(0, 2 * best) - 1) + Sqr(evals(0, 2 * best + 1)))
+            {
                 best = i;
+            }
         }
 
         Mat_<double> pinf(4, 1);
@@ -950,6 +955,43 @@ namespace autocalib {
         pinf(3, 0) = evecs(best, 6);
 
         return pinf;
+    }
+
+
+    Mat FindFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
+                                    double thresh)
+    {
+        Mat F_best;
+        double min_err = numeric_limits<double>::max();
+        Mat_<double> xy1, xy2;
+
+        for (MatchesCollection::const_iterator iter = matches.begin();
+             iter != matches.end(); ++iter)
+        {
+            int from = iter->first.first;
+            int to = iter->first.second;
+
+            const detail::ImageFeatures &f1 = *(features.find(from)->second);
+            const detail::ImageFeatures &f2 = *(features.find(to)->second);
+
+            if (from % 2 == 0 && to == from + 1)
+                ExtractMatchedKeypoints(f1, f2, *(iter->second), xy1, xy2);
+            else if (to % 2 == 0 && from == to + 1)
+                ExtractMatchedKeypoints(f1, f2, *(iter->second), xy2, xy1);
+            else
+                continue;
+
+            Mat F = findFundamentalMat(Mat(xy2).reshape(2), Mat(xy1).reshape(2), FM_RANSAC,
+                                       thresh);
+
+            double err = CalcRmsEpipolarDistance(xy1, xy2, F);
+            if (err < min_err) {
+                F_best = F;
+                min_err = err;
+            }
+        }
+
+        return F_best;
     }
 
 
