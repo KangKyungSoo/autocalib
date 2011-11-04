@@ -776,7 +776,9 @@ namespace autocalib {
         }
 
         EpipError_FixedK_StereoCam func(features, matches, motions_indices, params_to_refine);
-        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
+        double rms_error = MinimizeLevMarq(func, arg,
+                                           MinimizeOpts(TermCriteria(TermCriteria::MAX_ITER | cv::TermCriteria::EPS,
+                                                                     200, numeric_limits<double>::epsilon()), MinimizeOpts::VERBOSE_SUMMARY));
 
         K(0, 0) = arg(0, 0);
         K(0, 1) = arg(0, 1);
@@ -1473,11 +1475,11 @@ namespace autocalib {
 
 
     void CalcAbsoluteMotions(const RelativeMotions &rel_motions, const detail::Graph &eff_corresp,
-                             int ref_frame_idx, AbsoluteMotions &abs_motions)
+                             int ref_idx, AbsoluteMotions &abs_motions)
     {
         abs_motions.clear();
-        abs_motions[ref_frame_idx] = Motion();
-        eff_corresp.walkBreadthFirst(ref_frame_idx, CalcAbsoluteMotion(rel_motions, abs_motions));
+        abs_motions[ref_idx] = Motion();
+        eff_corresp.walkBreadthFirst(ref_idx, CalcAbsoluteMotion(rel_motions, abs_motions));
     }
 
 
