@@ -20,7 +20,7 @@ void ParseArgs(int argc, char **argv);
 Ptr<PointCloudSceneCreator> scene_creator = new SphereSceneCreator();
 int num_points = 1000;
 int num_frames = 2;
-Rect viewport = Rect(0, 0, 640, 480);
+Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
 int seed = 0; // No seed
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
         // Generate cameras and shots       
 
         Mat_<double> rel_T(3, 1);
-        rel_T(0, 0) = 0.5; rel_T(1, 0) = rel_T(2, 0) = 0;
+        rel_T(0, 0) = 1; rel_T(1, 0) = rel_T(2, 0) = 0;
 
         detail::ImageFeatures features;
 
@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
 
                 Mat_<double> T(3, 1);
                 rng.fill(T, RNG::NORMAL, 0, 2);
-                T(0, 0) *= 2; T(2, 0) += -10;
+                T *= 2;
 
                 left_cameras[i] = RigidCamera::LocalToWorld(K_gold, R, -R * rel_T + T);
                 right_cameras[i] = RigidCamera::LocalToWorld(K_gold, R, R * rel_T + T);
@@ -182,8 +182,39 @@ int main(int argc, char **argv) {
 
         // Find fundamental matrix and extract camera mat
 
-        Mat_<double> F = FindBestFundamentalMatFromPairs(features_collection, matches_collection, 0.1);
+        cout << "\nFinding F...\n";
+
+        Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, 3.);
         Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
+
+        // Remove outliers
+
+        for (MatchesCollection::iterator iter = matches_collection.begin();
+             iter != matches_collection.end(); ++iter)
+        {
+            int from = iter->first.first;
+            int to = iter->first.second;
+
+            if (from / 2 == to / 2 && to == from + 1) {
+                Ptr<vector<DMatch> > matches = iter->second;
+
+                Mat_<uchar> mask;
+                int num_inliers = FindFundamentalMatInliers(*(features_collection.find(iter->first.first)->second),
+                                                            *(features_collection.find(iter->first.second)->second),
+                                                            *matches, F, 3., mask);
+
+                cout << num_inliers << " " << matches->size() << endl;
+
+                Ptr<vector<DMatch> > inliers = new vector<DMatch>();
+                inliers->reserve(num_inliers);
+
+                for (size_t i = 0; i < matches->size(); ++i)
+                    if (mask(0, i))
+                        inliers->push_back((*matches)[i]);
+
+                iter->second = inliers;
+            }
+        }
 
         // Affine rectification
 
@@ -284,52 +315,10 @@ int main(int argc, char **argv) {
         Rodrigues(total_rvec / total_estimations, R);
         RigidCamera P_r_m(K_init, R, total_T / total_estimations);
 
-        RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
-                           ~REFINE_FLAG_SKEW);
+        RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
 
         Mat_<double> K_refined = P_r_m.K();
         cout << "K_refined = \n" << K_refined << endl;
-
-//        H01 = Ham.inv() * H01 * Ham;
-//        H01 /= H01(3, 3);
-
-//        cout << "Metric H01 = \n" << H01 << endl;
-
-//        Mat_<double> R01 = H01(Rect(0, 0, 3, 3));
-//        Mat_<double> T01 = H01(Rect(3, 0, 1, 3));
-
-//        P_l = P_l * Ham;
-//        P_r = P_r * Ham;
-
-//        xyzw0 = Ham.inv() * xyzw0.reshape(xyzw0.cols / 4).t();
-//        xyzw1 = Ham.inv() * xyzw1.reshape(xyzw1.cols / 4).t();
-//        xyzw0 = Mat(xyzw0.t()).reshape(0, 1);
-//        xyzw1 = Mat(xyzw1.t()).reshape(0, 1);
-
-//        cout << "Reprojection RMS error after metric rectification (l0 r0 l1 r1) = ("
-//             << CalcRmsReprojectionError(xy_l0, P_l, xyzw0) << " "
-//             << CalcRmsReprojectionError(xy_r0, P_r, xyzw0) << " "
-//             << CalcRmsReprojectionError(xy_l1, P_l, xyzw1) << " "
-//             << CalcRmsReprojectionError(xy_r1, P_r, xyzw1) << ")\n";
-
-//        Mat_<double> F01 = K_init.inv().t() * CrossProductMat(T01) * R01 * K_init.inv();
-//        cout << "Point-to-line distance (l0 vs. l1) RMS = " << CalcRmsEpipolarDistance(xy_l1, xy_l0, F01) << endl;
-
-//        // Refine reconstruction
-
-//        cout << "\nRefining metric reconstruction...\n";
-
-//        AbsoluteMotions motions;
-//        motions[0] = Motion(Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F));
-//        motions[1] = Motion(R01, T01);
-
-//        RigidCamera P_r0_m_ = RigidCamera::FromProjectiveMat(P_r);
-//        RigidCamera P_r0_m(K_init, P_r0_m_.R(), P_r0_m_.T());
-//        RefineStereoCamera(P_r0_m, motions, features_collection, matches_collection,
-//                           ~REFINE_FLAG_SKEW);
-
-//        Mat_<double> K_refined = P_r0_m.K();
-//        cout << "K_refined = \n" << K_refined << endl;
     }
     catch (const exception &e) {
         cout << "Error: " << e.what() << endl;
