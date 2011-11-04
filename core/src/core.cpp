@@ -1024,6 +1024,34 @@ namespace autocalib {
     }
 
 
+    int FindFundamentalMatInliers(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
+                                  const vector<DMatch> &matches, InputArray F, double thresh,
+                                  InputOutputArray mask)
+    {
+        CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
+        Mat_<double> F_(F.getMat());
+
+        Mat &mask_tmp = mask.getMatRef();
+        mask_tmp.create(1, matches.size(), CV_8U);
+        mask_tmp.setTo(0);
+        Mat_<uchar> mask_(mask_tmp);
+        int num_inliers = 0;
+
+        for (size_t i = 0; i < matches.size(); ++i) {
+            const Point2f &p1 = f1.keypoints[matches[i].queryIdx].pt;
+            const Point2f &p2 = f2.keypoints[matches[i].trainIdx].pt;
+
+            double err = SymEpipDist2(p1.x, p1.y, F_, p2.x, p2.y);
+            if (err < thresh * thresh) {
+                mask_(0, i) = 1;
+                num_inliers++;
+            }
+        }
+
+        return num_inliers;
+    }
+
+
     Mat FindHomographyLinear(InputArray xyzw1, InputArray xyzw2) {
         CV_Assert(xyzw1.getMat().type() == CV_64F && xyzw1.getMat().rows == 1 && xyzw1.getMat().cols % 4 == 0);
         CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
@@ -1033,6 +1061,7 @@ namespace autocalib {
         Mat_<double> xyzw2_ = xyzw2.getMat();
 
         int num_points = xyzw1_.cols / 4;       
+        CV_Assert(num_points >= 5); // TODO why 5?
 
         Mat_<double> A(6 * num_points, 16);
         A.setTo(0);
@@ -1134,13 +1163,24 @@ namespace autocalib {
     }
 
 
-    Mat FindBestFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
-                                        double thresh)
+    Mat FindFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
+                                    double thresh)
     {
-        Mat F_best;
-        double min_err = numeric_limits<double>::max();
-        Mat_<double> xy1, xy2;
+        int num_matches = 0;
+        for (MatchesCollection::const_iterator iter = matches.begin();
+             iter != matches.end(); ++iter)
+        {
+            int from = iter->first.first;
+            int to = iter->first.second;
 
+            if ((from % 2 == 0 && to == from + 1) ||
+                (to % 2 == 0 && from == to + 1))
+                num_matches += (int)iter->second->size();
+        }
+
+        Mat_<double> xy1(1, num_matches * 2), xy2(1, num_matches * 2);
+
+        int offset = 0;
         for (MatchesCollection::const_iterator iter = matches.begin();
              iter != matches.end(); ++iter)
         {
@@ -1150,24 +1190,35 @@ namespace autocalib {
             const detail::ImageFeatures &f1 = *(features.find(from)->second);
             const detail::ImageFeatures &f2 = *(features.find(to)->second);
 
+            Mat_<double> xy1_(xy1.colRange(2 * offset, 2 * (offset + (int)iter->second->size())));
+            Mat_<double> xy2_(xy2.colRange(2 * offset, 2 * (offset + (int)iter->second->size())));
+
             if (from % 2 == 0 && to == from + 1)
-                ExtractMatchedKeypoints(f1, f2, *(iter->second), xy1, xy2);
+                ExtractMatchedKeypoints(f1, f2, *(iter->second), xy1_, xy2_);
             else if (to % 2 == 0 && from == to + 1)
-                ExtractMatchedKeypoints(f1, f2, *(iter->second), xy2, xy1);
+                ExtractMatchedKeypoints(f1, f2, *(iter->second), xy2_, xy1_);
             else
                 continue;
 
-            Mat F = findFundamentalMat(Mat(xy2).reshape(2), Mat(xy1).reshape(2), FM_RANSAC,
-                                       thresh);
-
-            double err = CalcRmsEpipolarDistance(xy1, xy2, F);
-            if (err < min_err) {
-                F_best = F;
-                min_err = err;
-            }
+            offset += (int)iter->second->size();
         }
 
-        return F_best;
+        vector<uchar> F_mask;
+        Mat F = findFundamentalMat(Mat(xy2).reshape(2), Mat(xy1).reshape(2), F_mask, FM_RANSAC,
+                                   thresh);
+
+        int num_inliers = 0;
+        for (size_t i = 0; i < F_mask.size(); ++i) {
+            if (F_mask[i])
+                num_inliers++;
+        }
+
+        AUTOCALIB_LOG(
+            cout << "#matches = " << num_matches
+                 << ", #inliers = " << num_inliers
+                 << ", RMS err = " << CalcRmsEpipolarDistance(xy1, xy2, F) << endl);
+
+        return F;
     }
 
 

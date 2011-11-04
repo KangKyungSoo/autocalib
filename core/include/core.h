@@ -522,10 +522,11 @@ namespace autocalib {
       * \param F Fundamental matrix
       * \param thresh Error threshold
       * \param mask Inliers 8U mask
+      * \return Number of inliers
       */
-    void FindFundamentalMatInliers(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
-                                   const std::vector<cv::DMatch> &matches, cv::InputArray F, double thresh,
-                                   cv::InputOutputArray mask);
+    int FindFundamentalMatInliers(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
+                                  const std::vector<cv::DMatch> &matches, cv::InputArray F, double thresh,
+                                  cv::InputOutputArray mask);
 
 
     /** Finds the 3D projective space homography linearly.
@@ -549,15 +550,15 @@ namespace autocalib {
     cv::Mat CalcPlaneAtInfinity(cv::InputOutputArray H);
 
 
-    /** Finds the best fundamental matrix from image pairs.
+    /** Finds the fundamental matrix from image pairs.
       *
       * \param features Features
       * \param matches Matches in (2*i, 2*i+1) or reversed format, other are ignored
       * \param thresh Error threshold
       * \return Fundamental matrix
       */
-    cv::Mat FindBestFundamentalMatFromPairs(const FeaturesCollection &features,
-                                            const MatchesCollection &matches, double thresh = 3.);
+    cv::Mat FindFundamentalMatFromPairs(const FeaturesCollection &features,
+                                        const MatchesCollection &matches, double thresh = 3.);
 
 
     //============================================================================
