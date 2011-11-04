@@ -46,16 +46,16 @@ int main(int argc, char **argv) {
             srand(seed);
         }
 
-        Mat_<double> rvec, R;
         Ptr<PointCloudScene> scene;
 
         // Generate synthetic scene
 
         scene = scene_creator->Create(num_points, rng);
-        rvec = Mat::zeros(3, 1, CV_64F);
-        rng.fill(rvec, RNG::UNIFORM, -1, 1);
-        Rodrigues(rvec, R);
-        scene->set_R(R);
+        Mat scene_rvec = Mat::zeros(3, 1, CV_64F);
+        rng.fill(scene_rvec, RNG::UNIFORM, -1, 1);
+        Mat scene_R;
+        Rodrigues(scene_rvec, scene_R);
+        scene->set_R(scene_R);
 
         vector<RigidCamera> left_cameras(num_frames);
         vector<RigidCamera> right_cameras(num_frames);
@@ -67,15 +67,17 @@ int main(int argc, char **argv) {
         Mat_<double> rel_T(3, 1);
         rel_T(0, 0) = 0.5; rel_T(1, 0) = rel_T(2, 0) = 0;
 
-        Mat_<double> T(3, 1);
-
         detail::ImageFeatures features;
 
         for (int i = 0; i < num_frames; ++i) {
             while (true) {
+                Mat rvec(1, 3, CV_64F);
                 rng.fill(rvec, RNG::NORMAL, 0, 0.2);
+
+                Mat R;
                 Rodrigues(rvec, R);
 
+                Mat_<double> T(3, 1);
                 rng.fill(T, RNG::NORMAL, 0, 2);
                 T(0, 0) *= 2; T(2, 0) += -10;
 
@@ -183,52 +185,110 @@ int main(int argc, char **argv) {
         Mat_<double> F = FindBestFundamentalMatFromPairs(features_collection, matches_collection, 0.1);
         Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
 
+        // Affine rectification
+
+        map<pair<int, int>, Mat> Ps_l_a;
+        map<pair<int, int>, Mat> Ps_r_a;
+        HomographiesP2 Hs_inf;
+        HomographiesP3 Hs_01_a;
+
+        for (size_t i = 0; i < num_frames - 1; ++i) {
+            for (size_t j = i + 1; j < num_frames; ++j) {
+                Ptr<vector<DMatch> > matches_lr0 = matches_collection.find(make_pair(2 * i, 2 * i + 1))->second;
+                Ptr<vector<DMatch> > matches_lr1 = matches_collection.find(make_pair(2 * j, 2 * j + 1))->second;
+                Ptr<vector<DMatch> > matches_ll = matches_collection.find(make_pair(2 * i, 2 * j))->second;
+
+                Mat_<double> xy_l0, xy_r0, xy_l1, xy_r1;
+                ExtractMatchedKeypoints(*(features_collection.find(2 * i)->second),
+                                        *(features_collection.find(2 * i + 1)->second), *matches_lr0, xy_l0, xy_r0);
+                ExtractMatchedKeypoints(*(features_collection.find(2 * j)->second),
+                                        *(features_collection.find(2 * j + 1)->second), *matches_lr1, xy_l1, xy_r1);
+
+                Mat_<double> Hpa, H01_a;
+                Mat_<double> xyzw0_a, xyzw1_a;
+                Mat_<double> P_r_a_ = P_r.clone();
+
+                AffineRectifyStereoCameraByTwoShots(P_r_a_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
+                                                    Hpa, H01_a, xyzw0_a, xyzw1_a);
+
+                Hs_01_a[make_pair(i, j)] = H01_a;
+
+                Mat_<double> P_l_a = Mat::eye(3, 4, CV_64F) * Hpa;
+
+                Ps_l_a[make_pair(i, j)] = P_l_a;
+                Ps_r_a[make_pair(i, j)] = P_r_a_;
+
+                // Stereo pair relative rotation can be very close to the identity matrix. That
+                // can lead to numerical instability in K estimation process, so we avoid using those
+                // rotations in the linear autocalibration algorithm.
+
+                Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l_a * H01_a.inv())(Rect(0, 0, 3, 3));
+                //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+            }
+        }
+
         // Linear autocalibration
 
         if (K_init.empty()) {
             cout << "\nLinear calibrating...\n";
-
-            HomographiesP2 Hs_inf;
-
-            for (size_t i = 0; i < num_frames - 1; ++i) {
-                for (size_t j = i + 1; j < num_frames; ++j) {
-                    Ptr<vector<DMatch> > matches_lr0 = matches_collection.find(make_pair(2 * i, 2 * i + 1))->second;
-                    Ptr<vector<DMatch> > matches_lr1 = matches_collection.find(make_pair(2 * j, 2 * j + 1))->second;
-                    Ptr<vector<DMatch> > matches_ll = matches_collection.find(make_pair(2 * i, 2 * j))->second;
-
-                    Mat_<double> xy_l0, xy_r0, xy_l1, xy_r1;
-                    ExtractMatchedKeypoints(*(features_collection.find(2 * i)->second),
-                                            *(features_collection.find(2 * i + 1)->second), *matches_lr0, xy_l0, xy_r0);
-                    ExtractMatchedKeypoints(*(features_collection.find(2 * j)->second),
-                                            *(features_collection.find(2 * j + 1)->second), *matches_lr1, xy_l1, xy_r1);
-
-                    Mat_<double> Hpa, H01, xyzw0, xyzw1;
-                    Mat_<double> P_r_ = P_r.clone();
-                    AffineRectifyStereoCameraByTwoShots(P_r_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
-                                                        Hpa, H01, xyzw0, xyzw1);
-
-                    Mat_<double> P_l = Mat::eye(3, 4, CV_64F) * Hpa;
-                    Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l * H01.inv())(Rect(0, 0, 3, 3));
-
-                    // Stereo pair relative rotation can be very close to the identity matrix. That
-                    // can lead to numerical instability in K estimation process, so we avoid using those
-                    // rotations in the linear autocalibration algorithm.
-
-                    //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_(Rect(0, 0, 3, 3));
-                }
-            }
-
             K_init = CalibRotationalCameraLinearNoSkew(Hs_inf);
             cout << "K_linear = \n" << K_init << endl;
         }
 
-//        // Metric rectification
+        // Metric rectification
 
-//        cout << "\nMetric rectification...\n";
+        cout << "\nMetric rectification...\n";
 
-//        Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
-//        Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
-//        K_init.copyTo(Ham_3x3);
+        Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
+        Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
+        K_init.copyTo(Ham_3x3);
+
+        RelativeMotions rel_motions;
+
+        int total_estimations = 0;
+        Mat_<double> total_rvec = Mat::zeros(3, 1, CV_64F);
+        Mat_<double> total_T = Mat::zeros(3, 1, CV_64F);
+
+        for (HomographiesP3::iterator iter = Hs_01_a.begin(); iter != Hs_01_a.end(); ++iter) {
+            Mat H01_a = iter->second;
+            Mat H01_m = Ham.inv() * H01_a * Ham;
+            H01_m /= H01_m.at<double>(3, 3);
+            iter->second = H01_m;
+
+            Mat R01 = H01_m(Rect(0, 0, 3, 3));
+            Mat T01 = H01_m(Rect(3, 0, 1, 3));
+            rel_motions[iter->first] = Motion(R01, T01);
+
+            RigidCamera rigid_cam = RigidCamera::FromProjectiveMat(Ps_r_a[iter->first] * Ham);
+
+            Mat rvec;
+            Rodrigues(rigid_cam.R(), rvec);
+            total_rvec += rvec;
+
+            total_T += rigid_cam.T();
+            total_estimations++;
+        }
+
+        detail::Graph eff_corresp(num_frames);
+        for (size_t i = 0; i < num_frames - 1; ++i) {
+            for (size_t j = i + 1; j < num_frames; ++j) {
+                eff_corresp.addEdge(i, j, 0);
+                eff_corresp.addEdge(j, i, 0);
+            }
+        }
+
+        AbsoluteMotions abs_motions;
+        CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
+
+        Mat R;
+        Rodrigues(total_rvec / total_estimations, R);
+        RigidCamera P_r_m(K_init, R, total_T / total_estimations);
+
+        RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
+                           ~REFINE_FLAG_SKEW);
+
+        Mat_<double> K_refined = P_r_m.K();
+        cout << "K_refined = \n" << K_refined << endl;
 
 //        H01 = Ham.inv() * H01 * Ham;
 //        H01 /= H01(3, 3);

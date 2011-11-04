@@ -22,6 +22,9 @@ namespace autocalib {
     
     /** 2D projective space homographies collection. */
     typedef std::map<std::pair<int, int>, cv::Mat> HomographiesP2;
+
+    /** 3D projective space homographies collection. */
+    typedef std::map<std::pair<int, int>, cv::Mat> HomographiesP3;
     
     typedef std::map<std::pair<int, int>, cv::Mat> RelativeRotationMats;
     typedef std::map<std::pair<int, int>, double> RelativeConfidences;
@@ -644,11 +647,11 @@ namespace autocalib {
       *
       * \param rel_motions Pairwise motions
       * \param eff_corresp Efficient correspondeces subgraph
-      * \param ref_frame_idx Reference frame index
+      * \param ref_idx Reference camera index
       * \param abs_motions Absolute motions
       */
     void CalcAbsoluteMotions(const RelativeMotions &rel_motions, const cv::detail::Graph &eff_corresp,
-                             int ref_frame_idx, AbsoluteMotions &abs_motions);
+                             int ref_idx, AbsoluteMotions &abs_motions);
 
 
     /** Finds an eigen decomposition of a real matrix.
