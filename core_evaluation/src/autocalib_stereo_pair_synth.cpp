@@ -26,6 +26,7 @@ Mat_<double> K_init;
 int seed = 0; // No seed
 double F_est_thresh = 3.;
 double noise_stddev = -1; // No noise
+double conf_thresh = 0;
 bool create_images = false;
 
 int main(int argc, char **argv) {
@@ -70,31 +71,30 @@ int main(int argc, char **argv) {
 
         detail::ImageFeatures features;
 
+        Mat_<double> rvec(1, 3);
+        rvec(0, 0) = 0.1; rvec(0, 1) = 0.2; rvec(0, 2) = 0.1;
+        Mat R; Rodrigues(rvec, R);
+        Mat_<double> T(3, 1);
+        T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -7;
+
+        Mat R_cur = Mat::eye(3, 3, CV_64F);
         for (int i = 0; i < num_frames; ++i) {
-            while (true) {
-                Mat rvec(1, 3, CV_64F);
-                rng.fill(rvec, RNG::NORMAL, 0, 0.1);
+            Mat_<double> T_noise(3, 1);
+            rng.fill(T_noise, RNG::NORMAL, 0, 0.2);
+            Mat T_cur_noised = T + T_noise;
 
-                Mat R;
-                Rodrigues(rvec, R);
+            Mat_<double> rvec_noise(1, 3);
+            rng.fill(rvec_noise, RNG::NORMAL, 0, 0.2);
+            Mat R_noise; Rodrigues(rvec_noise, R_noise);
+            Mat R_cur_noised = R_cur * R_noise;
 
-                Mat_<double> T(3, 1);
-                rng.fill(T, RNG::NORMAL, 0, 2);
-                T *= 2;
+            left_cameras[i] = RigidCamera::LocalToWorld(K_gold, R_cur_noised, -R_cur_noised * rel_T + R_cur_noised * T_cur_noised);
+            right_cameras[i] = RigidCamera::LocalToWorld(K_gold, R_cur_noised, R_cur_noised * rel_T + R_cur_noised * T_cur_noised);
 
-                left_cameras[i] = RigidCamera::LocalToWorld(K_gold, R, -R * rel_T + T);
-                right_cameras[i] = RigidCamera::LocalToWorld(K_gold, R, R * rel_T + T);
+            R_cur *= R;
 
-                scene->TakeShot(left_cameras[i], viewport, features);
-                if (features.keypoints.size() < num_points / 3)
-                    continue;
-
-                scene->TakeShot(right_cameras[i], viewport, features);
-                if (features.keypoints.size() < num_points / 3)
-                    continue;
-
-                break;
-            }
+            scene->TakeShot(left_cameras[i], viewport, features);
+            scene->TakeShot(right_cameras[i], viewport, features);
         }
 
         for (int i = 0; i < num_frames; ++i) {
@@ -158,7 +158,6 @@ int main(int argc, char **argv) {
         // Match synthetic shots
 
         cout << "\nMatching...\n";
-
         for (size_t i = 0; i < num_frames; ++i) {
             Ptr<vector<DMatch> > matches = new vector<DMatch>();
             MatchSyntheticShots(*(features_collection.find(2 * i)->second),
@@ -166,8 +165,8 @@ int main(int argc, char **argv) {
                                 *matches);
             matches_collection[make_pair(2 * i, 2 * i + 1)] = matches;
             cout << "(#matches from " << 2 * i << " to " << 2 * i + 1 << " = " << matches->size() << ") ";
+            cout.flush();
         }
-
         for (size_t i = 0; i < num_frames - 1; ++i) {
             for (size_t j = i + 1; j < num_frames; ++j) {
                 Ptr<vector<DMatch> > matches = new vector<DMatch>();
@@ -176,9 +175,15 @@ int main(int argc, char **argv) {
                                     *matches);
                 matches_collection[make_pair(2 * i, 2 * j)] = matches;
                 cout << "(#matches from " << 2 * i << " to " << 2 * j << " = " << matches->size() << ") ";
+                cout.flush();
+//                Mat tmp;
+//                drawMatches(CreateImage(*(features_collection.find(2 * i)->second)), features_collection.find(2 * i)->second->keypoints,
+//                            CreateImage(*(features_collection.find(2 * j)->second)), features_collection.find(2 * j)->second->keypoints,
+//                            *matches, tmp);
+//                imshow("tmp", tmp);
+//                waitKey();
             }
         }
-
         cout << endl;
 
         // Find fundamental matrix and extract camera mat
@@ -192,6 +197,9 @@ int main(int argc, char **argv) {
 
         cout << "\nRemoving outliers...\n";
 
+        RelativeConfidences rel_confs;
+        MatchesCollection inliers_collection;
+
         for (MatchesCollection::iterator iter = matches_collection.begin();
              iter != matches_collection.end(); ++iter)
         {
@@ -201,15 +209,19 @@ int main(int argc, char **argv) {
             Ptr<vector<DMatch> > matches = iter->second;
             Mat F_;
 
-            if (from / 2 == to / 2 && to == from + 1) {
+            if (IsLeftRightPair(from, to))
                 F_ = F;
-            }
-            else {
+            else if (BothAreLeft(from, to)) {
                 Mat xy1, xy2;
                 ExtractMatchedKeypoints(*(features_collection.find(from)->second),
                                         *(features_collection.find(to)->second),
                                         *matches, xy1, xy2);
                 F_ = findFundamentalMat(xy2.reshape(2), xy1.reshape(2), FM_RANSAC, F_est_thresh);
+            }
+            else {
+                stringstream msg;
+                msg << "from=" << from << ", to=" << to << " - bad matches";
+                throw runtime_error(msg.str());
             }
 
             Mat_<uchar> mask;
@@ -217,17 +229,27 @@ int main(int argc, char **argv) {
                                                         *(features_collection.find(to)->second),
                                                         *matches, F_, F_est_thresh, mask);
 
-            cout << "from=" << from << " to=" << to << " #matches=" << matches->size() << " #inliers=" << num_inliers << endl;
+            // See "Automatic Panoramic Image Stitching using Invariant Features"
+            // by Matthew Brown and David G. Lowe, IJCV 2007 for the explanation
+            double conf = num_inliers / (8 + 0.3 * matches->size()) - 1;
+
+            cout << "from=" << from << ", to=" << to << ", #matches=" << matches->size()
+                 << ", #inliers=" << num_inliers << ", conf=" << conf << endl;
 
             Ptr<vector<DMatch> > inliers = new vector<DMatch>();
             inliers->reserve(num_inliers);
-            for (size_t i = 0; i < matches->size(); ++i) {
-                if (mask(0, i)) {
+            for (size_t i = 0; i < matches->size(); ++i)
+                if (mask(0, i))
                     inliers->push_back((*matches)[i]);
-                }
+
+            if (conf > conf_thresh) {
+                inliers_collection[iter->first] = inliers;
+                if (BothAreLeft(from, to))
+                    rel_confs[make_pair(from / 2, to / 2)] = conf;
             }
-            iter->second = inliers;
         }
+
+        //matches_collection = inliers_collection;
 
         // Affine rectification
 
@@ -252,6 +274,7 @@ int main(int argc, char **argv) {
                 Mat_<double> xyzw0_a, xyzw1_a;
                 Mat_<double> P_r_a_ = P_r.clone();
 
+                cout << i << " " << j << " " << matches_lr0->size() << " " << matches_lr1->size() << " " << matches_ll->size() << endl;
                 AffineRectifyStereoCameraByTwoShots(P_r_a_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
                                                     Hpa, H01_a, xyzw0_a, xyzw1_a);
 
@@ -324,11 +347,12 @@ int main(int argc, char **argv) {
         AbsoluteMotions abs_motions;
         CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
 
-        Mat R;
-        Rodrigues(total_rvec / total_estimations, R);
-        RigidCamera P_r_m(K_init, R, total_T / total_estimations);
+        Mat avg_R;
+        Rodrigues(total_rvec / total_estimations, avg_R);
+        RigidCamera P_r_m(K_init, avg_R, total_T / total_estimations);
 
-        RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
+        RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
+                           ~REFINE_FLAG_SKEW);
 
         Mat_<double> K_refined = P_r_m.K();
         cout << "K_refined = \n" << K_refined << endl;

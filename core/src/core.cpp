@@ -417,7 +417,7 @@ namespace autocalib {
         // Leave only common part of point clouds
 
         vector<pair<int, int> > lr0_lr1_indices;
-        Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);
+        Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);        
 
         Mat_<double> xy_l0_buf(1, lr0_lr1_indices.size() * 2);
         Mat_<double> xy_r0_buf(1, lr0_lr1_indices.size() * 2);
@@ -620,9 +620,7 @@ namespace autocalib {
                 const vector<KeyPoint> &kps_from = features_->find(from)->second->keypoints;
                 const vector<KeyPoint> &kps_to = features_->find(to)->second->keypoints;
 
-                if (from / 2 != to / 2 && from % 2 == to % 2) {
-                    // We're working with matches between left and right frames of a stereo pair
-
+                if (BothAreLeft(from, to)) {
                     int from_ = from / 2;
                     int to_ = to / 2;
 
@@ -676,9 +674,7 @@ namespace autocalib {
                         err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F, p0.x, p0.y));
                     }
                 }
-                else if (to == from + 1) {
-                    // We're working with left to left matches between different stereo pairs
-
+                else if (IsLeftRightPair(from, to)) {
                     const vector<DMatch> &matches = *(iter->second);
                     for (size_t i = 0; i < matches.size(); ++i) {
                         const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
@@ -864,7 +860,6 @@ namespace autocalib {
             l2_to_lr2_idx.insert(make_pair(matches_lr2[i].queryIdx, i));
 
         indices.clear();
-
         for (size_t i = 0; i < matches_ll.size(); ++i) {
             map<int, int>::iterator i1 = l1_to_lr1_idx.find(matches_ll[i].queryIdx);
             map<int, int>::iterator i2 = l2_to_lr2_idx.find(matches_ll[i].trainIdx);
@@ -1172,9 +1167,7 @@ namespace autocalib {
         {
             int from = iter->first.first;
             int to = iter->first.second;
-
-            if ((from % 2 == 0 && to == from + 1) ||
-                (to % 2 == 0 && from == to + 1))
+            if (IsLeftRightPair(from, to))
                 num_matches += (int)iter->second->size();
         }
 
@@ -1187,18 +1180,16 @@ namespace autocalib {
             int from = iter->first.first;
             int to = iter->first.second;
 
+            if (!IsLeftRightPair(from, to))
+                continue;
+
             const detail::ImageFeatures &f1 = *(features.find(from)->second);
             const detail::ImageFeatures &f2 = *(features.find(to)->second);
 
             Mat_<double> xy1_(xy1.colRange(2 * offset, 2 * (offset + (int)iter->second->size())));
             Mat_<double> xy2_(xy2.colRange(2 * offset, 2 * (offset + (int)iter->second->size())));
 
-            if (from % 2 == 0 && to == from + 1)
-                ExtractMatchedKeypoints(f1, f2, *(iter->second), xy1_, xy2_);
-            else if (to % 2 == 0 && from == to + 1)
-                ExtractMatchedKeypoints(f1, f2, *(iter->second), xy2_, xy1_);
-            else
-                continue;
+            ExtractMatchedKeypoints(f1, f2, *(iter->second), xy1_, xy2_);
 
             offset += (int)iter->second->size();
         }
