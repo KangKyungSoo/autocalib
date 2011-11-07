@@ -274,7 +274,6 @@ int main(int argc, char **argv) {
                 Mat_<double> xyzw0_a, xyzw1_a;
                 Mat_<double> P_r_a_ = P_r.clone();
 
-                cout << i << " " << j << " " << matches_lr0->size() << " " << matches_lr1->size() << " " << matches_ll->size() << endl;
                 AffineRectifyStereoCameraByTwoShots(P_r_a_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
                                                     Hpa, H01_a, xyzw0_a, xyzw1_a);
 
