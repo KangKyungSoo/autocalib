@@ -292,6 +292,16 @@ namespace autocalib {
     //============================================================================
     // Stereo camera autocalibration
 
+    /** \return true if both frames are left and right frames from the same stereo pair, false otherwise */
+    inline bool IsLeftRightPair(int index1, int index2) {
+        return index1 / 2 == index2 / 2 && index2 == index1 + 1;
+    }
+
+    /** \return true if both frame are left frames of different stereo pairs, false otherwise */
+    inline bool BothAreLeft(int index1, int index2) {
+        return index1 % 2 == 0 && index2 % 2 == 0 && index1 != index2;
+    }
+
     /** Performs affine rectification of the stereo pair by two image pairs.
       *
       * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 496.
