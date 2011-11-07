@@ -24,6 +24,7 @@ Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
 int seed = 0; // No seed
+double F_est_thresh = 3.;
 double noise_stddev = -1; // No noise
 bool create_images = false;
 
@@ -72,7 +73,7 @@ int main(int argc, char **argv) {
         for (int i = 0; i < num_frames; ++i) {
             while (true) {
                 Mat rvec(1, 3, CV_64F);
-                rng.fill(rvec, RNG::NORMAL, 0, 0.2);
+                rng.fill(rvec, RNG::NORMAL, 0, 0.1);
 
                 Mat R;
                 Rodrigues(rvec, R);
@@ -184,10 +185,12 @@ int main(int argc, char **argv) {
 
         cout << "\nFinding F...\n";
 
-        Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, 3.);
+        Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh);
         Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
 
         // Remove outliers
+
+        cout << "\nRemoving outliers...\n";
 
         for (MatchesCollection::iterator iter = matches_collection.begin();
              iter != matches_collection.end(); ++iter)
@@ -195,25 +198,35 @@ int main(int argc, char **argv) {
             int from = iter->first.first;
             int to = iter->first.second;
 
+            Ptr<vector<DMatch> > matches = iter->second;
+            Mat F_;
+
             if (from / 2 == to / 2 && to == from + 1) {
-                Ptr<vector<DMatch> > matches = iter->second;
-
-                Mat_<uchar> mask;
-                int num_inliers = FindFundamentalMatInliers(*(features_collection.find(iter->first.first)->second),
-                                                            *(features_collection.find(iter->first.second)->second),
-                                                            *matches, F, 3., mask);
-
-                cout << num_inliers << " " << matches->size() << endl;
-
-                Ptr<vector<DMatch> > inliers = new vector<DMatch>();
-                inliers->reserve(num_inliers);
-
-                for (size_t i = 0; i < matches->size(); ++i)
-                    if (mask(0, i))
-                        inliers->push_back((*matches)[i]);
-
-                iter->second = inliers;
+                F_ = F;
             }
+            else {
+                Mat xy1, xy2;
+                ExtractMatchedKeypoints(*(features_collection.find(from)->second),
+                                        *(features_collection.find(to)->second),
+                                        *matches, xy1, xy2);
+                F_ = findFundamentalMat(xy2.reshape(2), xy1.reshape(2), FM_RANSAC, F_est_thresh);
+            }
+
+            Mat_<uchar> mask;
+            int num_inliers = FindFundamentalMatInliers(*(features_collection.find(from)->second),
+                                                        *(features_collection.find(to)->second),
+                                                        *matches, F_, F_est_thresh, mask);
+
+            cout << "from=" << from << " to=" << to << " #matches=" << matches->size() << " #inliers=" << num_inliers << endl;
+
+            Ptr<vector<DMatch> > inliers = new vector<DMatch>();
+            inliers->reserve(num_inliers);
+            for (size_t i = 0; i < matches->size(); ++i) {
+                if (mask(0, i)) {
+                    inliers->push_back((*matches)[i]);
+                }
+            }
+            iter->second = inliers;
         }
 
         // Affine rectification
@@ -366,6 +379,8 @@ void ParseArgs(int argc, char **argv) {
         }
         else if (string(argv[i]) == "--seed")
             seed = atoi(argv[++i]);
+        else if (string(argv[i]) == "--F-est-thresh")
+            F_est_thresh = atof(argv[++i]);
         else if (string(argv[i]) == "--noise-stddev")
             noise_stddev = atof(argv[++i]);
         else if (string(argv[i]) == "--create-images")
