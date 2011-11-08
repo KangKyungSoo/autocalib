@@ -66,8 +66,8 @@ namespace autocalib {
                         b(eq_idx, 0) = -H(r1, 2) * H(r2, 2);
                     }
 
-                    b(eq_idx, 0) /= norm(A.row(eq_idx));
-                    A.row(eq_idx) /= norm(A.row(eq_idx));
+                    b(eq_idx, 0) /= norm(A.row(eq_idx)) + 1;
+                    A.row(eq_idx) /= norm(A.row(eq_idx)) + 1;
 
                     eq_idx++;
                 }
@@ -106,6 +106,7 @@ namespace autocalib {
 
     Mat CalibRotationalCameraLinearNoSkew(const HomographiesP2 &Hs, double *residual_error) {
         int num_Hs = (int)Hs.size();
+        cout << num_Hs << endl;
         if (num_Hs < 1)
             throw runtime_error("Need at least one homography");
 
@@ -147,8 +148,8 @@ namespace autocalib {
                         b(eq_idx, 0) = -Ht(r1, 2) * Ht(r2, 2);
                     }
 
-                    b(eq_idx, 0) /= norm(A.row(eq_idx));
-                    A.row(eq_idx) /= norm(A.row(eq_idx));
+                    b(eq_idx, 0) /= norm(A.row(eq_idx)) + 1;
+                    A.row(eq_idx) /= norm(A.row(eq_idx)) + 1;
 
                     eq_idx++;
                 }
@@ -183,7 +184,7 @@ namespace autocalib {
             throw runtime_error("IAC isn't positive definite");
 
         Mat_<double> K = K_inv_t.inv().t();
-        K /= K(2, 2);
+        K /= K(2, 2);        
 
         return K;
     }
@@ -371,13 +372,14 @@ namespace autocalib {
 
 
     void AffineRectifyStereoCameraByTwoShots(
-            InputOutputArray P_r,
+            InputOutputArray P_l, InputOutputArray P_r,
             InputOutputArray xy_l0, InputOutputArray xy_r0, InputOutputArray xy_l1, InputOutputArray xy_r1,
             const Ptr<vector<DMatch> > &matches_lr0, const Ptr<vector<DMatch> > &matches_lr1,
             const Ptr<vector<DMatch> > &matches_ll,
             OutputArray Hpa, OutputArray H01, OutputArray xyzw0, OutputArray xyzw1)
     {
-        CV_Assert(P_r.getMat().type() == CV_64F && P_r.getMat().size() == Size(4, 3));
+        CV_Assert(P_l.getMat().type() == CV_64F && P_l.getMat().size() == Size(4, 3));
+        CV_Assert(P_r.getMat().type() == CV_64F && P_r.getMat().size() == Size(4, 3));        
 
         CV_Assert(xy_l0.getMat().type() == CV_64F && xy_l0.getMat().rows == 1 && xy_l0.getMat().cols % 2 == 0);
         CV_Assert(xy_r0.getMat().type() == CV_64F && xy_r0.getMat().rows == 1 && xy_r0.getMat().cols % 2 == 0);
@@ -387,31 +389,28 @@ namespace autocalib {
         CV_Assert(xy_r1.getMat().type() == CV_64F && xy_r1.getMat().rows == 1 && xy_r1.getMat().cols % 2 == 0);
         CV_Assert(xy_l1.getMat().cols / 2 == xy_r1.getMat().cols / 2);
 
+        Mat_<double> P_l_(P_l.getMat());
         Mat_<double> P_r_(P_r.getMat());
         Mat_<double> xy_l0_(xy_l0.getMat());
         Mat_<double> xy_r0_(xy_r0.getMat());
         Mat_<double> xy_l1_(xy_l1.getMat());
         Mat_<double> xy_r1_(xy_r1.getMat());
 
-        // Extract camera matrices
-
-        Mat_<double> P_l = Mat::eye(3, 4, CV_64F);
-
         // Find structure
 
         DltTriangulation dlt;
 
         Mat_<double> xyzw0_;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l0_, xy_r0_, xyzw0_);
+        dlt.triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l0_, xy_r0_, xyzw0_);
 
         Mat_<double> xyzw1_;
-        dlt.triangulate(ProjectiveCamera(P_l), ProjectiveCamera(P_r_), xy_l1_, xy_r1_, xyzw1_);
+        dlt.triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l1_, xy_r1_, xyzw1_);
 
         AUTOCALIB_LOG(
             cout << "\nDLT reprojection RMS errors (l0 r0 l1 r1) = ("
-                 << CalcRmsReprojectionError(xy_l0, P_l, xyzw0_) << " "
+                 << CalcRmsReprojectionError(xy_l0, P_l_, xyzw0_) << " "
                  << CalcRmsReprojectionError(xy_r0, P_r_, xyzw0_) << " "
-                 << CalcRmsReprojectionError(xy_l1, P_l, xyzw1_) << " "
+                 << CalcRmsReprojectionError(xy_l1, P_l_, xyzw1_) << " "
                  << CalcRmsReprojectionError(xy_r1, P_r_, xyzw1_) << ")\n");
 
         // Leave only common part of point clouds
@@ -467,7 +466,7 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
-        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
+        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);        
 
         Mat_<double> xyzw1_mapped(xyzw0_.size(), xyzw0_.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -479,20 +478,21 @@ namespace autocalib {
 
         AUTOCALIB_LOG(
             cout << "Reprojection RMS error after mapping (l1 r1) = ("
-                 << CalcRmsReprojectionError(xy_l1_, P_l, xyzw1_mapped) << " "
+                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw1_mapped) << " "
                  << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_mapped) << ")\n");
 
         // Finding plane-at-infinity
 
         AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
 
+        //Mat_<double> H10 = H01_.inv();
         Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
-        p_inf /= p_inf(3, 0);
         AUTOCALIB_LOG(cout << "Plane-at-infinity = " << p_inf << endl);
 
         Mat evals, evecs;
         EigenDecompose(H01_.t(), evals, evecs);
-        AUTOCALIB_LOG(cout << "Eigenvalues of H01.t() = " << evals << endl);
+        AUTOCALIB_LOG(cout << "Eigenvectors of H01.inv().t() = \n" << evecs
+                           << "\nEigenvalues of H01.inv().t() = " << evals << endl);
 
         // Affine rectification
 
@@ -503,7 +503,7 @@ namespace autocalib {
 
         H01_ = Hpa_.inv() * H01_ * Hpa_;
 
-        P_l = P_l * Hpa_;
+        P_l_ = P_l_ * Hpa_;
         P_r_ = P_r_ * Hpa_;
 
         xyzw0_ = Hpa_.inv() * xyzw0_.reshape(num_points_common).t();
@@ -513,11 +513,12 @@ namespace autocalib {
 
         AUTOCALIB_LOG(
             cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
-                 << CalcRmsReprojectionError(xy_l0_, P_l, xyzw0_) << " "
+                 << CalcRmsReprojectionError(xy_l0_, P_l_, xyzw0_) << " "
                  << CalcRmsReprojectionError(xy_r0_, P_r_, xyzw0_) << " "
-                 << CalcRmsReprojectionError(xy_l1_, P_l, xyzw1_) << " "
+                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw1_) << " "
                  << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_) << ")\n");
 
+        P_l.getMatRef() = P_l_;
         P_r.getMatRef() = P_r_;
         xy_l0.getMatRef() = xy_l0_;
         xy_r0.getMatRef() = xy_r0_;
@@ -879,8 +880,15 @@ namespace autocalib {
         Mat P(3, 4, CV_64F);
 
         Mat A(P(Rect(0, 0, 3, 3)));
-        Mat(CrossProductMat(epipole) * F_).copyTo(A);
-        A /= norm(A);
+
+//        Mat v(1, 3, CV_64F);
+//        RNG rng(0);
+
+//        do {
+//            rng.fill(v, RNG::UNIFORM, 0, 1);
+            Mat(CrossProductMat(epipole) * F_ /*+ epipole * v*/).copyTo(A);
+            A /= norm(A);
+//        } while (abs(determinant(A)) < 1e-4);
 
         Mat a(P(Rect(3, 0, 1, 3)));
         epipole.copyTo(a);
@@ -1108,7 +1116,7 @@ namespace autocalib {
 
     Mat CalcPlaneAtInfinity(InputOutputArray H) {
         CV_Assert(H.getMat().type() == CV_64F && H.getMat().size() == Size(4, 4));
-        Mat_<double> H_(H.getMat());
+        Mat_<double> H_(H.getMat() / pow(abs(determinant(H)), 0.25));
 
         Mat_<double> evals1, evecs1;
         EigenDecompose(H_.t(), evals1, evecs1);
@@ -1138,23 +1146,34 @@ namespace autocalib {
             }
         }
 
-        Mat_<double> pinf(4, 1);
+        vector<complex<double> > pinf(4);
 
         if (min_dist1 < min_dist2) {
-            pinf(0, 0) = evecs1(best1, 0);
-            pinf(1, 0) = evecs1(best1, 2);
-            pinf(2, 0) = evecs1(best1, 4);
-            pinf(3, 0) = evecs1(best1, 6);
+            pinf[0] = evecs1.at<complex<double> >(best1, 0);
+            pinf[1] = evecs1.at<complex<double> >(best1, 1);
+            pinf[2] = evecs1.at<complex<double> >(best1, 2);
+            pinf[3] = evecs1.at<complex<double> >(best1, 3);
         }
         else {
-            pinf(0, 0) = evecs2(best2, 0);
-            pinf(1, 0) = evecs2(best2, 2);
-            pinf(2, 0) = evecs2(best2, 4);
-            pinf(3, 0) = evecs2(best2, 6);
+            pinf[0] = evecs2.at<complex<double> >(best2, 0);
+            pinf[1] = evecs2.at<complex<double> >(best2, 1);
+            pinf[2] = evecs2.at<complex<double> >(best2, 2);
+            pinf[3] = evecs2.at<complex<double> >(best2, 3);
             H.getMatRef() = -H_;
         }
 
-        return pinf;
+        pinf[0] /= pinf[3];
+        pinf[1] /= pinf[3];
+        pinf[2] /= pinf[3];
+        pinf[3] = 1;
+
+        Mat_<double> pinf_real(4, 1);
+        pinf_real(0, 0) = pinf[0].real();
+        pinf_real(1, 0) = pinf[1].real();
+        pinf_real(2, 0) = pinf[2].real();
+        pinf_real(3, 0) = pinf[3].real();
+
+        return pinf_real;
     }
 
 
@@ -1197,6 +1216,8 @@ namespace autocalib {
         vector<uchar> F_mask;
         Mat F = findFundamentalMat(Mat(xy2).reshape(2), Mat(xy1).reshape(2), F_mask, FM_RANSAC,
                                    thresh);
+//        Mat F = findFundamentalMat(Mat(xy2).reshape(2), Mat(xy1).reshape(2), F_mask, FM_LMEDS,
+//                                   thresh);
 
         int num_inliers = 0;
         for (size_t i = 0; i < F_mask.size(); ++i) {
@@ -1575,4 +1596,5 @@ namespace autocalib {
     }
 
 } // namespace autocalib
+
 

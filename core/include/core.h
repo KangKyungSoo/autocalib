@@ -77,7 +77,7 @@ namespace autocalib {
           * \return Camera object
           */
         static RigidCamera LocalToWorld(const cv::Mat &K, const cv::Mat &R, const cv::Mat &center) {
-            cv::Mat R_inv = R.inv();
+            cv::Mat R_inv = R.t();
             return RigidCamera(K, R_inv, -R_inv * center);
         }
 
@@ -307,6 +307,7 @@ namespace autocalib {
       * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 496.
       * When the function finishes, keypoint arrays will contain images of points shared amongst the both pairs.
       *
+      * \param P_l Left camera projective matrix (the same for both pairs)
       * \param P_r Right camera projective matrix (the same for both pairs)
       * \param xy_l0 First pair left image keypoints
       * \param xy_r0 First pair right image keypoints
@@ -321,7 +322,7 @@ namespace autocalib {
       * \param xyzw1 Second pair point cloud
       */
     void AffineRectifyStereoCameraByTwoShots(
-            cv::InputOutputArray P_r,
+            cv::InputOutputArray P_l, cv::InputOutputArray P_r,
             cv::InputOutputArray xy_l0, cv::InputOutputArray xy_r0,
             cv::InputOutputArray xy_l1, cv::InputOutputArray xy_r1,
             const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1,
