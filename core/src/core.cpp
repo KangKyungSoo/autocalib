@@ -466,7 +466,7 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
-        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);        
+        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
 
         Mat_<double> xyzw1_mapped(xyzw0_.size(), xyzw0_.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -485,14 +485,9 @@ namespace autocalib {
 
         AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
 
-        //Mat_<double> H10 = H01_.inv();
+        cout << H01_ << endl;
         Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
         AUTOCALIB_LOG(cout << "Plane-at-infinity = " << p_inf << endl);
-
-        Mat evals, evecs;
-        EigenDecompose(H01_.t(), evals, evecs);
-        AUTOCALIB_LOG(cout << "Eigenvectors of H01.inv().t() = \n" << evecs
-                           << "\nEigenvalues of H01.inv().t() = " << evals << endl);
 
         // Affine rectification
 
@@ -1104,7 +1099,7 @@ namespace autocalib {
         }
 
         for (int i = 0; i < A.rows; ++i)
-            Mat(A.row(i)) /= norm(A.row(i));
+            Mat(A.row(i)) /= norm(A.row(i)) + 1;
 
         Mat_<double> H;
         SVD::solveZ(A, H);
@@ -1121,11 +1116,14 @@ namespace autocalib {
         Mat_<double> evals1, evecs1;
         EigenDecompose(H_.t(), evals1, evecs1);
 
+        cout << evecs1 << endl;
+        cout << evals1 << endl;
+
         int best1 = 0;
         double min_dist1 = numeric_limits<double>::max();
 
         for (int i = 1; i < 4; ++i) {
-            double dist = Sqr(evals1(0, 2 * i) - 1) + Sqr(evals1(0, 2 * i + 1));
+            double dist = abs(evals1(0, 2 * i + 1));
             if (dist < min_dist1) {
                 best1 = i;
                 min_dist1 = dist;
@@ -1135,11 +1133,14 @@ namespace autocalib {
         Mat_<double> evals2, evecs2;
         EigenDecompose(-H_.t(), evals2, evecs2);
 
+        cout << evecs2 << endl;
+        cout << evals2 << endl;
+
         int best2 = 0;
         double min_dist2 = numeric_limits<double>::max();
 
         for (int i = 1; i < 4; ++i) {
-            double dist = Sqr(evals2(0, 2 * i) - 1) + Sqr(evals2(0, 2 * i + 1));
+            double dist = abs(evals2(0, 2 * i + 1));
             if (dist < min_dist2) {
                 best2 = i;
                 min_dist2 = dist;
@@ -1166,6 +1167,8 @@ namespace autocalib {
         pinf[1] /= pinf[3];
         pinf[2] /= pinf[3];
         pinf[3] = 1;
+
+        cout << pinf[0] << " " << pinf[1] << " " << pinf[2] << " " << pinf[3] << endl;
 
         Mat_<double> pinf_real(4, 1);
         pinf_real(0, 0) = pinf[0].real();
