@@ -80,16 +80,16 @@ int main(int argc, char **argv) {
         rvec(0, 0) = 0.1; rvec(0, 1) = 0.2; rvec(0, 2) = 0.1;
         Mat R; Rodrigues(rvec, R);
         Mat_<double> T(3, 1);
-        T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -7;
+        T(0, 0) = 1; T(1, 0) = 0; T(2, 0) = -7;
 
         Mat R_cur = Mat::eye(3, 3, CV_64F);
         for (int i = 0; i < num_frames; ++i) {
             Mat_<double> T_noise(3, 1);
-            rng.fill(T_noise, RNG::NORMAL, -0.2, 0.2);
+            rng.fill(T_noise, RNG::UNIFORM, -0.3, 0.3);
             Mat T_cur_noised = T + T_noise;
 
             Mat_<double> rvec_noise(1, 3);
-            rng.fill(rvec_noise, RNG::NORMAL, -0.2, 0.2);
+            rng.fill(rvec_noise, RNG::UNIFORM, -0.3, 0.3);
             Mat R_noise; Rodrigues(rvec_noise, R_noise);
             Mat R_cur_noised = R_cur * R_noise;
 
