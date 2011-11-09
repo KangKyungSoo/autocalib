@@ -401,13 +401,15 @@ namespace autocalib {
 
         // Find structure
 
-        DltTriangulation dlt;
+        DltTriangulation triang;
+//        IterativeTriangulation triang;
+//        triang.set_num_iters(10);
 
         Mat_<double> xyzw0_;
-        dlt.triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l0_, xy_r0_, xyzw0_);
+        triang.triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l0_, xy_r0_, xyzw0_);
 
         Mat_<double> xyzw1_;
-        dlt.triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l1_, xy_r1_, xyzw1_);
+        triang.triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l1_, xy_r1_, xyzw1_);
 
         AUTOCALIB_LOG(
             cout << "\nDLT reprojection RMS errors (l0 r0 l1 r1) = ("
@@ -771,7 +773,10 @@ namespace autocalib {
         }
 
         EpipError_FixedK_StereoCam func(features, matches, motions_indices, params_to_refine);
-        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
+        double rms_error = MinimizeLevMarq(func, arg,
+                MinimizeOpts(cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS,
+                                              2000, std::numeric_limits<double>::epsilon()),
+                             MinimizeOpts::VERBOSE_SUMMARY));
 
         K(0, 0) = arg(0, 0);
         K(0, 1) = arg(0, 1);
@@ -1000,11 +1005,6 @@ namespace autocalib {
                 rbuf = A.row(3);
                 Mat(w2 * (P2_.row(2) * xy2_(0, 2 * i + 1) - P2_.row(1))).copyTo(rbuf);
 
-                Mat(A.row(0)) /= norm(A.row(0));
-                Mat(A.row(1)) /= norm(A.row(1));
-                Mat(A.row(2)) /= norm(A.row(2));
-                Mat(A.row(3)) /= norm(A.row(3));
-
                 SVD::solveZ(A, point);
                 point = point.t();
                 w1 = 1 / P1_.row(2).dot(point);
@@ -1191,7 +1191,7 @@ namespace autocalib {
                 evecs1.at<complex<double> >(i, j) /= max_val;
         }
 
-        //cout << evecs1 << endl;
+        cout << evecs1 << endl;
 
         int best1 = 0;
         double min_max_im1 = numeric_limits<double>::max();
