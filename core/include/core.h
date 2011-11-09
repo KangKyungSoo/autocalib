@@ -560,7 +560,7 @@ namespace autocalib {
       *
       * \param xy1 First image keypoints
       * \param xy2 Second image keypoints
-      * \param F Fundamental matrix, such as p1' * F * p2 = 0
+      * \param F Fundamental matrix, such as p2' * F * p1 = 0
       * \return RMS point-to-epipolar line distance
       */
     double CalcRmsEpipolarDistance(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray F);

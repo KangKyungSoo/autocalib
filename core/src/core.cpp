@@ -91,8 +91,10 @@ namespace autocalib {
         diac(1, 1) = x(3, 0);
         diac(1, 2) = diac(2, 1) = x(4, 0);
 
-        AUTOCALIB_LOG(Mat evals; Mat evecs;
-            eigen(diac, evals, evecs);
+        Mat evals, evecs;
+        eigen(diac, evals, evecs);
+
+        AUTOCALIB_LOG(
             cout << "DIAC = K * K.t() = \n" << diac << endl;
             cout << "DIAC evecs = \n" << evecs << endl;
             cout << "DIAC evals = \n" << evals << endl);
@@ -172,12 +174,13 @@ namespace autocalib {
         iac(1, 1) = x(2, 0);
         iac(1, 2) = iac(2, 1) = x(3, 0);
 
+        Mat_<double> evals, evecs;
+        eigen(iac, evals, evecs);
+
         AUTOCALIB_LOG(
-            Mat evals; Mat evecs;
-            eigen(iac, evals, evecs);
-            cout << "IAC = (K * K.t()).inv() =\n" << iac << endl;
-            cout << "IAC evecs = \n" << evecs << endl;
-            cout << "IAC evals = \n" << evals << endl);
+            cout << "IAC = (K * K.t()).inv() =\n" << iac
+                 << "\nIAC evecs = \n" << evecs
+                 << "\nIAC evals = \n" << evals << endl);
 
         Mat K_inv_t = DecomposeCholesky(iac);
         if (K_inv_t.empty())
@@ -768,9 +771,7 @@ namespace autocalib {
         }
 
         EpipError_FixedK_StereoCam func(features, matches, motions_indices, params_to_refine);
-        double rms_error = MinimizeLevMarq(func, arg,
-                                           MinimizeOpts(TermCriteria(TermCriteria::MAX_ITER | cv::TermCriteria::EPS,
-                                                                     200, numeric_limits<double>::epsilon()), MinimizeOpts::VERBOSE_SUMMARY));
+        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K(0, 0) = arg(0, 0);
         K(0, 1) = arg(0, 1);
