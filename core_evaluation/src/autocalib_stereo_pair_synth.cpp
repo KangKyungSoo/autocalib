@@ -35,7 +35,7 @@ bool create_images = false;
 string log_file;
 
 int main(int argc, char **argv) {
-    try {
+    try {        
         ParseArgs(argc, argv);
 
         if (K_gold.empty()) {
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
         Mat_<double> T_rel(3, 1);
         T_rel(0, 0) = 1; T_rel(1, 0) = T_rel(2, 0) = 0.1;
         Mat_<double> rvec_rel(1, 3);
-        rvec_rel(0, 0) = 0.1; rvec_rel(0, 1) = 0.1; rvec_rel(0, 2) = 0.1; // TODO everything is bad when rvec_rel != 0
+        rvec_rel(0, 0) = 0.1; rvec_rel(0, 1) = 0.1; rvec_rel(0, 2) = 0.1;
         Mat R_rel; Rodrigues(rvec_rel, R_rel);
 
         detail::ImageFeatures features;
@@ -257,7 +257,7 @@ int main(int argc, char **argv) {
                 // rotations in the linear autocalibration algorithm.
 
                 Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
-                Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+                //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
             }
         }
 
