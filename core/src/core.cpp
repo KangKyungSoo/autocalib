@@ -108,7 +108,7 @@ namespace autocalib {
 
     Mat CalibRotationalCameraLinearNoSkew(const HomographiesP2 &Hs, double *residual_error) {
         int num_Hs = (int)Hs.size();
-        cout << num_Hs << endl;
+        //cout << num_Hs << endl;
         if (num_Hs < 1)
             throw runtime_error("Need at least one homography");
 
@@ -1250,7 +1250,7 @@ namespace autocalib {
         pinf[2] /= pinf[3];
         pinf[3] = 1;
 
-        //cout << pinf[0] << " " << pinf[1] << " " << pinf[2] << " " << pinf[3] << endl;
+        cout << pinf[0] << " " << pinf[1] << " " << pinf[2] << " " << pinf[3] << endl;
 
         Mat_<double> pinf_real(4, 1);
         pinf_real(0, 0) = pinf[0].real();
