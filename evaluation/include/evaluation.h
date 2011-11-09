@@ -222,6 +222,41 @@ namespace evaluation {
       */
     cv::Mat CreateImage(const cv::detail::ImageFeatures &features);
 
+
+    class MonoViewer {
+    public:
+        MonoViewer() : cameras_(0), features_(0) {
+            cv::Mat_<double> K = cv::Mat::eye(3, 3, CV_64F);
+            K(0, 0) = 3000; K(0, 2) = 960;
+            K(1, 1) = 3000; K(1, 2) = 540;
+            set_camera(RigidCamera(K, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(3, 1, CV_64F)));
+            set_view_port(cv::Rect(0, 0, 1920, 1080));
+            set_window_size(cv::Size(320, 240));
+        }
+
+        RigidCamera camera() { return camera_; }
+        void set_camera(RigidCamera camera) { camera_ = camera; }
+
+        cv::Rect view_port() const { return view_port_; }
+        void set_view_port(cv::Rect view_port) { view_port_ = view_port; }
+
+        cv::Size window_size() const { return window_size_; }
+        void set_window_size(cv::Size window_size) { window_size_= window_size; }
+
+        void set_camera_snapshots_output(std::vector<RigidCamera> *cameras) { cameras_ = cameras; }
+        void set_feature_snapshots_output(FeaturesCollection *features) { features_ = features; }
+
+        void Run();
+
+    private:
+        cv::Ptr<PointCloudScene> scene_;
+        RigidCamera camera_;
+        cv::Rect view_port_;
+        cv::Size window_size_;
+        std::vector<RigidCamera> *cameras_;
+        FeaturesCollection *features_;
+    };
+
 } // namespace evaluation
 } // namespace autocalib
 
