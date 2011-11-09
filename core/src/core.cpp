@@ -488,7 +488,7 @@ namespace autocalib {
 
         AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
 
-        cout << H01_ << endl;
+        //cout << H01_ << endl;
         Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
         AUTOCALIB_LOG(cout << "Plane-at-infinity = " << p_inf << endl);
 
@@ -1191,7 +1191,7 @@ namespace autocalib {
                 evecs1.at<complex<double> >(i, j) /= max_val;
         }
 
-        cout << evecs1 << endl;
+        //cout << evecs1 << endl;
 
         int best1 = 0;
         double min_max_im1 = numeric_limits<double>::max();
@@ -1250,7 +1250,7 @@ namespace autocalib {
         pinf[2] /= pinf[3];
         pinf[3] = 1;
 
-        cout << pinf[0] << " " << pinf[1] << " " << pinf[2] << " " << pinf[3] << endl;
+        //cout << pinf[0] << " " << pinf[1] << " " << pinf[2] << " " << pinf[3] << endl;
 
         Mat_<double> pinf_real(4, 1);
         pinf_real(0, 0) = pinf[0].real();
