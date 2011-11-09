@@ -71,15 +71,16 @@ TEST(ExtractCameraMatFromFundamentalMat, CanRun) {
 }
 
 
-class DltTriangulationMetric : public testing::TestWithParam<Ptr<PointCloudSceneCreator> > { };
+class TriangulationMetric : public testing::TestWithParam<tr1::tuple<Ptr<ITringulationMethodCreator>,
+                                                                     Ptr<IPointCloudSceneCreator> > > { };
 
-TEST_P(DltTriangulationMetric, CanTriangulate) {
+TEST_P(TriangulationMetric, CanTriangulate) {
     RNG rng(0);
     int num_points = 1000;
-    double max_angle = 0.1;
     Rect viewport = Rect(0, 0, 640, 480);
 
-    Ptr<PointCloudScene> scene = GetParam()->Create(num_points, rng);
+    Ptr<ITriangulationMethod> method = tr1::get<0>(GetParam())->Create();
+    Ptr<PointCloudScene> scene = tr1::get<1>(GetParam())->Create(num_points, rng);
 
     Mat_<double> K = Mat::eye(3, 3, CV_64F);
     K(0, 0) = K(1, 1) = viewport.width + viewport.height;
@@ -92,7 +93,10 @@ TEST_P(DltTriangulationMetric, CanTriangulate) {
     for (int i = 0; i < 2; ++i) {
         Mat_<double> center = Mat::zeros(3, 1, CV_64F);
         center(0, 0) = i * 2 - 1; center(2, 0) = -10;
-        cameras[i] = RigidCamera::LocalToWorld(K, Mat::eye(3, 3, CV_64F), center);
+        Mat_<double> rvec = Mat::zeros(1, 3, CV_64F);
+        rvec(0, 0) = 0.1; rvec(0, 1) = 0.1; rvec(0, 2) = 0.1;
+        Mat R; Rodrigues(rvec * (i * 2 - 1), R);
+        cameras[i] = RigidCamera::LocalToWorld(K, R, center);
         Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
         scene->TakeShot(cameras[i], viewport, *features);
         features_collection[i] = features;
@@ -114,10 +118,8 @@ TEST_P(DltTriangulationMetric, CanTriangulate) {
         xy1(0, 2 * i + 1) = f1.keypoints[matches[i].trainIdx].pt.y;
     }
 
-    DltTriangulation dlt;
-
     Mat_<double> xyzw;
-    dlt.triangulate(cameras[0], cameras[1], xy0, xy1, xyzw);
+    method->triangulate(cameras[0], cameras[1], xy0, xy1, xyzw);
 
     for (size_t i = 0; i < matches.size(); ++i) {
         int point_idx = f0.descriptors.at<int>(matches[i].queryIdx);
@@ -133,19 +135,22 @@ TEST_P(DltTriangulationMetric, CanTriangulate) {
 }
 
 INSTANTIATE_TEST_CASE_P(StdSynthScenes,
-                        DltTriangulationMetric,
-                        testing::Values(new SphereSceneCreator(), new CubeSceneCreator()));
+                        TriangulationMetric,
+                        testing::Combine(
+                            testing::Values(new DltTriangulationCreator(), new IterativeTriangulationCreator()),
+                            testing::Values(new SphereSceneCreator(), new CubeSceneCreator())));
 
 
-class DltTriangulationProjective : public testing::TestWithParam<Ptr<PointCloudSceneCreator> > { };
+class TriangulationProjective : public testing::TestWithParam<tr1::tuple<Ptr<ITringulationMethodCreator>,
+                                                                         Ptr<IPointCloudSceneCreator> > > { };
 
-TEST_P(DltTriangulationProjective, CanTriangulate) {
+TEST_P(TriangulationProjective, CanTriangulate) {
     RNG rng(0);
     int num_points = 1000;
-    double max_angle = 0.1;
     Rect viewport = Rect(0, 0, 640, 480);    
 
-    Ptr<PointCloudScene> scene = GetParam()->Create(num_points, rng);
+    Ptr<ITriangulationMethod> method = tr1::get<0>(GetParam())->Create();
+    Ptr<PointCloudScene> scene = tr1::get<1>(GetParam())->Create(num_points, rng);
 
     Mat_<double> K = Mat::eye(3, 3, CV_64F);
     K(0, 0) = K(1, 1) = viewport.width + viewport.height;
@@ -158,7 +163,10 @@ TEST_P(DltTriangulationProjective, CanTriangulate) {
     for (int i = 0; i < 2; ++i) {
         Mat_<double> center = Mat::zeros(3, 1, CV_64F);
         center(0, 0) = i * 2 - 1; center(2, 0) = -10;
-        cameras[i] = RigidCamera::LocalToWorld(K, Mat::eye(3, 3, CV_64F), center);
+        Mat_<double> rvec = Mat::zeros(1, 3, CV_64F);
+        rvec(0, 0) = 0.1; rvec(0, 1) = 0.1; rvec(0, 2) = 0.1;
+        Mat R; Rodrigues(rvec * (i * 2 - 1), R);
+        cameras[i] = RigidCamera::LocalToWorld(K, R, center);
         Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
         scene->TakeShot(cameras[i], viewport, *features);
         features_collection[i] = features;
@@ -186,34 +194,34 @@ TEST_P(DltTriangulationProjective, CanTriangulate) {
     H /= pow(abs(determinant(H)), 0.25);
     Mat_<double> H_inv = H.inv();
 
-    DltTriangulation dlt;
-
     Mat_<double> P0 = cameras[0].P() * H_inv;
     Mat_<double> P1 = cameras[1].P() * H_inv;
 
     Mat_<double> xyzw;
-    dlt.triangulate(ProjectiveCamera(P0), ProjectiveCamera(P1), xy0, xy1, xyzw);
+    method->triangulate(ProjectiveCamera(P0), ProjectiveCamera(P1), xy0, xy1, xyzw);
 
     for (size_t i = 0; i < matches.size(); ++i) {
         double x0 = P0(0, 0) * xyzw(0, 4 * i) + P0(0, 1) * xyzw(0, 4 * i + 1) + P0(0, 2) * xyzw(0, 4 * i + 2) + P0(0, 3) * xyzw(0, 4 * i + 3);
         double y0 = P0(1, 0) * xyzw(0, 4 * i) + P0(1, 1) * xyzw(0, 4 * i + 1) + P0(1, 2) * xyzw(0, 4 * i + 2) + P0(1, 3) * xyzw(0, 4 * i + 3);
         double z0 = P0(2, 0) * xyzw(0, 4 * i) + P0(2, 1) * xyzw(0, 4 * i + 1) + P0(2, 2) * xyzw(0, 4 * i + 2) + P0(2, 3) * xyzw(0, 4 * i + 3);
 
-        ASSERT_NEAR(xy0(0, 2 * i), x0 / z0, 1e-6);
-        ASSERT_NEAR(xy0(0, 2 * i + 1), y0 / z0, 1e-6);
+        ASSERT_NEAR(xy0(0, 2 * i), x0 / z0, 1e-4);
+        ASSERT_NEAR(xy0(0, 2 * i + 1), y0 / z0, 1e-4);
 
         double x1 = P1(0, 0) * xyzw(0, 4 * i) + P1(0, 1) * xyzw(0, 4 * i + 1) + P1(0, 2) * xyzw(0, 4 * i + 2) + P1(0, 3) * xyzw(0, 4 * i + 3);
         double y1 = P1(1, 0) * xyzw(0, 4 * i) + P1(1, 1) * xyzw(0, 4 * i + 1) + P1(1, 2) * xyzw(0, 4 * i + 2) + P1(1, 3) * xyzw(0, 4 * i + 3);
         double z1 = P1(2, 0) * xyzw(0, 4 * i) + P1(2, 1) * xyzw(0, 4 * i + 1) + P1(2, 2) * xyzw(0, 4 * i + 2) + P1(2, 3) * xyzw(0, 4 * i + 3);
 
-        ASSERT_NEAR(xy1(0, 2 * i), x1 / z1, 1e-6);
-        ASSERT_NEAR(xy1(0, 2 * i + 1), y1 / z1, 1e-6);
+        ASSERT_NEAR(xy1(0, 2 * i), x1 / z1, 1e-4);
+        ASSERT_NEAR(xy1(0, 2 * i + 1), y1 / z1, 1e-4);
     }    
 }
 
 INSTANTIATE_TEST_CASE_P(StdSynthScenes,
-                        DltTriangulationProjective,
-                        testing::Values(new SphereSceneCreator(), new CubeSceneCreator()));
+                        TriangulationProjective,
+                        testing::Combine(
+                            testing::Values(new DltTriangulationCreator(), new IterativeTriangulationCreator()),
+                            testing::Values(new SphereSceneCreator(), new CubeSceneCreator())));
 
 
 TEST(FindHomographyLinear, NoiselessSynthDataset) {

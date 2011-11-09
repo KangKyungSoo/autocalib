@@ -538,7 +538,7 @@ namespace autocalib {
             double x1_ = F12(0, 0) * x1 + F12(1, 0) * y1 + F12(2, 0);
             double y1_ = F12(0, 1) * x1 + F12(1, 1) * y1 + F12(2, 1);
 
-            return Sqr(x1 * x2_ + y1 * y2_ + z2_) * (1 / (x1_ * x1_ + y1_ * y1_) +
+            return sqr(x1 * x2_ + y1 * y2_ + z2_) * (1 / (x1_ * x1_ + y1_ * y1_) +
                                                      1 / (x2_ * x2_ + y2_ * y2_));
         }
 
@@ -905,6 +905,10 @@ namespace autocalib {
         Mat_<double> P1_ = P1.P(), P2_ = P2.P();
         P1_ /= norm(P1_); P2_ /= norm(P2_);
 
+        Mat &mat = xyzw.getMatRef();
+        mat.create(1, 4 * num_points, CV_64F);
+        Mat_<double> xyzw_(mat);
+
         // Normalize keypoints and cameras
 
         Mat_<double> T1 = CalcNormalizationMat3x3(xy1_);
@@ -921,10 +925,6 @@ namespace autocalib {
         P2_ = T2 * P2_;
 
         // Find points
-
-        Mat &mat = xyzw.getMatRef();
-        mat.create(1, 4 * num_points, CV_64F);
-        Mat_<double> xyzw_(mat);
 
         Mat_<double> A(4, 4);
 
@@ -951,6 +951,71 @@ namespace autocalib {
     }
 
 
+    void IterativeTriangulation::triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
+                                             InputArray xy1, InputArray xy2, InputOutputArray xyzw)
+    {
+        CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
+        CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy2.getMat().cols % 2 == 0);
+        CV_Assert(xy2.getMat().cols / 2 == xy2.getMat().cols / 2);
+
+        Mat_<double> xy1_ = xy1.getMat().clone(), xy2_ = xy2.getMat().clone();
+        int num_points = xy1_.cols / 2;
+
+        Mat_<double> P1_ = P1.P(), P2_ = P2.P();
+        P1_ /= norm(P1_); P2_ /= norm(P2_);
+
+        Mat &mat = xyzw.getMatRef();
+        mat.create(1, 4 * num_points, CV_64F);
+        Mat_<double> xyzw_(mat);
+
+        // Normalize keypoints and cameras
+
+        Mat_<double> T1 = CalcNormalizationMat3x3(xy1_);
+        Mat_<double> T2 = CalcNormalizationMat3x3(xy2_);
+
+        for (int i = 0; i < num_points; ++i) {
+            xy1_(0, 2 * i) = T1(0, 0) * xy1_(0, 2 * i) + T1(0, 2);
+            xy1_(0, 2 * i + 1) = T1(1, 1) * xy1_(0, 2 * i + 1) + T1(1, 2);
+            xy2_(0, 2 * i) = T2(0, 0) * xy2_(0, 2 * i) + T2(0, 2);
+            xy2_(0, 2 * i + 1) = T2(1, 1) * xy2_(0, 2 * i + 1) + T2(1, 2);
+        }
+
+        P1_ = T1 * P1_;
+        P2_ = T2 * P2_;
+
+        // Find points
+
+        Mat A(4, 4, CV_64F), rbuf, ptbuf, point;
+
+        for (int i = 0; i < num_points; ++i) {
+            double w1 = 1, w2 = 1;
+            for (int iter = 0; iter < num_iters_; ++iter) {
+                rbuf = A.row(0);
+                Mat(w1 * (P1_.row(2) * xy1_(0, 2 * i) - P1_.row(0))).copyTo(rbuf);
+                rbuf = A.row(1);
+                Mat(w1 * (P1_.row(2) * xy1_(0, 2 * i + 1) - P1_.row(1))).copyTo(rbuf);
+                rbuf = A.row(2);
+                Mat(w2 * (P2_.row(2) * xy2_(0, 2 * i) - P2_.row(0))).copyTo(rbuf);
+                rbuf = A.row(3);
+                Mat(w2 * (P2_.row(2) * xy2_(0, 2 * i + 1) - P2_.row(1))).copyTo(rbuf);
+
+                Mat(A.row(0)) /= norm(A.row(0));
+                Mat(A.row(1)) /= norm(A.row(1));
+                Mat(A.row(2)) /= norm(A.row(2));
+                Mat(A.row(3)) /= norm(A.row(3));
+
+                SVD::solveZ(A, point);
+                point = point.t();
+                w1 = 1 / P1_.row(2).dot(point);
+                w2 = 1 / P2_.row(2).dot(point);
+            }
+
+            ptbuf = xyzw_.colRange(4 * i, 4 * (i + 1));
+            Mat(point).copyTo(ptbuf);
+        }
+    }
+
+
     Mat CalcNormalizationMat3x3(InputArray xy) {
         CV_Assert(xy.getMat().type() == CV_64F && xy.getMat().rows == 1 && xy.getMat().cols % 2 == 0);
         Mat_<double> xy_ = xy.getMat();
@@ -966,7 +1031,7 @@ namespace autocalib {
 
         double mean_dist = 0;
         for (int i = 0; i < num_points; ++i) 
-            mean_dist += sqrt(Sqr(cx - xy_(0, 2 * i)) + Sqr(cy - xy_(0, 2 * i + 1)));
+            mean_dist += sqrt(sqr(cx - xy_(0, 2 * i)) + sqr(cy - xy_(0, 2 * i + 1)));
         mean_dist /= num_points;
 
         double scale = num_points > 1 ? sqrt(2.) / mean_dist : 1;
@@ -995,7 +1060,7 @@ namespace autocalib {
             x = P_(0, 0) * xyzw_(0, 4 * i) + P_(0, 1) * xyzw_(0, 4 * i + 1) + P_(0, 2) * xyzw_(0, 4 * i + 2) + P_(0, 3) * xyzw_(0, 4 * i + 3);
             y = P_(1, 0) * xyzw_(0, 4 * i) + P_(1, 1) * xyzw_(0, 4 * i + 1) + P_(1, 2) * xyzw_(0, 4 * i + 2) + P_(1, 3) * xyzw_(0, 4 * i + 3);
             z = P_(2, 0) * xyzw_(0, 4 * i) + P_(2, 1) * xyzw_(0, 4 * i + 1) + P_(2, 2) * xyzw_(0, 4 * i + 2) + P_(2, 3) * xyzw_(0, 4 * i + 3);
-            sum_sq_error += Sqr(xy_(0, 2 * i) - x / z) + Sqr(xy_(0, 2 * i + 1) - y / z);
+            sum_sq_error += sqr(xy_(0, 2 * i) - x / z) + sqr(xy_(0, 2 * i + 1) - y / z);
         }
 
         return sqrt(sum_sq_error / num_points);
@@ -1015,8 +1080,8 @@ namespace autocalib {
 
         double total_err = 0;
         for (int i = 0; i < num_points; ++i)
-            total_err += SymEpipDist2(xy1_(0, 2 * i), xy1_(0, 2 * i + 1), F_,
-                                      xy2_(0, 2 * i), xy2_(0, 2 * i + 1));
+            total_err += SymEpipDist2(xy2_(0, 2 * i), xy2_(0, 2 * i + 1), F_,
+                                      xy1_(0, 2 * i), xy1_(0, 2 * i + 1));
 
         return sqrt(total_err / num_points);
     }
@@ -1039,7 +1104,7 @@ namespace autocalib {
             const Point2f &p1 = f1.keypoints[matches[i].queryIdx].pt;
             const Point2f &p2 = f2.keypoints[matches[i].trainIdx].pt;
 
-            double err = SymEpipDist2(p1.x, p1.y, F_, p2.x, p2.y);
+            double err = SymEpipDist2(p2.x, p2.y, F_, p1.x, p1.y);
             if (err < thresh * thresh) {
                 mask_(0, i) = 1;
                 num_inliers++;
@@ -1114,42 +1179,58 @@ namespace autocalib {
         Mat_<double> H_(H.getMat() / pow(abs(determinant(H)), 0.25));
 
         Mat_<double> evals1, evecs1;
-        EigenDecompose(H_.t(), evals1, evecs1);
+        EigenDecompose(H_.t(), evals1, evecs1);        
+
+        for (int i = 0; i < 4; ++i) {
+            complex<double> max_val = evecs1.at<complex<double> >(i, 0);
+            for (int j = 1; j < 4; ++j)
+                if (abs(evecs1.at<complex<double> >(i, j)) > abs(max_val))
+                    max_val = evecs1.at<complex<double> >(i, j);
+            for (int j = 0; j < 4; ++j)
+                evecs1.at<complex<double> >(i, j) /= max_val;
+        }
 
         cout << evecs1 << endl;
-        cout << evals1 << endl;
 
         int best1 = 0;
-        double min_dist1 = numeric_limits<double>::max();
+        double min_max_im1 = numeric_limits<double>::max();
 
         for (int i = 1; i < 4; ++i) {
-            double dist = abs(evals1(0, 2 * i + 1));
-            if (dist < min_dist1) {
+            double max_im = max(abs(evecs1(i, 1)), abs(evecs1(i, 3)),
+                                abs(evecs1(i, 5)), abs(evecs1(i, 7)));
+            if (max_im < min_max_im1) {
                 best1 = i;
-                min_dist1 = dist;
+                min_max_im1 = max_im;
             }
         }
 
         Mat_<double> evals2, evecs2;
         EigenDecompose(-H_.t(), evals2, evecs2);
 
-        cout << evecs2 << endl;
-        cout << evals2 << endl;
+        for (int i = 0; i < 4; ++i) {
+            complex<double> max_val = evecs1.at<complex<double> >(i, 0);
+            for (int j = 1; j < 4; ++j)
+                if (abs(evecs1.at<complex<double> >(i, j)) > abs(max_val))
+                    max_val = evecs1.at<complex<double> >(i, j);
+            for (int j = 0; j < 4; ++j)
+                evecs1.at<complex<double> >(i, j) /= max_val;
+        }
 
         int best2 = 0;
-        double min_dist2 = numeric_limits<double>::max();
+        double min_max_im2 = numeric_limits<double>::max();
 
         for (int i = 1; i < 4; ++i) {
-            double dist = abs(evals2(0, 2 * i + 1));
-            if (dist < min_dist2) {
+            double max_im = max(abs(evecs2(i, 1)), abs(evecs2(i, 3)),
+                                abs(evecs2(i, 5)), abs(evecs2(i, 7)));
+            if (max_im < min_max_im2) {
                 best2 = i;
-                min_dist2 = dist;
+                min_max_im2 = max_im;
             }
         }
 
         vector<complex<double> > pinf(4);
 
-        if (min_dist1 < min_dist2) {
+        if (min_max_im1 < min_max_im2) {
             pinf[0] = evecs1.at<complex<double> >(best1, 0);
             pinf[1] = evecs1.at<complex<double> >(best1, 1);
             pinf[2] = evecs1.at<complex<double> >(best1, 2);
@@ -1217,10 +1298,11 @@ namespace autocalib {
         }
 
         vector<uchar> F_mask;
-        Mat F = findFundamentalMat(Mat(xy2).reshape(2), Mat(xy1).reshape(2), F_mask, FM_RANSAC,
-                                   thresh);
-//        Mat F = findFundamentalMat(Mat(xy2).reshape(2), Mat(xy1).reshape(2), F_mask, FM_LMEDS,
-//                                   thresh);
+
+        // FM_LMEDS works much better that FM_RANSAC on synthetic datasets
+
+        //Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_RANSAC, thresh);
+        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh);
 
         int num_inliers = 0;
         for (size_t i = 0; i < F_mask.size(); ++i) {

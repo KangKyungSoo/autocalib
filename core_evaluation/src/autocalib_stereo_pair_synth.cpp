@@ -18,7 +18,7 @@ using namespace autocalib::evaluation;
 void ParseArgs(int argc, char **argv);
 void AddNoise();
 
-Ptr<PointCloudSceneCreator> scene_creator = new SphereSceneCreator();
+Ptr<IPointCloudSceneCreator> scene_creator = new SphereSceneCreator();
 RNG rng;
 FeaturesCollection features_collection;
 MatchesCollection matches_collection;
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
         Mat_<double> T_rel(3, 1);
         T_rel(0, 0) = 1; T_rel(1, 0) = T_rel(2, 0) = 0.1;
         Mat_<double> rvec_rel(1, 3);
-        rvec_rel(0, 0) = 0; rvec_rel(0, 1) = 0; rvec_rel(0, 2) = 0; // TODO everything is bad when rvec_rel != 0
+        rvec_rel(0, 0) = 0.1; rvec_rel(0, 1) = 0.1; rvec_rel(0, 2) = 0.1; // TODO everything is bad when rvec_rel != 0
         Mat R_rel; Rodrigues(rvec_rel, R_rel);
 
         detail::ImageFeatures features;
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
         rvec(0, 0) = 0.1; rvec(0, 1) = 0.2; rvec(0, 2) = 0.1;
         Mat R; Rodrigues(rvec, R);
         Mat_<double> T(3, 1);
-        T(0, 0) = 1; T(1, 0) = 0; T(2, 0) = -7;
+        T(0, 0) = 1; T(1, 0) = 0; T(2, 0) = -10;
 
         Mat R_cur = Mat::eye(3, 3, CV_64F);
         for (int i = 0; i < num_frames; ++i) {
@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
             left_cameras[i] = RigidCamera::LocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (-T_rel + T_cur_noised));
             right_cameras[i] = RigidCamera::LocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (T_rel + T_cur_noised));
 
-            R_cur *= R;
+            R_cur = R * R_cur_noised;
 
             scene->TakeShot(left_cameras[i], viewport, features);
             scene->TakeShot(right_cameras[i], viewport, features);
@@ -140,24 +140,6 @@ int main(int argc, char **argv) {
             matches_collection[make_pair(2 * i, 2 * i + 1)] = matches;
             cout << "(#matches from " << 2 * i << " to " << 2 * i + 1 << " = " << matches->size() << ") ";
             cout.flush();
-
-//            Mat xy1, xy2;
-//            ExtractMatchedKeypoints(*(features_collection.find(2 * i)->second),
-//                                    *(features_collection.find(2 * i + 1)->second),
-//                                    *matches, xy1, xy2);
-//            Mat F_ = findFundamentalMat(xy2.reshape(2), xy1.reshape(2));
-//            cout << F_ << endl;
-
-//            Mat P1 = Mat::eye(3, 4, CV_64F), P2;
-//            P2 = ExtractCameraMatFromFundamentalMat(F_);
-
-//            cout << P2 << endl;
-
-//            Mat xyzw;
-//            DltTriangulation dlt;
-//            dlt.triangulate(ProjectiveCamera(P1), ProjectiveCamera(P2), xy1, xy2, xyzw);
-
-//            cout << CalcRmsReprojectionError(xy1, P1, xyzw) << " " << CalcRmsReprojectionError(xy2, P2, xyzw) << endl;
         }
         for (size_t i = 0; i < num_frames - 1; ++i) {
             for (size_t j = i + 1; j < num_frames; ++j) {
@@ -177,9 +159,8 @@ int main(int argc, char **argv) {
         cout << "\nFinding F...\n";
 
         Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh);
-        //Mat_<double> F = K_gold.inv().t() * CrossProductMat(2 * T_rel) * K_gold.inv();
-        Mat_<double> P_l = /*RigidCamera::LocalToWorld(K_gold, Mat::eye(3, 3, CV_64F), Mat::zeros(3, 1, CV_64F)).P();*/Mat::eye(3, 4, CV_64F);
-        Mat_<double> P_r = /*RigidCamera::LocalToWorld(K_gold, Mat::eye(3, 3, CV_64F), 2 * T_rel).P();*/ExtractCameraMatFromFundamentalMat(F);
+        Mat_<double> P_l = Mat::eye(3, 4, CV_64F);
+        Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
 
         // Remove outliers
 
@@ -204,7 +185,7 @@ int main(int argc, char **argv) {
                 ExtractMatchedKeypoints(*(features_collection.find(from)->second),
                                         *(features_collection.find(to)->second),
                                         *matches, xy1, xy2);
-                F_ = findFundamentalMat(xy2.reshape(2), xy1.reshape(2), FM_RANSAC, F_est_thresh);
+                F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), FM_RANSAC, F_est_thresh);
             }
             else {
                 stringstream msg;
@@ -276,7 +257,7 @@ int main(int argc, char **argv) {
                 // rotations in the linear autocalibration algorithm.
 
                 Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
-                //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+                Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
             }
         }
 
@@ -434,7 +415,7 @@ void AddNoise() {
             for (size_t j = 0; j < features->keypoints.size(); ++j) {
                 features->keypoints[j].pt.x += noise_l(0, 2 * j);
                 features->keypoints[j].pt.y += noise_l(0, 2 * j + 1);
-                total_noise += Sqr(noise_l(0, 2 * j)) + Sqr(noise_l(0, 2 * j + 1));
+                total_noise += sqr(noise_l(0, 2 * j)) + sqr(noise_l(0, 2 * j + 1));
             }
             cout << "Pair #" << i << " left frame RMS error = " << sqrt(total_noise / features->keypoints.size()) << endl;
 
@@ -443,9 +424,10 @@ void AddNoise() {
             for (size_t j = 0; j < features->keypoints.size(); ++j) {
                 features->keypoints[j].pt.x += noise_r(0, 2 * j);
                 features->keypoints[j].pt.y += noise_r(0, 2 * j + 1);
-                total_noise += Sqr(noise_r(0, 2 * j)) + Sqr(noise_r(0, 2 * j + 1));
+                total_noise += sqr(noise_r(0, 2 * j)) + sqr(noise_r(0, 2 * j + 1));
             }
             cout << "Pair #" << i << " right frame RMS error = " << sqrt(total_noise / features->keypoints.size()) << endl;
         }
     }
 }
+
