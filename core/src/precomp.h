@@ -7,6 +7,7 @@
 #include <set>
 #include <utility>
 #include <stdexcept>
+#include <complex>
 #include <opencv2/stitching/detail/util.hpp>
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>

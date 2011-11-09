@@ -483,6 +483,13 @@ namespace autocalib {
     };
 
 
+    class ITringulationMethodCreator {
+    public:
+        virtual ~ITringulationMethodCreator() {}
+        virtual cv::Ptr<ITriangulationMethod> Create() const = 0;
+    };
+
+
     /** DLT (homogeneous) triangulation method. 
       *
       * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 312.
@@ -490,9 +497,43 @@ namespace autocalib {
     class DltTriangulation : public ITriangulationMethod {
     public:
         virtual void triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2, 
-                                 cv::InputArray xy1, cv::InputArray xy2, 
-                                 cv::InputOutputArray xyzw);
-    };    
+                                 cv::InputArray xy1, cv::InputArray xy2, cv::InputOutputArray xyzw);
+    };
+
+
+    class DltTriangulationCreator : public ITringulationMethodCreator {
+    public:
+        virtual cv::Ptr<ITriangulationMethod> Create() const {
+            return new DltTriangulation();
+        }
+    };
+
+
+    /** Iterative triangulation.
+      *
+      * See details here: http://www.cs.unc.edu/~marc/tutorial/node68.html.
+      */
+    class IterativeTriangulation : public ITriangulationMethod {
+    public:
+        IterativeTriangulation() { set_num_iters(2); }
+
+        virtual void triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
+                                 cv::InputArray xy1, cv::InputArray xy2, cv::InputOutputArray xyzw);
+
+        int num_iters() const { return num_iters_; }
+        void set_num_iters(int val) { num_iters_ = val; }
+
+    private:
+        int num_iters_;
+    };
+
+
+    class IterativeTriangulationCreator : public ITringulationMethodCreator {
+    public:
+        virtual cv::Ptr<ITriangulationMethod> Create() const {
+            return new IterativeTriangulation();
+        }
+    };
 
 
     /** Calculates an isotropic normalization transformation matrix.
@@ -575,7 +616,19 @@ namespace autocalib {
     //============================================================================
     // Other
 
-    inline double Sqr(double x) { return x * x; }   
+    inline double sqr(double x) {
+        return x * x;
+    }
+
+    template <typename T>
+    inline const T& max(const T &v1, const T &v2, const T &v3) {
+        return std::max(v1, std::max(v2, v3));
+    }
+
+    template <typename T>
+    inline const T& max(const T &v1, const T &v2, const T &v3, const T &v4) {
+        return std::max(v1, max(v2, v3, v4));
+    }
 
 
     /** Constructs anti-diagonal matrix of ones.

@@ -17,7 +17,7 @@ using namespace autocalib::evaluation;
 
 void ParseArgs(int argc, char **argv);
 
-Ptr<PointCloudSceneCreator> scene_creator = new SphereSceneCreator();
+Ptr<IPointCloudSceneCreator> scene_creator = new SphereSceneCreator();
 int num_points = 1000;
 int num_frames = 5;
 Rect viewport = Rect(0, 0, 1920, 1080);

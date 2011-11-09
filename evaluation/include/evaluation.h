@@ -93,9 +93,9 @@ namespace evaluation {
 
 
     /** Synthetic scenes factory. */
-    class PointCloudSceneCreator {
+    class IPointCloudSceneCreator {
     public:
-        virtual ~PointCloudSceneCreator() {}
+        virtual ~IPointCloudSceneCreator() {}
 
         /** Creates a synthetic scene.
           *
@@ -128,7 +128,7 @@ namespace evaluation {
     };
 
 
-    class SphereSceneCreator : public PointCloudSceneCreator {
+    class SphereSceneCreator : public IPointCloudSceneCreator {
     public:
         virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) const {
             return new SphereScene(num_points, rng);
@@ -155,7 +155,7 @@ namespace evaluation {
     };
 
 
-    class CubeSceneCreator : public PointCloudSceneCreator {
+    class CubeSceneCreator : public IPointCloudSceneCreator {
     public:
         virtual cv::Ptr<PointCloudScene> Create(int num_points, cv::RNG &rng) const {
             return new CubeScene(num_points, rng);
