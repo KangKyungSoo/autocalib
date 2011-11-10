@@ -8,8 +8,10 @@ find_package(OpenCV REQUIRED)
 
 set(GLFW_INCLUDE_DIR CACHE PATH "")
 set(GLFW_LIBRARIES CACHE PATH "")
+set(GLUT_INCLUDE_DIR CACHE PATH "")
+set(GLUT_LIBRARIES CACHE PATH "")
 
-include_directories("." ${EIGEN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR})
+include_directories("." ${EIGEN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR} ${GLUT_INCLUDE_DIR})
 
 add_subdirectory(core)
 add_subdirectory(core_tests)

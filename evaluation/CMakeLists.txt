@@ -8,5 +8,5 @@ include_directories(${OpenCV_INCLUDE_DIR} ${CMAKE_CURRENT_DIRECTORY})
 file(GLOB sources "include/*.h" "src/*.h" "src/*.cpp")
 add_library(${target} ${includes} ${sources})
 
-target_link_libraries(${target} ${OpenCV_LIBS} ${GLFW_LIBRARIES})
+target_link_libraries(${target} ${OpenCV_LIBS} ${GLFW_LIBRARIES} ${GLUT_LIBRARIES})
 
