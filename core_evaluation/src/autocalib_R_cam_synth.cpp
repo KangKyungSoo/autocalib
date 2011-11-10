@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
                 rng.fill(T_noise, RNG::NORMAL, 0, noise_transl);
 
             Rodrigues(rvec, R);
-            cameras[i] = RigidCamera::LocalToWorld(K_gold, R, camera_center + T_noise);
+            cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R, camera_center + T_noise);
 
             Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
             scene->TakeShot(cameras[i], viewport, *features);

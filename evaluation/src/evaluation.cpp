@@ -27,12 +27,14 @@ namespace evaluation {
                 pt.x = P(0, 0) * pt_.x + P(0, 1) * pt_.y + P(0, 2) * pt_.z + P(0, 3);
                 pt.y = P(1, 0) * pt_.x + P(1, 1) * pt_.y + P(1, 2) * pt_.z + P(1, 3);
                 pt.z = P(2, 0) * pt_.x + P(2, 1) * pt_.y + P(2, 2) * pt_.z + P(2, 3);
-                Point2f kp(float(pt.x / pt.z), float(pt.y / pt.z));
-                if (kp.x > (float)viewport.x && kp.x < float(viewport.width - 1) &&
-                    kp.y > (float)viewport.y && kp.y < float(viewport.height - 1))
-                {
-                    visible_points.push_back(i);
-                    features.keypoints.push_back(KeyPoint(kp, 1.f));
+                if (pt.z > 0) {
+                    Point2f kp(float(pt.x / pt.z), float(pt.y / pt.z));
+                    if (kp.x > (float)viewport.x && kp.x < float(viewport.width - 1) &&
+                        kp.y > (float)viewport.y && kp.y < float(viewport.height - 1))
+                    {
+                        visible_points.push_back(i);
+                        features.keypoints.push_back(KeyPoint(kp, 1.f));
+                    }
                 }
             }
         }
@@ -191,21 +193,20 @@ namespace evaluation {
         glfwSetWindowTitle("Camera viewer");
         glfwSetKeyCallback(internal::MonoViewerKeyCallback);
         glfwSetWindowSizeCallback(internal::MonoViewerWindowSizeCallback);
+        glfwEnable(GLFW_KEY_REPEAT);
 
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glOrtho(view_port_.x, view_port_.br().x, view_port_.y, view_port_.br().y, 0, 1);
-        glMatrixMode(GL_MODELVIEW);
-        glDisable(GL_DEPTH_TEST);
+        InitOpenGl();
+
+        is_running_ = true;
+        is_left_button_pressed_ = false;
 
         detail::ImageFeatures features;
-        running_ = true;
 
-        while (running_ && glfwGetWindowParam(GLFW_OPENED)) {
+        while (is_running_ && glfwGetWindowParam(GLFW_OPENED)) {
             glClear(GL_COLOR_BUFFER_BIT);
 
             if (!scene_.empty()) {
-                scene_->TakeShot(camera_, view_port_, features);
+                scene_->TakeShot(RigidCamera::FromLocalToWorld(K_, R_, T_), view_port_, features);
                 glBegin(GL_POINTS);
                 for (size_t i = 0; i < features.keypoints.size(); ++i) {
                     const Point2f &pt = features.keypoints[i].pt;
@@ -221,15 +222,93 @@ namespace evaluation {
     }
 
 
+    void MonoViewer::InitOpenGl() {
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(view_port_.x, view_port_.br().x, view_port_.y, view_port_.br().y, 0, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glDisable(GL_DEPTH_TEST);
+    }
+
+
     void GLFWCALL internal::MonoViewerKeyCallback(int key, int state) {
+        MonoViewer &v = mono_viewer();
         if (key == GLFW_KEY_ESC)
-            mono_viewer().running_ = false;
+            v.is_running_ = false;
+        else if (key == 'w' || key == 'W') {
+            Mat_<double> oz(3, 1);
+            oz(0, 0) = 0; oz(1, 0) = 0; oz(2, 0) = 1;
+            oz = v.R_ * oz;
+            v.T_ += oz * v.move_speed_;
+        }
+        else if (key == 's' || key == 'S') {
+            Mat_<double> oz(3, 1);
+            oz(0, 0) = 0; oz(1, 0) = 0; oz(2, 0) = 1;
+            oz = v.R_ * oz;
+            v.T_ -= oz * v.move_speed_;
+        }
+        else if (key == 'a' || key == 'A') {
+            Mat_<double> ox(3, 1);
+            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
+            ox = v.R_ * ox;
+            v.T_ -= ox * v.move_speed_;
+        }
+        else if (key == 'd' || key == 'D') {
+            Mat_<double> ox(3, 1);
+            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
+            ox = v.R_ * ox;
+            v.T_ += ox * v.move_speed_;
+        }
+        else if (key == GLFW_KEY_LEFT) {
+            Mat_<double> oy(3, 1);
+            oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
+            oy *= v.rotation_speed_;
+            Mat R;
+            Rodrigues(-oy, R);
+            v.R_ *= R;
+        }
+        else if (key == GLFW_KEY_RIGHT) {
+            Mat_<double> oy(3, 1);
+            oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
+            oy *= v.rotation_speed_;
+            Mat R;
+            Rodrigues(oy, R);
+            v.R_ *= R;
+        }
+        else if (key == GLFW_KEY_UP) {
+            Mat_<double> ox(3, 1);
+            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
+            ox *= v.rotation_speed_;
+            Mat R;
+            Rodrigues(-ox, R);
+            v.R_ *= R;
+        }
+        else if (key == GLFW_KEY_DOWN) {
+            Mat_<double> ox(3, 1);
+            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
+            ox *= v.rotation_speed_;
+            Mat R;
+            Rodrigues(ox, R);
+            v.R_ *= R;
+        }
     }
 
 
     void GLFWCALL internal::MonoViewerWindowSizeCallback(int width, int height) {
         mono_viewer().window_size_.width = width;
         mono_viewer().window_size_.height = height;
+        mono_viewer().InitOpenGl();
+    }
+
+
+    void GLFWCALL internal::MonoViewerMousePosCallback(int x, int y) {
+
+    }
+
+
+    void GLFWCALL internal::MonoViewerMouseButtonCallback(int button, int state) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT)
+            mono_viewer().is_left_button_pressed_ = state == GLFW_PRESS;
     }
 
 
