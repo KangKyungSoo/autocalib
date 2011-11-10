@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <GL/glfw.h>
+#include <GL/glut.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
 #include <core/include/core.h>
@@ -225,7 +226,8 @@ namespace evaluation {
 
 
     //========================================================================
-    // Mono camera viewer
+    // Camera viewers
+
     // TODO use pimpl to remove the dependecy on glfw.h
 
     namespace internal {
@@ -279,6 +281,9 @@ namespace evaluation {
             set_window_size(cv::Size(640, 360));
             set_move_speed(1e-1);
             set_rotation_speed(1e-2);
+
+            int argc = 0;
+            glutInit(&argc, 0);
         }
 
         void InitOpenGl();
@@ -290,6 +295,8 @@ namespace evaluation {
         cv::Size window_size_;
         bool is_running_;
         bool is_left_button_pressed_;
+        int start_x_, start_y_;
+        cv::Mat_<double> start_R_;
         double move_speed_, rotation_speed_;
 
         std::vector<RigidCamera> *cameras_;

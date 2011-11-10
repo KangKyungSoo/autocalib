@@ -1,6 +1,8 @@
 #include <cstdlib>
 #include <cmath>
 #include <stdexcept>
+#include <cstring>
+#include <sstream>
 #include <opencv2/features2d/features2d.hpp>
 #include <include/evaluation.h>
 
@@ -176,7 +178,36 @@ namespace evaluation {
             circle(img, features.keypoints[i].pt, 1, Scalar::all(255), 1);
 
         return img;
-    }          
+    }
+
+
+    namespace {
+
+        // The code was taken from http://www.gamedeception.net/threads/1876-Printing-Text-with-glut
+        void PrintText(float x, float y, const char *text, void *font = GLUT_BITMAP_HELVETICA_18,
+                       float r = 1.f, float g = 1.f, float b = 1.f, float a = 0.f)
+        {
+            if (!text || !strlen(text))
+                return;
+
+            bool blending = false;
+            if (glIsEnabled(GL_BLEND))
+                blending = true;
+
+            glEnable(GL_BLEND);
+            glColor4f(r, g, b, a);
+            glRasterPos2f(x, y);
+
+            while (*text) {
+                glutBitmapCharacter(font, *text);
+                text++;
+            }
+
+            if (!blending)
+                glDisable(GL_BLEND);
+        }
+
+    } // namespace
 
 
     void MonoViewer::Run() {
@@ -193,6 +224,8 @@ namespace evaluation {
         glfwSetWindowTitle("Camera viewer");
         glfwSetKeyCallback(internal::MonoViewerKeyCallback);
         glfwSetWindowSizeCallback(internal::MonoViewerWindowSizeCallback);
+        glfwSetMousePosCallback(internal::MonoViewerMousePosCallback);
+        glfwSetMouseButtonCallback(internal::MonoViewerMouseButtonCallback);
         glfwEnable(GLFW_KEY_REPEAT);
 
         InitOpenGl();
@@ -215,6 +248,16 @@ namespace evaluation {
                 glEnd();
             }
 
+            Mat_<double> rvec;
+            Rodrigues(R_, rvec);
+            stringstream text;
+            text << "rvec = " << rvec;
+            PrintText(10, 10, text.str().c_str());
+
+            text.str("");
+            text << "T = " << T_;
+            PrintText(10, 70, text.str().c_str());
+
             glfwSwapBuffers();
         }
 
@@ -225,7 +268,14 @@ namespace evaluation {
     void MonoViewer::InitOpenGl() {
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
-        glOrtho(view_port_.x, view_port_.br().x, view_port_.y, view_port_.br().y, 0, 1);
+
+        double aspect = (double)view_port_.width / view_port_.height;
+        if (window_size_.width > aspect * window_size_.height)
+            glViewport(0, 0, aspect * window_size_.height, window_size_.height);
+        else
+            glViewport(0, 0, window_size_.width, window_size_.width / aspect);
+
+        glOrtho(view_port_.x, view_port_.br().x, view_port_.y, view_port_.br().y, -1, 1);
         glMatrixMode(GL_MODELVIEW);
         glDisable(GL_DEPTH_TEST);
     }
@@ -302,13 +352,35 @@ namespace evaluation {
 
 
     void GLFWCALL internal::MonoViewerMousePosCallback(int x, int y) {
-
+        MonoViewer &v = mono_viewer();
+        if (v.is_left_button_pressed_) {
+            int dx = x - v.start_x_;
+            int dy = y - v.start_y_;
+            Mat_<double> ox(3, 1);
+            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
+            ox *= CV_PI * dy / v.window_size_.width;
+            Mat_<double> oy(3, 1);
+            oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
+            oy *= CV_PI * dx / v.window_size_.height;
+            Mat R;
+            Rodrigues(ox + oy, R);
+            v.R_ = v.start_R_ * R;
+        }
     }
 
 
     void GLFWCALL internal::MonoViewerMouseButtonCallback(int button, int state) {
-        if (button == GLFW_MOUSE_BUTTON_LEFT)
-            mono_viewer().is_left_button_pressed_ = state == GLFW_PRESS;
+        MonoViewer &v = mono_viewer();
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (state == GLFW_PRESS) {
+                v.is_left_button_pressed_ = true;
+                v.start_R_ = v.R_.clone();
+                glfwGetMousePos(&v.start_x_, &v.start_y_);
+            }
+            else {
+                v.is_left_button_pressed_ = false;
+            }
+        }
     }
 
 
