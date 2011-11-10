@@ -35,8 +35,6 @@ bool create_images = false;
 string log_file;
 
 int main(int argc, char **argv) {
-    mono_viewer().Run();
-
     try {        
         ParseArgs(argc, argv);
 
@@ -97,6 +95,10 @@ int main(int argc, char **argv) {
 
             left_cameras[i] = RigidCamera::LocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (-T_rel + T_cur_noised));
             right_cameras[i] = RigidCamera::LocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (T_rel + T_cur_noised));
+
+            mono_viewer().set_scene(scene);
+            mono_viewer().set_camera(left_cameras[i]);
+            mono_viewer().Run();
 
             R_cur = R * R_cur_noised;
 

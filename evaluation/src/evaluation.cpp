@@ -189,11 +189,31 @@ namespace evaluation {
         }
 
         glfwSetWindowTitle("Camera viewer");
-        glfwSetKeyCallback(internal::GlfwKeyInputCallback);
+        glfwSetKeyCallback(internal::MonoViewerKeyCallback);
+        glfwSetWindowSizeCallback(internal::MonoViewerWindowSizeCallback);
 
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(view_port_.x, view_port_.br().x, view_port_.y, view_port_.br().y, 0, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glDisable(GL_DEPTH_TEST);
+
+        detail::ImageFeatures features;
         running_ = true;
-        while (running_) {
+
+        while (running_ && glfwGetWindowParam(GLFW_OPENED)) {
             glClear(GL_COLOR_BUFFER_BIT);
+
+            if (!scene_.empty()) {
+                scene_->TakeShot(camera_, view_port_, features);
+                glBegin(GL_POINTS);
+                for (size_t i = 0; i < features.keypoints.size(); ++i) {
+                    const Point2f &pt = features.keypoints[i].pt;
+                    glVertex2f(pt.x, pt.y);
+                }
+                glEnd();
+            }
+
             glfwSwapBuffers();
         }
 
@@ -201,9 +221,15 @@ namespace evaluation {
     }
 
 
-    void GLFWCALL internal::GlfwKeyInputCallback(int key, int state) {
+    void GLFWCALL internal::MonoViewerKeyCallback(int key, int state) {
         if (key == GLFW_KEY_ESC)
             mono_viewer().running_ = false;
+    }
+
+
+    void GLFWCALL internal::MonoViewerWindowSizeCallback(int width, int height) {
+        mono_viewer().window_size_.width = width;
+        mono_viewer().window_size_.height = height;
     }
 
 
