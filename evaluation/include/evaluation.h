@@ -228,8 +228,6 @@ namespace evaluation {
     //========================================================================
     // Camera viewers
 
-    // TODO use pimpl to remove the dependecy on glfw.h
-
     namespace internal {
         void GLFWCALL MonoViewerKeyCallback(int key, int state);
         void GLFWCALL MonoViewerWindowSizeCallback(int width, int height);
@@ -281,6 +279,7 @@ namespace evaluation {
             set_window_size(cv::Size(640, 360));
             set_move_speed(1e-1);
             set_rotation_speed(1e-2);
+            prev_key_ = -1;
 
             int argc = 0;
             glutInit(&argc, 0);
@@ -298,6 +297,7 @@ namespace evaluation {
         int start_x_, start_y_;
         cv::Mat_<double> start_R_;
         double move_speed_, rotation_speed_;
+        int prev_key_;
 
         std::vector<RigidCamera> *cameras_;
         FeaturesCollection *features_;
