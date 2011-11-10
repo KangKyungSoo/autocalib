@@ -2,6 +2,7 @@
 #define AUTOCALIB_EVALUATION_H_
 
 #include <vector>
+#include <GL/glfw.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
 #include <core/include/core.h>
@@ -220,20 +221,23 @@ namespace evaluation {
       * \param features Image features
       * \return Result image
       */
-    cv::Mat CreateImage(const cv::detail::ImageFeatures &features);
+    cv::Mat CreateImage(const cv::detail::ImageFeatures &features);       
+
+
+    //========================================================================
+    // Mono camera viewer
+
+    namespace internal {
+        void GLFWCALL GlfwKeyInputCallback(int key, int state);
+    } // namespace internal
+
+
+    class MonoViewer;
+    MonoViewer& mono_viewer();
 
 
     class MonoViewer {
     public:
-        MonoViewer() : cameras_(0), features_(0) {
-            cv::Mat_<double> K = cv::Mat::eye(3, 3, CV_64F);
-            K(0, 0) = 3000; K(0, 2) = 960;
-            K(1, 1) = 3000; K(1, 2) = 540;
-            set_camera(RigidCamera(K, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(3, 1, CV_64F)));
-            set_view_port(cv::Rect(0, 0, 1920, 1080));
-            set_window_size(cv::Size(320, 240));
-        }
-
         RigidCamera camera() { return camera_; }
         void set_camera(RigidCamera camera) { camera_ = camera; }
 
@@ -249,13 +253,29 @@ namespace evaluation {
         void Run();
 
     private:
+        friend void GLFWCALL internal::GlfwKeyInputCallback(int key, int state);
+        friend MonoViewer& mono_viewer();
+
+        MonoViewer() : cameras_(0), features_(0) {
+            cv::Mat_<double> K = cv::Mat::eye(3, 3, CV_64F);
+            K(0, 0) = 3000; K(0, 2) = 960;
+            K(1, 1) = 3000; K(1, 2) = 540;
+            set_camera(RigidCamera(K, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(3, 1, CV_64F)));
+            set_view_port(cv::Rect(0, 0, 1920, 1080));
+            set_window_size(cv::Size(320, 240));
+        }
+
         cv::Ptr<PointCloudScene> scene_;
         RigidCamera camera_;
         cv::Rect view_port_;
         cv::Size window_size_;
         std::vector<RigidCamera> *cameras_;
         FeaturesCollection *features_;
+
+        bool running_;
     };
+
+
 
 } // namespace evaluation
 } // namespace autocalib
