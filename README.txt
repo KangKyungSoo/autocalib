@@ -1,1 +1,1 @@
-Project depends on the OpenCV, Eigen3, and GTest libraries.
+Project depends on the OpenCV, Eigen3, GLFW, and GTest libraries.
