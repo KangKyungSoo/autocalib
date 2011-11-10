@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <sstream>
+#include <iostream>
 #include <opencv2/features2d/features2d.hpp>
 #include <include/evaluation.h>
 
@@ -341,6 +342,27 @@ namespace evaluation {
             Rodrigues(ox, R);
             v.R_ *= R;
         }
+        else if (key == 't' || key == 'T') {
+            if (!v.scene_.empty()) {
+                if (v.cameras_)
+                    v.cameras_->push_back(RigidCamera::FromLocalToWorld(v.K_.clone(), v.R_.clone(), v.T_.clone()));
+                if (v.features_) {
+                    Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
+                    v.scene_->TakeShot(RigidCamera::FromLocalToWorld(v.K_, v.R_, v.T_), v.view_port_, *features);
+                    v.features_->insert(make_pair(v.features_->size(), features));
+                }
+            }
+            else
+                cout << "Scene is empty\n";
+        }
+        else if ((key == 'h' || key == 'H') && key != v.prev_key_) {
+            cout << "\nHot keys:\n"
+                 << "esc -- exit\n"
+                 << "w/s/a/d -- navigation\n"
+                 << "up/down/left/right/mouse -- orientation\n"
+                 << "t -- take a snapshot\n";
+        }
+        v.prev_key_ = key;
     }
 
 
