@@ -226,9 +226,11 @@ namespace evaluation {
 
     //========================================================================
     // Mono camera viewer
+    // TODO use pimpl to remove the dependecy on glfw.h
 
     namespace internal {
-        void GLFWCALL GlfwKeyInputCallback(int key, int state);
+        void GLFWCALL MonoViewerKeyCallback(int key, int state);
+        void GLFWCALL MonoViewerWindowSizeCallback(int width, int height);
     } // namespace internal
 
 
@@ -238,7 +240,10 @@ namespace evaluation {
 
     class MonoViewer {
     public:
-        RigidCamera camera() { return camera_; }
+        cv::Ptr<PointCloudScene> scene() const { return scene_; }
+        void set_scene(cv::Ptr<PointCloudScene> scene) { scene_ = scene; }
+
+        RigidCamera camera() const { return camera_; }
         void set_camera(RigidCamera camera) { camera_ = camera; }
 
         cv::Rect view_port() const { return view_port_; }
@@ -253,7 +258,8 @@ namespace evaluation {
         void Run();
 
     private:
-        friend void GLFWCALL internal::GlfwKeyInputCallback(int key, int state);
+        friend void GLFWCALL internal::MonoViewerKeyCallback(int key, int state);
+        friend void GLFWCALL internal::MonoViewerWindowSizeCallback(int width, int height);
         friend MonoViewer& mono_viewer();
 
         MonoViewer() : cameras_(0), features_(0) {
@@ -262,7 +268,7 @@ namespace evaluation {
             K(1, 1) = 3000; K(1, 2) = 540;
             set_camera(RigidCamera(K, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(3, 1, CV_64F)));
             set_view_port(cv::Rect(0, 0, 1920, 1080));
-            set_window_size(cv::Size(320, 240));
+            set_window_size(cv::Size(640, 360));
         }
 
         cv::Ptr<PointCloudScene> scene_;
@@ -274,8 +280,6 @@ namespace evaluation {
 
         bool running_;
     };
-
-
 
 } // namespace evaluation
 } // namespace autocalib
