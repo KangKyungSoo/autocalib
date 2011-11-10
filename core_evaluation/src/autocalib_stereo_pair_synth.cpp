@@ -93,8 +93,8 @@ int main(int argc, char **argv) {
             Mat R_noise; Rodrigues(rvec_noise, R_noise);
             Mat R_cur_noised = R_cur * R_noise;
 
-            left_cameras[i] = RigidCamera::LocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (-T_rel + T_cur_noised));
-            right_cameras[i] = RigidCamera::LocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (T_rel + T_cur_noised));
+            left_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (-T_rel + T_cur_noised));
+            right_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (T_rel + T_cur_noised));
 
             mono_viewer().set_scene(scene);
             mono_viewer().set_camera(left_cameras[i]);

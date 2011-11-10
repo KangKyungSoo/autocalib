@@ -96,7 +96,7 @@ TEST_P(TriangulationMetric, CanTriangulate) {
         Mat_<double> rvec = Mat::zeros(1, 3, CV_64F);
         rvec(0, 0) = 0.1; rvec(0, 1) = 0.1; rvec(0, 2) = 0.1;
         Mat R; Rodrigues(rvec * (i * 2 - 1), R);
-        cameras[i] = RigidCamera::LocalToWorld(K, R, center);
+        cameras[i] = RigidCamera::FromLocalToWorld(K, R, center);
         Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
         scene->TakeShot(cameras[i], viewport, *features);
         features_collection[i] = features;
@@ -166,7 +166,7 @@ TEST_P(TriangulationProjective, CanTriangulate) {
         Mat_<double> rvec = Mat::zeros(1, 3, CV_64F);
         rvec(0, 0) = 0.1; rvec(0, 1) = 0.1; rvec(0, 2) = 0.1;
         Mat R; Rodrigues(rvec * (i * 2 - 1), R);
-        cameras[i] = RigidCamera::LocalToWorld(K, R, center);
+        cameras[i] = RigidCamera::FromLocalToWorld(K, R, center);
         Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
         scene->TakeShot(cameras[i], viewport, *features);
         features_collection[i] = features;

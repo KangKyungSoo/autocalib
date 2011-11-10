@@ -231,6 +231,8 @@ namespace evaluation {
     namespace internal {
         void GLFWCALL MonoViewerKeyCallback(int key, int state);
         void GLFWCALL MonoViewerWindowSizeCallback(int width, int height);
+        void GLFWCALL MonoViewerMousePosCallback(int x, int y);
+        void GLFWCALL MonoViewerMouseButtonCallback(int button, int state);
     } // namespace internal
 
 
@@ -243,8 +245,12 @@ namespace evaluation {
         cv::Ptr<PointCloudScene> scene() const { return scene_; }
         void set_scene(cv::Ptr<PointCloudScene> scene) { scene_ = scene; }
 
-        RigidCamera camera() const { return camera_; }
-        void set_camera(RigidCamera camera) { camera_ = camera; }
+        RigidCamera camera() const { return RigidCamera::FromLocalToWorld(K_, R_, T_); }
+        void set_camera(RigidCamera camera) {
+            K_ = camera.K();
+            R_ = camera.R().t();
+            T_ = -R_ * camera.T();
+        }
 
         cv::Rect view_port() const { return view_port_; }
         void set_view_port(cv::Rect view_port) { view_port_ = view_port; }
@@ -252,16 +258,18 @@ namespace evaluation {
         cv::Size window_size() const { return window_size_; }
         void set_window_size(cv::Size window_size) { window_size_= window_size; }
 
+        double move_speed() const { return move_speed_; }
+        void set_move_speed(double speed) { move_speed_ = speed; }
+
+        double rotation_speed() const { return rotation_speed_; }
+        void set_rotation_speed(double speed) { rotation_speed_ = speed; }
+
         void set_camera_snapshots_output(std::vector<RigidCamera> *cameras) { cameras_ = cameras; }
         void set_feature_snapshots_output(FeaturesCollection *features) { features_ = features; }
 
         void Run();
 
     private:
-        friend void GLFWCALL internal::MonoViewerKeyCallback(int key, int state);
-        friend void GLFWCALL internal::MonoViewerWindowSizeCallback(int width, int height);
-        friend MonoViewer& mono_viewer();
-
         MonoViewer() : cameras_(0), features_(0) {
             cv::Mat_<double> K = cv::Mat::eye(3, 3, CV_64F);
             K(0, 0) = 3000; K(0, 2) = 960;
@@ -269,16 +277,29 @@ namespace evaluation {
             set_camera(RigidCamera(K, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(3, 1, CV_64F)));
             set_view_port(cv::Rect(0, 0, 1920, 1080));
             set_window_size(cv::Size(640, 360));
+            set_move_speed(1e-1);
+            set_rotation_speed(1e-2);
         }
 
+        void InitOpenGl();
+
         cv::Ptr<PointCloudScene> scene_;
-        RigidCamera camera_;
+        cv::Mat_<double> K_, R_, T_;
         cv::Rect view_port_;
+
         cv::Size window_size_;
+        bool is_running_;
+        bool is_left_button_pressed_;
+        double move_speed_, rotation_speed_;
+
         std::vector<RigidCamera> *cameras_;
         FeaturesCollection *features_;
 
-        bool running_;
+        friend void GLFWCALL internal::MonoViewerKeyCallback(int key, int state);
+        friend void GLFWCALL internal::MonoViewerWindowSizeCallback(int width, int height);
+        friend void GLFWCALL internal::MonoViewerMousePosCallback(int x, int y);
+        friend void GLFWCALL internal::MonoViewerMouseButtonCallback(int button, int state);
+        friend MonoViewer& mono_viewer();
     };
 
 } // namespace evaluation

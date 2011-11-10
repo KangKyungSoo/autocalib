@@ -76,7 +76,7 @@ namespace autocalib {
           * \param center Camera center
           * \return Camera object
           */
-        static RigidCamera LocalToWorld(const cv::Mat &K, const cv::Mat &R, const cv::Mat &center) {
+        static RigidCamera FromLocalToWorld(const cv::Mat &K, const cv::Mat &R, const cv::Mat &center) {
             cv::Mat R_inv = R.t();
             return RigidCamera(K, R_inv, -R_inv * center);
         }
