@@ -1,6 +1,6 @@
 #include <cstdlib>
 #include <cmath>
-#include <GL/glfw.h>
+#include <stdexcept>
 #include <opencv2/features2d/features2d.hpp>
 #include <include/evaluation.h>
 
@@ -174,6 +174,42 @@ namespace evaluation {
             circle(img, features.keypoints[i].pt, 1, Scalar::all(255), 1);
 
         return img;
+    }          
+
+
+    void MonoViewer::Run() {
+        if (!glfwInit())
+            throw runtime_error("Can't initialize GLFW");
+
+        if (!glfwOpenWindow(window_size_.width, window_size_.height,
+                            0, 0, 0, 0, 0, 0, GLFW_WINDOW))
+        {
+            glfwTerminate();
+            throw runtime_error("Can't create GLFW window");
+        }
+
+        glfwSetWindowTitle("Camera viewer");
+        glfwSetKeyCallback(internal::GlfwKeyInputCallback);
+
+        running_ = true;
+        while (running_) {
+            glClear(GL_COLOR_BUFFER_BIT);
+            glfwSwapBuffers();
+        }
+
+        glfwTerminate();
+    }
+
+
+    void GLFWCALL internal::GlfwKeyInputCallback(int key, int state) {
+        if (key == GLFW_KEY_ESC)
+            mono_viewer().running_ = false;
+    }
+
+
+    MonoViewer& mono_viewer() {
+        static MonoViewer instance;
+        return instance;
     }
 
 } // namespace evaluation

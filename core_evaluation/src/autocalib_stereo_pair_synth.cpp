@@ -35,6 +35,8 @@ bool create_images = false;
 string log_file;
 
 int main(int argc, char **argv) {
+    mono_viewer().Run();
+
     try {        
         ParseArgs(argc, argv);
 
