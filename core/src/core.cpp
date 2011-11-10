@@ -1121,8 +1121,8 @@ namespace autocalib {
         CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
         CV_Assert(xyzw1.getMat().cols / 4 == xyzw2.getMat().cols / 4);
 
-        Mat_<double> xyzw1_ = xyzw1.getMat();
-        Mat_<double> xyzw2_ = xyzw2.getMat();
+        Mat_<double> xyzw1_ = xyzw1.getMat().clone();
+        Mat_<double> xyzw2_ = xyzw2.getMat().clone();
 
         int num_points = xyzw1_.cols / 4;       
         CV_Assert(num_points >= 5); // TODO why 5?
@@ -1165,7 +1165,7 @@ namespace autocalib {
         }
 
         for (int i = 0; i < A.rows; ++i)
-            Mat(A.row(i)) /= norm(A.row(i)) + 1;
+            Mat(A.row(i)) /= norm(A.row(i));
 
         Mat_<double> H;
         SVD::solveZ(A, H);

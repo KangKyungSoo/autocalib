@@ -256,19 +256,22 @@ int main(int argc, char **argv) {
                 // can lead to numerical instability in K estimation process, so we avoid using those
                 // rotations in the linear autocalibration algorithm.
 
+                //cout << K_gold.inv() * Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3)) * K_gold << endl;
                 Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
-                //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+                Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
             }
         }
 
         // Linear autocalibration
+
+        //K_init = K_gold;
 
         double residual_error;
         if (K_init.empty()) {
             cout << "\nLinear calibrating...\n";
             K_init = CalibRotationalCameraLinearNoSkew(Hs_inf, &residual_error);
             cout << "K_linear = \n" << K_init << endl;
-        }        
+        }
 
         // Metric rectification
 
@@ -321,6 +324,17 @@ int main(int argc, char **argv) {
 
         double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
                                                     ~REFINE_FLAG_SKEW);
+
+        Mat_<double> R_ = R_rel * R_rel;
+        Mat_<double> T_ = R_rel * R_rel * T_rel + T_rel;
+        Mat_<double> rvec_; Rodrigues(R_, rvec_);
+        cout << "GOLD rvec = " << -rvec_ << endl;
+        Rodrigues(P_r_m.R(), rvec_);
+        cout << "Final rvec = " << -rvec_ << endl;
+        T_ = -R * T_;
+        cout << "GOLD T = " << T_ << endl;
+        Mat_<double> T__ = -R * P_r_m.T();
+        cout << "Final T = " << T__ / T__(0, 0) * T_(0, 0) << endl;
 
         Mat_<double> K_refined = P_r_m.K();
         cout << "K_refined = \n" << K_refined << endl;
