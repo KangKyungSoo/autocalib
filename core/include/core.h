@@ -551,9 +551,14 @@ namespace autocalib {
       * \param xy Image keypoints
       * \param P Camera matrix
       * \param xyzw Points
+      * \param mask Inliers mask
+      * \param num_inliers Number of inliers found
+      * \param thresh Error threshold for inliers classification
       * \return RMS reprojection error
       */
-    double CalcRmsReprojectionError(cv::InputArray xy, cv::InputArray P, cv::InputArray xyzw);
+    double CalcRmsReprojectionError(cv::InputArray xy, cv::InputArray P, cv::InputArray xyzw,
+                                    cv::InputOutputArray mask = cv::noArray(), int *num_inliers = 0,
+                                    double thresh = 3.0);
 
 
     /** Calculates the point-to-epopolar-line RMS distance.
@@ -590,6 +595,10 @@ namespace autocalib {
       * \return 3D projective sapce homography mapping xyzw1 into xyzw2
       */
     cv::Mat FindHomographyLinear(cv::InputArray xyzw1, cv::InputArray xyzw2);
+
+
+    /** Finds the
+    cv::Mat FindHomographyRansac(cv::InputArray xyzw1, cv::InputArray xyzw2, int num_iters = 100);
 
 
     /** Calculates a plane-at-infinity coordinates from a homography.
