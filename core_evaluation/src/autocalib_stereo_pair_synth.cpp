@@ -22,6 +22,7 @@ Ptr<IPointCloudSceneCreator> scene_creator = new SphereSceneCreator();
 RNG rng;
 FeaturesCollection features_collection;
 MatchesCollection matches_collection;
+bool do_shots_manually = false;
 int num_points = 1000;
 int num_frames = 2;
 Rect viewport = Rect(0, 0, 1920, 1080);
@@ -63,46 +64,62 @@ int main(int argc, char **argv) {
         Rodrigues(scene_rvec, scene_R);
         scene->set_R(scene_R);
 
-        vector<RigidCamera> left_cameras(num_frames);
-        vector<RigidCamera> right_cameras(num_frames);
+        vector<RigidCamera> left_cameras;
+        vector<RigidCamera> right_cameras;
 
         // Generate cameras and shots       
 
         Mat_<double> T_rel(3, 1);
-        T_rel(0, 0) = 1; T_rel(1, 0) = T_rel(2, 0) = 0.1;
+        T_rel(0, 0) = -1; T_rel(1, 0) = T_rel(2, 0) = 0;
         Mat_<double> rvec_rel(1, 3);
-        rvec_rel(0, 0) = 0.1; rvec_rel(0, 1) = 0.1; rvec_rel(0, 2) = 0.1;
+        rvec_rel(0, 0) = 0; rvec_rel(0, 1) = 0; rvec_rel(0, 2) = 0;
         Mat R_rel; Rodrigues(rvec_rel, R_rel);
 
-        detail::ImageFeatures features;
-
         Mat_<double> rvec(1, 3);
-        rvec(0, 0) = 0.1; rvec(0, 1) = 0.2; rvec(0, 2) = 0.1;
+        rvec(0, 0) = 0; rvec(0, 1) = 0; rvec(0, 2) = 0;
         Mat R; Rodrigues(rvec, R);
         Mat_<double> T(3, 1);
-        T(0, 0) = 1; T(1, 0) = 0; T(2, 0) = -10;
+        T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -10;
 
-        Mat R_cur = Mat::eye(3, 3, CV_64F);
-        for (int i = 0; i < num_frames; ++i) {
-            Mat_<double> T_noise(3, 1);
-            rng.fill(T_noise, RNG::UNIFORM, -0.3, 0.3);
-            Mat T_cur_noised = T + T_noise;
+        if (do_shots_manually) {
+            StereoViewer &v = the_stereo_viewer();
+            v.set_scene(scene);
+            v.set_K(K_gold); v.set_R(R_rel); v.set_T(T_rel);
+            v.set_Rg(R); v.set_Tg(T);
+            v.set_left_camera_snapshots_output(&left_cameras);
+            v.set_right_camera_snapshots_output(&right_cameras);
+            v.Run();
+            num_frames = left_cameras.size();
+        }
+        else {
+//            left_cameras.resize(num_frames);
+//            right_cameras.resize(num_frames);
 
-            Mat_<double> rvec_noise(1, 3);
-            rng.fill(rvec_noise, RNG::UNIFORM, -0.3, 0.3);
-            Mat R_noise; Rodrigues(rvec_noise, R_noise);
-            Mat R_cur_noised = R_cur * R_noise;
+//            detail::ImageFeatures features;
 
-            left_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (-T_rel + T_cur_noised));
-            right_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (T_rel + T_cur_noised));
+//            Mat R_cur = Mat::eye(3, 3, CV_64F);
+//            for (int i = 0; i < num_frames; ++i) {
+//                Mat_<double> T_noise(3, 1);
+//                rng.fill(T_noise, RNG::UNIFORM, -0.3, 0.3);
+//                Mat T_cur_noised = T + T_noise;
 
-            the_stereo_viewer().set_scene(scene);
-            the_stereo_viewer().Run();
+//                Mat_<double> rvec_noise(1, 3);
+//                rng.fill(rvec_noise, RNG::UNIFORM, -0.3, 0.3);
+//                Mat R_noise; Rodrigues(rvec_noise, R_noise);
+//                Mat R_cur_noised = R_cur * R_noise;
 
-            R_cur = R * R_cur_noised;
+//                left_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (T_rel + T_cur_noised));
+//                right_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (-T_rel + T_cur_noised));
 
-            scene->TakeShot(left_cameras[i], viewport, features);
-            scene->TakeShot(right_cameras[i], viewport, features);
+//                R_cur = R * R_cur_noised;
+
+//                scene->TakeShot(left_cameras[i], viewport, features);
+//                scene->TakeShot(right_cameras[i], viewport, features);
+//            }
+        }
+
+        if (num_frames < 1) {
+            throw runtime_error("Need more frames");
         }
 
         for (int i = 0; i < num_frames; ++i) {
@@ -112,7 +129,7 @@ int main(int argc, char **argv) {
 
             Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
             scene->TakeShot(right_cameras[i], viewport, *right_features);
-            features_collection[2 * i + 1] = right_features;            
+            features_collection[2 * i + 1] = right_features;
         }
 
         // Add noise before F estimation
@@ -328,16 +345,16 @@ int main(int argc, char **argv) {
         double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
                                                     ~REFINE_FLAG_SKEW);
 
-        Mat_<double> R_ = R_rel * R_rel;
-        Mat_<double> T_ = R_rel * R_rel * T_rel + T_rel;
-        Mat_<double> rvec_; Rodrigues(R_, rvec_);
-        cout << "GOLD rvec = " << -rvec_ << endl;
-        Rodrigues(P_r_m.R(), rvec_);
-        cout << "Final rvec = " << -rvec_ << endl;
-        T_ = -R * T_;
-        cout << "GOLD T = " << T_ << endl;
-        Mat_<double> T__ = -R * P_r_m.T();
-        cout << "Final T = " << T__ / T__(0, 0) * T_(0, 0) << endl;
+//        Mat_<double> R_ = R_rel * R_rel;
+//        Mat_<double> T_ = R_rel * R_rel * T_rel + T_rel;
+//        Mat_<double> rvec_; Rodrigues(R_, rvec_);
+//        cout << "GOLD rvec = " << -rvec_ << endl;
+//        Rodrigues(P_r_m.R(), rvec_);
+//        cout << "Final rvec = " << -rvec_ << endl;
+//        T_ = -R * T_;
+//        cout << "GOLD T = " << T_ << endl;
+//        Mat_<double> T__ = -R * P_r_m.T();
+//        cout << "Final T = " << T__ / T__(0, 0) * T_(0, 0) << endl;
 
         Mat_<double> K_refined = P_r_m.K();
         cout << "K_refined = \n" << K_refined << endl;
@@ -370,6 +387,9 @@ void ParseArgs(int argc, char **argv) {
             else
                 throw runtime_error(string("Unknown synthetic scene type: ") + argv[i + 1]);
             i++;
+        }
+        else if (string(argv[i]) == "--manual") {
+            do_shots_manually = atoi(argv[++i]);
         }
         else if (string(argv[i]) == "--num-frames")
             num_frames = atoi(argv[++i]);
