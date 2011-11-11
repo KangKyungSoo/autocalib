@@ -358,9 +358,7 @@ int main(int argc, char **argv) {
 
         // Linear autocalibration
 
-        //K_init = K_gold;
-
-        double residual_error;
+        double residual_error = 0;
         if (K_init.empty()) {
             cout << "\nLinear calibrating...\n";
             K_init = CalibRotationalCameraLinearNoSkew(Hs_inf, &residual_error);
