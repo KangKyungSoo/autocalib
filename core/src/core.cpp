@@ -1044,24 +1044,47 @@ namespace autocalib {
     }
 
 
-    double CalcRmsReprojectionError(InputArray xy, InputArray P, InputArray xyzw) {
+    double CalcRmsReprojectionError(InputArray xy, InputArray P, InputArray xyzw,
+                                    InputOutputArray mask, int *num_inliers,
+                                    double thresh)
+    {
         CV_Assert(xy.getMat().type() == CV_64F && xy.getMat().rows == 1 && xy.getMat().cols % 2 == 0);
         CV_Assert(P.getMat().type() == CV_64F && P.getMat().size() == Size(4, 3));
         CV_Assert(xyzw.getMat().type() == CV_64F && xyzw.getMat().rows == 1 && xyzw.getMat().cols % 4 == 0);
-        CV_Assert(xy.getMat().cols / 2 == xyzw.getMat().cols / 4);
+        CV_Assert(xy.getMat().cols / 2 == xyzw.getMat().cols / 4);        
 
         Mat_<double> xy_ = xy.getMat();
         Mat_<double> P_ = P.getMat();
         Mat_<double> xyzw_ = xyzw.getMat();
         int num_points = xy_.cols / 2;
 
+        Mat &mask_aux = mask.getMatRef();
+        mask_aux.create(1, num_points, CV_8U);
+        mask_aux.setTo(0);
+        Mat_<uchar> mask_(mask_aux);
+
+        int *num_inliers_ = num_inliers;
+        int num_inliers_aux;
+        if (!num_inliers)
+            num_inliers_ = &num_inliers_aux;
+        *num_inliers_ = 0;
+
+        double sq_error;
         double sum_sq_error = 0;
         double x, y, z;
+
         for (int i = 0; i < num_points; ++i) {            
             x = P_(0, 0) * xyzw_(0, 4 * i) + P_(0, 1) * xyzw_(0, 4 * i + 1) + P_(0, 2) * xyzw_(0, 4 * i + 2) + P_(0, 3) * xyzw_(0, 4 * i + 3);
             y = P_(1, 0) * xyzw_(0, 4 * i) + P_(1, 1) * xyzw_(0, 4 * i + 1) + P_(1, 2) * xyzw_(0, 4 * i + 2) + P_(1, 3) * xyzw_(0, 4 * i + 3);
-            z = P_(2, 0) * xyzw_(0, 4 * i) + P_(2, 1) * xyzw_(0, 4 * i + 1) + P_(2, 2) * xyzw_(0, 4 * i + 2) + P_(2, 3) * xyzw_(0, 4 * i + 3);
-            sum_sq_error += sqr(xy_(0, 2 * i) - x / z) + sqr(xy_(0, 2 * i + 1) - y / z);
+            z = P_(2, 0) * xyzw_(0, 4 * i) + P_(2, 1) * xyzw_(0, 4 * i + 1) + P_(2, 2) * xyzw_(0, 4 * i + 2) + P_(2, 3) * xyzw_(0, 4 * i + 3);            
+
+            sq_error = sqr(xy_(0, 2 * i) - x / z) + sqr(xy_(0, 2 * i + 1) - y / z);
+            if (sq_error < thresh * thresh) {
+                mask_(0, i) = 255;
+                (*num_inliers_)++;
+            }
+
+            sum_sq_error += sq_error;
         }
 
         return sqrt(sum_sq_error / num_points);
