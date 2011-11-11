@@ -553,12 +553,12 @@ namespace autocalib {
       * \param xyzw Points
       * \param mask Inliers mask
       * \param num_inliers Number of inliers found
-      * \param thresh Error threshold for inliers classification
+      * \param err_thresh Error threshold for inliers classification
       * \return RMS reprojection error
       */
     double CalcRmsReprojectionError(cv::InputArray xy, cv::InputArray P, cv::InputArray xyzw,
                                     cv::InputOutputArray mask = cv::noArray(), int *num_inliers = 0,
-                                    double thresh = 3.0);
+                                    double err_thresh = 3.0);
 
 
     /** Calculates the point-to-epopolar-line RMS distance.
@@ -577,12 +577,12 @@ namespace autocalib {
       * \param f2 Second frame features
       * \param matches Matches
       * \param F Fundamental matrix
-      * \param thresh Error threshold
+      * \param err_thresh Error threshold
       * \param mask Inliers 8U mask
       * \return Number of inliers
       */
     int FindFundamentalMatInliers(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
-                                  const std::vector<cv::DMatch> &matches, cv::InputArray F, double thresh,
+                                  const std::vector<cv::DMatch> &matches, cv::InputArray F, double err_thresh,
                                   cv::InputOutputArray mask);
 
 
@@ -592,13 +592,19 @@ namespace autocalib {
       *
       * \param xyzw1 First point cloud
       * \param xyzw2 Second point cloud
-      * \return 3D projective sapce homography mapping xyzw1 into xyzw2
+      * \return 3D projective space homography mapping xyzw1 into xyzw2
       */
     cv::Mat FindHomographyLinear(cv::InputArray xyzw1, cv::InputArray xyzw2);
 
 
-    /** Finds the
-    cv::Mat FindHomographyRansac(cv::InputArray xyzw1, cv::InputArray xyzw2, int num_iters = 100);
+    /** Finds the 3D projective space homography using RANSAC procedure.
+      *
+      * \param xyzw1 First point cloud
+      * \param xyzw2 Second point cloud
+      * \return 3D projective space homography mapping xyzw1 into xyzw2
+      */
+    cv::Mat FindHomographyRansac(cv::InputArray xyzw1, cv::InputArray xyzw2,
+                                 int num_iters = 100, int subset_size = 5, double err_thresh = 3.0);
 
 
     /** Calculates a plane-at-infinity coordinates from a homography.
