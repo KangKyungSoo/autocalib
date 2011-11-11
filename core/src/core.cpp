@@ -1046,7 +1046,7 @@ namespace autocalib {
 
     double CalcRmsReprojectionError(InputArray xy, InputArray P, InputArray xyzw,
                                     InputOutputArray mask, int *num_inliers,
-                                    double thresh)
+                                    double err_thresh)
     {
         CV_Assert(xy.getMat().type() == CV_64F && xy.getMat().rows == 1 && xy.getMat().cols % 2 == 0);
         CV_Assert(P.getMat().type() == CV_64F && P.getMat().size() == Size(4, 3));
@@ -1079,7 +1079,7 @@ namespace autocalib {
             z = P_(2, 0) * xyzw_(0, 4 * i) + P_(2, 1) * xyzw_(0, 4 * i + 1) + P_(2, 2) * xyzw_(0, 4 * i + 2) + P_(2, 3) * xyzw_(0, 4 * i + 3);            
 
             sq_error = sqr(xy_(0, 2 * i) - x / z) + sqr(xy_(0, 2 * i + 1) - y / z);
-            if (sq_error < thresh * thresh) {
+            if (sq_error < err_thresh * err_thresh) {
                 mask_(0, i) = 255;
                 (*num_inliers_)++;
             }
@@ -1112,7 +1112,7 @@ namespace autocalib {
 
 
     int FindFundamentalMatInliers(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
-                                  const vector<DMatch> &matches, InputArray F, double thresh,
+                                  const vector<DMatch> &matches, InputArray F, double err_thresh,
                                   InputOutputArray mask)
     {
         CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
@@ -1129,7 +1129,7 @@ namespace autocalib {
             const Point2f &p2 = f2.keypoints[matches[i].trainIdx].pt;
 
             double err = SymEpipDist2(p2.x, p2.y, F_, p1.x, p1.y);
-            if (err < thresh * thresh) {
+            if (err < err_thresh * err_thresh) {
                 mask_(0, i) = 1;
                 num_inliers++;
             }
