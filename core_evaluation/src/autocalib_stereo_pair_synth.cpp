@@ -33,6 +33,9 @@ double F_est_thresh = 3.;
 double noise_stddev = -1; // No noise
 double conf_thresh = 0;
 bool create_images = false;
+bool save_cameras = false;
+bool load_cameras = false;
+string cameras_path;
 string log_file;
 
 int main(int argc, char **argv) {
@@ -58,11 +61,6 @@ int main(int argc, char **argv) {
         // Generate synthetic scene
 
         scene = scene_creator->Create(num_points, rng);
-        Mat scene_rvec = Mat::zeros(3, 1, CV_64F);
-        rng.fill(scene_rvec, RNG::UNIFORM, -1, 1);
-        Mat scene_R;
-        Rodrigues(scene_rvec, scene_R);
-        scene->set_R(scene_R);
 
         vector<RigidCamera> left_cameras;
         vector<RigidCamera> right_cameras;
@@ -120,6 +118,77 @@ int main(int argc, char **argv) {
 
         if (num_frames < 1) {
             throw runtime_error("Need more frames");
+        }
+
+        if (save_cameras) {
+            FileStorage fs(cameras_path, FileStorage::WRITE);
+            fs << "num_frames" << num_frames;
+
+            for (int i = 0; i < num_frames; ++i) {
+                stringstream name;
+                name << "left_cam" << i << "_K";
+                fs << name.str() << left_cameras[i].K();
+
+                name.str("");
+                name << "left_cam" << i << "_R";
+                fs << name.str() << left_cameras[i].R();
+
+                name.str("");
+                name << "left_cam" << i << "_T";
+                fs << name.str() << left_cameras[i].T();
+
+                name.str("");
+                name << "right_cam" << i << "_K";
+                fs << name.str() << right_cameras[i].K();
+
+                name.str("");
+                name << "right_cam" << i << "_R";
+                fs << name.str() << right_cameras[i].R();
+
+                name.str("");
+                name << "right_cam" << i << "_T";
+                fs << name.str() << right_cameras[i].T();
+            }
+        }
+
+        if (load_cameras) {
+            FileStorage fs(cameras_path, FileStorage::READ);
+            fs["num_frames"] >> num_frames;
+
+            left_cameras.resize(num_frames);
+            right_cameras.resize(num_frames);
+
+            for (int i = 0; i < num_frames; ++i) {
+                Mat K, R, T;
+
+                stringstream name;
+                name << "left_cam" << i << "_K";
+                fs[name.str()] >> K;
+
+                name.str("");
+                name << "left_cam" << i << "_R";
+                fs[name.str()] >> R;
+
+                name.str("");
+                name << "left_cam" << i << "_T";
+                fs[name.str()] >> T;
+
+                left_cameras[i] = RigidCamera(K.clone(), R.clone(), T.clone());
+
+                name.str("");
+                name << "right_cam" << i << "_K";
+                fs[name.str()] >> K;
+
+                name.str("");
+                name << "right_cam" << i << "_R";
+                fs[name.str()] >> R;
+
+                name.str("");
+                name << "right_cam" << i << "_T";
+                fs[name.str()] >> T;
+
+                right_cameras[i] = RigidCamera(K.clone(), R.clone(), T.clone());
+            }
         }
 
         for (int i = 0; i < num_frames; ++i) {
@@ -389,7 +458,7 @@ void ParseArgs(int argc, char **argv) {
             i++;
         }
         else if (string(argv[i]) == "--manual") {
-            do_shots_manually = atoi(argv[++i]);
+            do_shots_manually = (bool)atoi(argv[++i]);
         }
         else if (string(argv[i]) == "--num-frames")
             num_frames = atoi(argv[++i]);
@@ -426,6 +495,14 @@ void ParseArgs(int argc, char **argv) {
             noise_stddev = atof(argv[++i]);
         else if (string(argv[i]) == "--create-images")
             create_images = (bool)atoi(argv[++i]);
+        else if (string(argv[i]) == "--save-cams") {
+            save_cameras = true;
+            cameras_path = argv[++i];
+        }
+        else if (string(argv[i]) == "--load-cams") {
+            load_cameras = true;
+            cameras_path = argv[++i];
+        }
         else if (string(argv[i]) == "--log-file")
             log_file = argv[++i];
         else
