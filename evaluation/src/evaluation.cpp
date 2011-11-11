@@ -569,6 +569,24 @@ namespace evaluation {
             ox = v.Rg_ * ox;
             v.Tg_ += ox * v.move_speed_;
         }
+        else if (key == GLFW_KEY_UP) {
+            Mat_<double> oy(3, 1);
+            oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
+            oy = v.Rg_ * oy;
+            v.Tg_ += oy * v.move_speed_;
+        }
+        else if (key == GLFW_KEY_DOWN) {
+            Mat_<double> oy(3, 1);
+            oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
+            oy = v.Rg_ * oy;
+            v.Tg_ -= oy * v.move_speed_;
+        }
+        else if (key == 'd' || key == 'D') {
+            Mat_<double> ox(3, 1);
+            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
+            ox = v.Rg_ * ox;
+            v.Tg_ += ox * v.move_speed_;
+        }
         else if (key == GLFW_KEY_LEFT) {
             Mat_<double> oz(3, 1);
             oz(0, 0) = 0; oz(1, 0) = 0; oz(2, 0) = 1;
@@ -629,10 +647,11 @@ namespace evaluation {
         else if ((key == 'h' || key == 'H') && key != v.prev_key_) {
             cout << "\nHot keys:\n"
                  << "    esc -- exit\n"
-                 << "    w/s/a/d -- navigation\n"
-                 << "    mouse_wheel -- baseline\n"
+                 << "    w/s/a/d -- navigation (OX, OZ)\n"
                  << "    mouse_left_button -- orientation (OX, OY)\n"
-                 << "    left/right -- orientation (OZ)\n"
+                 << "    up/down -- ext. navigation (OY)\n"
+                 << "    left/right -- ext. orientation (OZ)\n"
+                 << "    mouse_wheel -- baseline\n"
                  << "    F1 -- turn on stereo pair orientation mode (default)\n"
                  << "    F2 -- turn on relative orientation mode\n"
                  << "    t -- take a snapshot\n";

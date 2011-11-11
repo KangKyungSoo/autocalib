@@ -278,7 +278,7 @@ int main(int argc, char **argv) {
 
                 //cout << K_gold.inv() * Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3)) * K_gold << endl;
                 Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
-                Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+                //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
             }
         }
 
