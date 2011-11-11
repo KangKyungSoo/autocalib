@@ -310,8 +310,9 @@ int main(int argc, char **argv) {
 
             if (conf > conf_thresh) {
                 inliers_collection[iter->first] = inliers;
-                if (BothAreLeft(from, to))
+                if (BothAreLeft(from, to)) {
                     rel_confs[make_pair(from / 2, to / 2)] = conf;
+                }
             }
         }
 
