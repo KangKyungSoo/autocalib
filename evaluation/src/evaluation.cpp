@@ -344,7 +344,7 @@ namespace evaluation {
             ox = v.R_ * ox;
             v.T_ += ox * v.move_speed_;
         }
-        else if (key == 't' || key == 'T') {
+        else if ((key == 't' || key == 'T') && key != v.prev_key_) {
             if (!v.scene_.empty()) {
                 if (v.cameras_)
                     v.cameras_->push_back(RigidCamera::FromLocalToWorld(v.K_.clone(), v.R_.clone(), v.T_.clone()));
@@ -353,6 +353,7 @@ namespace evaluation {
                     v.scene_->TakeShot(RigidCamera::FromLocalToWorld(v.K_, v.R_, v.T_), v.view_port_, *features);
                     v.features_->insert(make_pair(v.features_->size(), features));
                 }
+                cout << "Took shot\n";
             }
             else
                 cout << "Scene is empty\n";
@@ -460,19 +461,24 @@ namespace evaluation {
                 glEnd();
             }
 
-            Mat_<double> rvec_g;
-            Rodrigues(Rg_, rvec_g);
+            Mat_<double> rvec;
+            Rodrigues(Rg_, rvec);
             stringstream text;
-            text << "rvec_g = " << rvec_g;
+            text << "rvec_g = " << rvec;
             PrintText(10, 10, text.str().c_str());
 
             text.str("");
             text << "Tg = " << Tg_;
             PrintText(10, 70, text.str().c_str());
 
+            Rodrigues(R_, rvec);
+            text.str("");
+            text << "rvec = " << rvec;
+            PrintText(10 + view_port_.width, 10, text.str().c_str());
+
             text.str("");
             text << "T = " << T_;
-            PrintText(10, 130, text.str().c_str());
+            PrintText(10 + view_port_.width, 70, text.str().c_str());
 
             glfwSwapBuffers();
         }
@@ -563,7 +569,33 @@ namespace evaluation {
             ox = v.Rg_ * ox;
             v.Tg_ += ox * v.move_speed_;
         }
-        else if (key == 't' || key == 'T') {
+        else if (key == GLFW_KEY_LEFT) {
+            Mat_<double> oz(3, 1);
+            oz(0, 0) = 0; oz(1, 0) = 0; oz(2, 0) = 1;
+            oz *= v.rotation_speed_;
+
+            Mat R;
+            Rodrigues(oz, R);
+
+            if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                v.Rg_ *= R;
+            else if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_RELATIVE)
+                v.R_ *= R;
+        }
+        else if (key == GLFW_KEY_RIGHT) {
+            Mat_<double> oz(3, 1);
+            oz(0, 0) = 0; oz(1, 0) = 0; oz(2, 0) = 1;
+            oz *= -v.rotation_speed_;
+
+            Mat R;
+            Rodrigues(oz, R);
+
+            if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                v.Rg_ *= R;
+            else if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_RELATIVE)
+                v.R_ *= R;
+        }
+        else if ((key == 't' || key == 'T') && key != v.prev_key_) {
             if (!v.scene_.empty()) {
                 RigidCamera left_camera(v.K_.clone(), v.R_.t() * v.Rg_.t(), -v.R_.t() * v.Rg_.t() * v.Tg_ - v.R_.t() * v.T_);
                 RigidCamera right_camera(v.K_.clone(), v.R_ * v.Rg_.t(), -v.R_ * v.Rg_.t() * v.Tg_ + v.R_ * v.T_);
@@ -581,6 +613,7 @@ namespace evaluation {
                     v.scene_->TakeShot(right_camera, v.view_port_, *features);
                     v.right_features_->insert(make_pair(v.right_features_->size(), features));
                 }
+                cout << "Took shot\n";
             }
             else
                 cout << "Scene is empty\n";
@@ -598,7 +631,8 @@ namespace evaluation {
                  << "    esc -- exit\n"
                  << "    w/s/a/d -- navigation\n"
                  << "    mouse_wheel -- baseline\n"
-                 << "    mouse_left_button -- orientation\n"
+                 << "    mouse_left_button -- orientation (OX, OY)\n"
+                 << "    left/right -- orientation (OZ)\n"
                  << "    F1 -- turn on stereo pair orientation mode (default)\n"
                  << "    F2 -- turn on relative orientation mode\n"
                  << "    t -- take a snapshot\n";
