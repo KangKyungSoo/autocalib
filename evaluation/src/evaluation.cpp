@@ -443,8 +443,8 @@ namespace evaluation {
             glClear(GL_COLOR_BUFFER_BIT);
 
             if (!scene_.empty()) {
-                RigidCamera left_camera(K_, R_.t() * Rg_.t(), -R_.t() * Rg_.t() * Tg_ - R_.t() * T_);
-                RigidCamera right_camera(K_, R_ * Rg_.t(), -R_ * Rg_.t() * Tg_ + R_ * T_);
+                RigidCamera left_camera(K_, Rg_.t(), -Rg_.t() * Tg_);
+                RigidCamera right_camera(K_, R_.t() * Rg_.t(), -R_.t() * Rg_.t() * Tg_ - R_.t() * T_);
 
                 scene_->TakeShot(left_camera, view_port_, left_features);
                 scene_->TakeShot(right_camera, view_port_, right_features);
@@ -615,8 +615,8 @@ namespace evaluation {
         }
         else if ((key == 't' || key == 'T') && key != v.prev_key_) {
             if (!v.scene_.empty()) {
-                RigidCamera left_camera(v.K_.clone(), v.R_.t() * v.Rg_.t(), -v.R_.t() * v.Rg_.t() * v.Tg_ - v.R_.t() * v.T_);
-                RigidCamera right_camera(v.K_.clone(), v.R_ * v.Rg_.t(), -v.R_ * v.Rg_.t() * v.Tg_ + v.R_ * v.T_);
+                RigidCamera left_camera(v.K_, v.Rg_.t(), -v.Rg_.t() * v.Tg_);
+                RigidCamera right_camera(v.K_.clone(), v.R_.t() * v.Rg_.t(), -v.R_.t() * v.Rg_.t() * v.Tg_ - v.R_.t() * v.T_);
                 if (v.left_cameras_)
                     v.left_cameras_->push_back(left_camera);
                 if (v.right_cameras_)

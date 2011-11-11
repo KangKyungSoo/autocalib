@@ -28,7 +28,7 @@ int num_frames = 2;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
-int seed = 0; // No seed
+int seed = 1;
 double F_est_thresh = 3.;
 double noise_stddev = -1; // No noise
 double conf_thresh = 0;
@@ -87,6 +87,8 @@ int main(int argc, char **argv) {
             v.set_left_camera_snapshots_output(&left_cameras);
             v.set_right_camera_snapshots_output(&right_cameras);
             v.Run();
+            R_rel = v.R().clone();
+            T_rel = v.T().clone();
             num_frames = left_cameras.size();
         }
         else {
@@ -345,7 +347,6 @@ int main(int argc, char **argv) {
                 // can lead to numerical instability in K estimation process, so we avoid using those
                 // rotations in the linear autocalibration algorithm.
 
-                //cout << K_gold.inv() * Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3)) * K_gold << endl;
                 Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
                 //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
             }

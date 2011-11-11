@@ -329,14 +329,14 @@ namespace evaluation {
         /** \param K Camera intinsics */
         void set_K(cv::Mat_<double> K) { K_ = K; }
 
-        /** \return Local-to-world rotaton of the left camera */
+        /** \return Local-to-world rotaton of the right camera */
         cv::Mat_<double> R() const { return R_; }
-        /** \param R Local-to-world rotaton of the left camera */
+        /** \param R Local-to-world rotaton of the right camera */
         void set_R(cv::Mat_<double> R) { R_ = R; }
 
-        /** \return Local-to-world translation of the left camera (it defines baseline) */
+        /** \return Local-to-world translation of the right camera (baseline) */
         cv::Mat_<double> T() const { return T_; }
-        /** \param T Local-to-world translation of the left camera (it defines baseline) */
+        /** \param T Local-to-world translation of the right camera (baseline) */
         void set_T(cv::Mat_<double> T) { T_ = T; }
 
         /** \return Local-to-world rotation of stereo pair */
