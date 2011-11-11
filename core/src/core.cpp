@@ -469,8 +469,8 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
-        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
-        //Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_);
+        //Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
+        Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_);
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -1209,7 +1209,7 @@ namespace autocalib {
 
             vector<int> subset;
             while ((int)subset.size() < subset_size) {
-                int point = (int)theRNG() % num_points;
+                int point = abs((int)theRNG()) % num_points;
                 bool is_new = true;
                 for (size_t i = 0; i < subset.size(); ++i) {
                     if (subset[i] == point) {
@@ -1287,44 +1287,44 @@ namespace autocalib {
             }
         }
 
-        for (int i = 0; i < num_points; ++i) {
-            xyzw1_mapped(0, 4 * i) = H_best(0, 0) * xyzw1_(0, 4 * i) + H_best(0, 1) * xyzw1_(0, 4 * i + 1) +
-                                     H_best(0, 2) * xyzw1_(0, 4 * i + 2) + H_best(0, 3) * xyzw1_(0, 4 * i + 3);
-
-            xyzw1_mapped(0, 4 * i + 1) = H_best(1, 0) * xyzw1_(0, 4 * i) + H_best(1, 1) * xyzw1_(0, 4 * i + 1) +
-                                         H_best(1, 2) * xyzw1_(0, 4 * i + 2) + H_best(1, 3) * xyzw1_(0, 4 * i + 3);
-
-            xyzw1_mapped(0, 4 * i + 2) = H_best(2, 0) * xyzw1_(0, 4 * i) + H_best(2, 1) * xyzw1_(0, 4 * i + 1) +
-                                         H_best(2, 2) * xyzw1_(0, 4 * i + 2) + H_best(2, 3) * xyzw1_(0, 4 * i + 3);
-
-            xyzw1_mapped(0, 4 * i + 3) = H_best(3, 0) * xyzw1_(0, 4 * i) + H_best(3, 1) * xyzw1_(0, 4 * i + 1) +
-                                         H_best(3, 2) * xyzw1_(0, 4 * i + 2) + H_best(3, 3) * xyzw1_(0, 4 * i + 3);
-        }
-
-        Mat_<uchar> mask(1, num_points);
-        mask.setTo(0);
-
-        double x, y, z;
-        double sq_err;
-
-        for (int i = 0; i < num_points; ++i) {
-            x = P2_(0, 0) * xyzw1_mapped(0, 4 * i) + P2_(0, 1) * xyzw1_mapped(0, 4 * i + 1) +
-                P2_(0, 2) * xyzw1_mapped(0, 4 * i + 2) + P2_(0, 3) * xyzw1_mapped(0, 4 * i + 3);
-
-            y = P2_(1, 0) * xyzw1_mapped(0, 4 * i) + P2_(1, 1) * xyzw1_mapped(0, 4 * i + 1) +
-                P2_(1, 2) * xyzw1_mapped(0, 4 * i + 2) + P2_(1, 3) * xyzw1_mapped(0, 4 * i + 3);
-
-            z = P2_(2, 0) * xyzw1_mapped(0, 4 * i) + P2_(2, 1) * xyzw1_mapped(0, 4 * i + 1) +
-                P2_(2, 2) * xyzw1_mapped(0, 4 * i + 2) + P2_(2, 3) * xyzw1_mapped(0, 4 * i + 3);
-
-            sq_err = sqr(xy2_(0, 2 * i) - x / z) + sqr(xy2_(0, 2 * i + 1) - y / z);
-
-            if (sq_err < sqr(err_thresh)) {
-                mask(0, i) = 255;
-            }
-        }
-
         if (num_inliers_max >= 5) {
+            for (int i = 0; i < num_points; ++i) {
+                xyzw1_mapped(0, 4 * i) = H_best(0, 0) * xyzw1_(0, 4 * i) + H_best(0, 1) * xyzw1_(0, 4 * i + 1) +
+                                         H_best(0, 2) * xyzw1_(0, 4 * i + 2) + H_best(0, 3) * xyzw1_(0, 4 * i + 3);
+
+                xyzw1_mapped(0, 4 * i + 1) = H_best(1, 0) * xyzw1_(0, 4 * i) + H_best(1, 1) * xyzw1_(0, 4 * i + 1) +
+                                             H_best(1, 2) * xyzw1_(0, 4 * i + 2) + H_best(1, 3) * xyzw1_(0, 4 * i + 3);
+
+                xyzw1_mapped(0, 4 * i + 2) = H_best(2, 0) * xyzw1_(0, 4 * i) + H_best(2, 1) * xyzw1_(0, 4 * i + 1) +
+                                             H_best(2, 2) * xyzw1_(0, 4 * i + 2) + H_best(2, 3) * xyzw1_(0, 4 * i + 3);
+
+                xyzw1_mapped(0, 4 * i + 3) = H_best(3, 0) * xyzw1_(0, 4 * i) + H_best(3, 1) * xyzw1_(0, 4 * i + 1) +
+                                             H_best(3, 2) * xyzw1_(0, 4 * i + 2) + H_best(3, 3) * xyzw1_(0, 4 * i + 3);
+            }
+
+            Mat_<uchar> mask(1, num_points);
+            mask.setTo(0);
+
+            double x, y, z;
+            double sq_err;
+
+            for (int i = 0; i < num_points; ++i) {
+                x = P2_(0, 0) * xyzw1_mapped(0, 4 * i) + P2_(0, 1) * xyzw1_mapped(0, 4 * i + 1) +
+                    P2_(0, 2) * xyzw1_mapped(0, 4 * i + 2) + P2_(0, 3) * xyzw1_mapped(0, 4 * i + 3);
+
+                y = P2_(1, 0) * xyzw1_mapped(0, 4 * i) + P2_(1, 1) * xyzw1_mapped(0, 4 * i + 1) +
+                    P2_(1, 2) * xyzw1_mapped(0, 4 * i + 2) + P2_(1, 3) * xyzw1_mapped(0, 4 * i + 3);
+
+                z = P2_(2, 0) * xyzw1_mapped(0, 4 * i) + P2_(2, 1) * xyzw1_mapped(0, 4 * i + 1) +
+                    P2_(2, 2) * xyzw1_mapped(0, 4 * i + 2) + P2_(2, 3) * xyzw1_mapped(0, 4 * i + 3);
+
+                sq_err = sqr(xy2_(0, 2 * i) - x / z) + sqr(xy2_(0, 2 * i + 1) - y / z);
+
+                if (sq_err < sqr(err_thresh)) {
+                    mask(0, i) = 255;
+                }
+            }
+
             xyzw1_subset.create(1, num_inliers_max * 4);
             xyzw2_subset.create(1, num_inliers_max * 4);
 

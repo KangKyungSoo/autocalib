@@ -604,7 +604,7 @@ namespace autocalib {
       * \return 3D projective space homography mapping xyzw1 into xyzw2
       */
     cv::Mat FindHomographyRobust(cv::InputArray xyzw1, cv::InputArray xyzw2, cv::InputArray P2, cv::InputArray xy2,
-                                 int num_iters = 100, int subset_size = 5, double err_thresh = 3.0);
+                                 int num_iters = 100, int subset_size = 5, double err_thresh = 1.0);
 
 
     /** Calculates a plane-at-infinity coordinates from a homography.
