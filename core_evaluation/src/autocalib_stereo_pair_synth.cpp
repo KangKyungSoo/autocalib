@@ -96,9 +96,8 @@ int main(int argc, char **argv) {
             left_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (-T_rel + T_cur_noised));
             right_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (T_rel + T_cur_noised));
 
-            mono_viewer().set_scene(scene);
-            mono_viewer().set_camera(left_cameras[i]);
-            mono_viewer().Run();
+            the_stereo_viewer().set_scene(scene);
+            the_stereo_viewer().Run();
 
             R_cur = R * R_cur_noised;
 

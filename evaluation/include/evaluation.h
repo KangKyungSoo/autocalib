@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <GL/glfw.h>
-#include <GL/glut.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
 #include <core/include/core.h>
@@ -237,54 +236,48 @@ namespace evaluation {
 
 
     class MonoViewer;
-    MonoViewer& mono_viewer();
+    MonoViewer& the_mono_viewer();
 
 
     class MonoViewer {
     public:
-        cv::Ptr<PointCloudScene> scene() const { return scene_; }
         void set_scene(cv::Ptr<PointCloudScene> scene) { scene_ = scene; }
 
-        RigidCamera camera() const { return RigidCamera::FromLocalToWorld(K_, R_, T_); }
-        void set_camera(RigidCamera camera) {
-            K_ = camera.K();
-            R_ = camera.R().t();
-            T_ = -R_ * camera.T();
-        }
+        /** \return Camera intinsics */
+        cv::Mat_<double> K() const { return K_; }
+        /** \param K Camera intinsics */
+        void set_K(cv::Mat_<double> K) { K_ = K; }
 
-        cv::Rect view_port() const { return view_port_; }
+        /** \return Local-to-world rotaton */
+        cv::Mat_<double> R() const { return R_; }
+        /** \param R Local-to-world rotaton */
+        void set_R(cv::Mat_<double> R) { R_ = R; }
+
+        /** \return Local-to-world translation */
+        cv::Mat_<double> T() const { return T_; }
+        /** \param T Local-to-world translation */
+        void set_T(cv::Mat_<double> T) { T_ = T; }
+
+        /** \param Viewport (it defines the final image size) */
         void set_view_port(cv::Rect view_port) { view_port_ = view_port; }
 
-        cv::Size window_size() const { return window_size_; }
         void set_window_size(cv::Size window_size) { window_size_= window_size; }
 
-        double move_speed() const { return move_speed_; }
         void set_move_speed(double speed) { move_speed_ = speed; }
-
-        double rotation_speed() const { return rotation_speed_; }
         void set_rotation_speed(double speed) { rotation_speed_ = speed; }
 
-        void set_camera_snapshots_output(std::vector<RigidCamera> *cameras) { cameras_ = cameras; }
-        void set_feature_snapshots_output(FeaturesCollection *features) { features_ = features; }
+        void set_camera_snapshots_output(std::vector<RigidCamera> *cameras) {
+            cameras_ = cameras;
+        }
+        void set_feature_snapshots_output(FeaturesCollection *features) {
+            features_ = features;
+        }
 
         void Run();
 
     private:
-        MonoViewer() : cameras_(0), features_(0) {
-            cv::Mat_<double> K = cv::Mat::eye(3, 3, CV_64F);
-            K(0, 0) = 3000; K(0, 2) = 960;
-            K(1, 1) = 3000; K(1, 2) = 540;
-            set_camera(RigidCamera(K, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(3, 1, CV_64F)));
-            set_view_port(cv::Rect(0, 0, 1920, 1080));
-            set_window_size(cv::Size(640, 360));
-            set_move_speed(1e-1);
-            set_rotation_speed(1e-2);
-            prev_key_ = -1;
-
-            int argc = 0;
-            glutInit(&argc, 0);
-        }
-
+        MonoViewer();
+        void InitRun();
         void InitOpenGl();
 
         cv::Ptr<PointCloudScene> scene_;
@@ -293,10 +286,13 @@ namespace evaluation {
 
         cv::Size window_size_;
         bool is_running_;
+
         bool is_left_button_pressed_;
         int start_x_, start_y_;
         cv::Mat_<double> start_R_;
-        double move_speed_, rotation_speed_;
+        double move_speed_;
+        double rotation_speed_;
+
         int prev_key_;
 
         std::vector<RigidCamera> *cameras_;
@@ -306,7 +302,118 @@ namespace evaluation {
         friend void GLFWCALL internal::MonoViewerWindowSizeCallback(int width, int height);
         friend void GLFWCALL internal::MonoViewerMousePosCallback(int x, int y);
         friend void GLFWCALL internal::MonoViewerMouseButtonCallback(int button, int state);
-        friend MonoViewer& mono_viewer();
+
+        friend MonoViewer& the_mono_viewer();
+    };
+
+
+    namespace internal {
+        void GLFWCALL StereoViewerKeyCallback(int key, int state);
+        void GLFWCALL StereoViewerWindowSizeCallback(int width, int height);
+        void GLFWCALL StereoViewerMousePosCallback(int x, int y);
+        void GLFWCALL StereoViewerMouseButtonCallback(int button, int state);
+        void GLFWCALL StereoViewerMouseWheelCallback(int pos);
+    } // namespace internal
+
+
+    class StereoViewer;
+    StereoViewer& the_stereo_viewer();
+
+
+    class StereoViewer {
+    public:
+        void set_scene(cv::Ptr<PointCloudScene> scene) { scene_ = scene; }
+
+        /** \return Camera intinsics */
+        cv::Mat_<double> K() const { return K_; }
+        /** \param K Camera intinsics */
+        void set_K(cv::Mat_<double> K) { K_ = K; }
+
+        /** \return Local-to-world rotaton of the left camera */
+        cv::Mat_<double> R() const { return R_; }
+        /** \param R Local-to-world rotaton of the left camera */
+        void set_R(cv::Mat_<double> R) { R_ = R; }
+
+        /** \return Local-to-world translation of the left camera (it defines baseline) */
+        cv::Mat_<double> T() const { return T_; }
+        /** \param T Local-to-world translation of the left camera (it defines baseline) */
+        void set_T(cv::Mat_<double> T) { T_ = T; }
+
+        /** \return Local-to-world rotation of stereo pair */
+        cv::Mat_<double> Rg() const { return Rg_; }
+        /** \param Rg Local-to-world rotation of stereo pair */
+        void set_Rg(cv::Mat_<double> Rg) { Rg_ = Rg; }
+
+        /** \return Local-to-world translation of stereo pair */
+        cv::Mat_<double> Tg() const { return Tg_; }
+        /** \param Tg Local-to-world translation of stereo pair */
+        void set_Tg(cv::Mat_<double> Tg) { Tg_ = Tg; }
+
+        /** \param Viewport (it defines final image size) */
+        void set_view_port(cv::Rect view_port) { view_port_ = view_port; }
+
+        void set_window_size(cv::Size window_size) { window_size_= window_size; }
+
+        void set_move_speed(double speed) { move_speed_ = speed; }
+        void set_rotation_speed(double speed) { rotation_speed_ = speed; }
+        void set_baseline_speed(double speed) { baseline_speed_ = speed; }
+
+        void set_left_camera_snapshots_output(std::vector<RigidCamera> *cameras) {
+            left_cameras_ = cameras;
+        }
+        void set_right_camera_snapshots_output(std::vector<RigidCamera> *cameras) {
+            right_cameras_ = cameras;
+        }
+
+        void set_left_feature_snapshots_output(FeaturesCollection *features) {
+            left_features_ = features;
+        }
+        void set_right_feature_snapshots_output(FeaturesCollection *features) {
+            right_features_ = features;
+        }
+
+        void Run();
+
+    private:
+        StereoViewer();
+        void InitRun();
+        void InitOpenGl();
+
+        cv::Ptr<PointCloudScene> scene_;
+        cv::Mat_<double> K_, R_, T_, Rg_, Tg_;
+        cv::Rect view_port_;
+
+        cv::Size window_size_;
+        bool is_running_;
+
+        bool is_left_button_pressed_;
+        int start_x_, start_y_;
+        cv::Mat_<double> start_orientation_;
+
+        double move_speed_;
+        double rotation_speed_;
+        double baseline_speed_;
+
+        int prev_wheel_pos_;
+        int prev_key_;
+
+        enum {
+            ORIENTATION_MODE_STEREO_PAIR,
+            ORIENTATION_MODE_RELATIVE
+        } orientation_mode_;
+
+        std::vector<RigidCamera> *left_cameras_;
+        std::vector<RigidCamera> *right_cameras_;
+        FeaturesCollection *left_features_;
+        FeaturesCollection *right_features_;
+
+        friend void GLFWCALL internal::StereoViewerKeyCallback(int key, int state);
+        friend void GLFWCALL internal::StereoViewerWindowSizeCallback(int width, int height);
+        friend void GLFWCALL internal::StereoViewerMousePosCallback(int x, int y);
+        friend void GLFWCALL internal::StereoViewerMouseButtonCallback(int button, int state);
+        friend void GLFWCALL internal::StereoViewerMouseWheelCallback(int pos);
+
+        friend StereoViewer& the_stereo_viewer();
     };
 
 } // namespace evaluation

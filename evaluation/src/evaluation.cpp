@@ -4,6 +4,7 @@
 #include <cstring>
 #include <sstream>
 #include <iostream>
+#include <GL/glut.h>
 #include <opencv2/features2d/features2d.hpp>
 #include <include/evaluation.h>
 
@@ -184,8 +185,17 @@ namespace evaluation {
 
     namespace {
 
+        void InitGlut() {
+            static bool is_glut_initialized = false;
+            if (!is_glut_initialized) {
+                int argc = 0;
+                glutInit(&argc, 0);
+                is_glut_initialized = true;
+            }
+        }
+
         // The code was taken from http://www.gamedeception.net/threads/1876-Printing-Text-with-glut
-        void PrintText(float x, float y, const char *text, void *font = GLUT_BITMAP_HELVETICA_18,
+        void PrintText(float x, float y, const char *text, void *font = GLUT_BITMAP_HELVETICA_12,
                        float r = 1.f, float g = 1.f, float b = 1.f, float a = 0.f)
         {
             if (!text || !strlen(text))
@@ -208,7 +218,7 @@ namespace evaluation {
                 glDisable(GL_BLEND);
         }
 
-    } // namespace
+    } // namespace  
 
 
     void MonoViewer::Run() {
@@ -230,9 +240,7 @@ namespace evaluation {
         glfwEnable(GLFW_KEY_REPEAT);
 
         InitOpenGl();
-
-        is_running_ = true;
-        is_left_button_pressed_ = false;
+        InitRun();
 
         detail::ImageFeatures features;
 
@@ -266,6 +274,32 @@ namespace evaluation {
     }
 
 
+    MonoViewer::MonoViewer() : cameras_(0), features_(0) {
+        Mat_<double> K = Mat::eye(3, 3, CV_64F);
+        K(0, 0) = 3000; K(0, 2) = 960;
+        K(1, 1) = 3000; K(1, 2) = 540;
+        set_K(K);
+
+        set_R(Mat::eye(3, 3, CV_64F));
+        set_T(Mat::zeros(3, 1, CV_64F));
+
+        set_view_port(Rect(0, 0, 1920, 1080));
+        set_window_size(Size(640, 360));
+
+        set_move_speed(1e-1);
+        set_rotation_speed(1e-2);
+
+        InitGlut();
+    }
+
+
+    void MonoViewer::InitRun() {
+        prev_key_ = -1;
+        is_running_ = true;
+        is_left_button_pressed_ = false;
+    }
+
+
     void MonoViewer::InitOpenGl() {
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
@@ -283,7 +317,7 @@ namespace evaluation {
 
 
     void GLFWCALL internal::MonoViewerKeyCallback(int key, int state) {
-        MonoViewer &v = mono_viewer();
+        MonoViewer &v = the_mono_viewer();
         if (key == GLFW_KEY_ESC)
             v.is_running_ = false;
         else if (key == 'w' || key == 'W') {
@@ -310,38 +344,6 @@ namespace evaluation {
             ox = v.R_ * ox;
             v.T_ += ox * v.move_speed_;
         }
-        else if (key == GLFW_KEY_LEFT) {
-            Mat_<double> oy(3, 1);
-            oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
-            oy *= v.rotation_speed_;
-            Mat R;
-            Rodrigues(-oy, R);
-            v.R_ *= R;
-        }
-        else if (key == GLFW_KEY_RIGHT) {
-            Mat_<double> oy(3, 1);
-            oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
-            oy *= v.rotation_speed_;
-            Mat R;
-            Rodrigues(oy, R);
-            v.R_ *= R;
-        }
-        else if (key == GLFW_KEY_UP) {
-            Mat_<double> ox(3, 1);
-            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
-            ox *= v.rotation_speed_;
-            Mat R;
-            Rodrigues(-ox, R);
-            v.R_ *= R;
-        }
-        else if (key == GLFW_KEY_DOWN) {
-            Mat_<double> ox(3, 1);
-            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
-            ox *= v.rotation_speed_;
-            Mat R;
-            Rodrigues(ox, R);
-            v.R_ *= R;
-        }
         else if (key == 't' || key == 'T') {
             if (!v.scene_.empty()) {
                 if (v.cameras_)
@@ -357,24 +359,24 @@ namespace evaluation {
         }
         else if ((key == 'h' || key == 'H') && key != v.prev_key_) {
             cout << "\nHot keys:\n"
-                 << "esc -- exit\n"
-                 << "w/s/a/d -- navigation\n"
-                 << "up/down/left/right/mouse -- orientation\n"
-                 << "t -- take a snapshot\n";
+                 << "    esc -- exit\n"
+                 << "    w/s/a/d -- navigation\n"
+                 << "    mouse_left_button -- orientation\n"
+                 << "    t -- take a snapshot\n";
         }
         v.prev_key_ = key;
     }
 
 
     void GLFWCALL internal::MonoViewerWindowSizeCallback(int width, int height) {
-        mono_viewer().window_size_.width = width;
-        mono_viewer().window_size_.height = height;
-        mono_viewer().InitOpenGl();
+        the_mono_viewer().window_size_.width = width;
+        the_mono_viewer().window_size_.height = height;
+        the_mono_viewer().InitOpenGl();
     }
 
 
     void GLFWCALL internal::MonoViewerMousePosCallback(int x, int y) {
-        MonoViewer &v = mono_viewer();
+        MonoViewer &v = the_mono_viewer();
         if (v.is_left_button_pressed_) {
             int dx = x - v.start_x_;
             int dy = y - v.start_y_;
@@ -392,7 +394,7 @@ namespace evaluation {
 
 
     void GLFWCALL internal::MonoViewerMouseButtonCallback(int button, int state) {
-        MonoViewer &v = mono_viewer();
+        MonoViewer &v = the_mono_viewer();
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (state == GLFW_PRESS) {
                 v.is_left_button_pressed_ = true;
@@ -406,8 +408,264 @@ namespace evaluation {
     }
 
 
-    MonoViewer& mono_viewer() {
+    MonoViewer& the_mono_viewer() {
         static MonoViewer instance;
+        return instance;
+    }  
+
+
+    void StereoViewer::Run() {
+        if (!glfwInit())
+            throw runtime_error("Can't initialize GLFW");
+
+        if (!glfwOpenWindow(window_size_.width, window_size_.height,
+                            0, 0, 0, 0, 0, 0, GLFW_WINDOW))
+        {
+            glfwTerminate();
+            throw runtime_error("Can't create GLFW window");
+        }
+
+        glfwSetWindowTitle("Stereo camera viewer");
+        glfwSetKeyCallback(internal::StereoViewerKeyCallback);
+        glfwSetWindowSizeCallback(internal::StereoViewerWindowSizeCallback);
+        glfwSetMousePosCallback(internal::StereoViewerMousePosCallback);
+        glfwSetMouseButtonCallback(internal::StereoViewerMouseButtonCallback);
+        glfwSetMouseWheelCallback(internal::StereoViewerMouseWheelCallback);
+        glfwEnable(GLFW_KEY_REPEAT);
+
+        InitOpenGl();
+        InitRun();
+
+        detail::ImageFeatures left_features, right_features;
+
+        while (is_running_ && glfwGetWindowParam(GLFW_OPENED)) {
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            if (!scene_.empty()) {
+                RigidCamera left_camera(K_, R_.t() * Rg_.t(), -R_.t() * Rg_.t() * Tg_ - R_.t() * T_);
+                RigidCamera right_camera(K_, R_ * Rg_.t(), -R_ * Rg_.t() * Tg_ + R_ * T_);
+
+                scene_->TakeShot(left_camera, view_port_, left_features);
+                scene_->TakeShot(right_camera, view_port_, right_features);
+
+                glBegin(GL_POINTS);
+                for (size_t i = 0; i < left_features.keypoints.size(); ++i) {
+                    const Point2f &pt = left_features.keypoints[i].pt;
+                    glVertex2f(pt.x, pt.y);
+                }
+                for (size_t i = 0; i < right_features.keypoints.size(); ++i) {
+                    const Point2f &pt = right_features.keypoints[i].pt;
+                    glVertex2f(pt.x + view_port_.width, pt.y);
+                }
+                glEnd();
+            }
+
+            Mat_<double> rvec_g;
+            Rodrigues(Rg_, rvec_g);
+            stringstream text;
+            text << "rvec_g = " << rvec_g;
+            PrintText(10, 10, text.str().c_str());
+
+            text.str("");
+            text << "Tg = " << Tg_;
+            PrintText(10, 70, text.str().c_str());
+
+            text.str("");
+            text << "T = " << T_;
+            PrintText(10, 130, text.str().c_str());
+
+            glfwSwapBuffers();
+        }
+
+        glfwTerminate();
+    }
+
+
+    StereoViewer::StereoViewer() : left_cameras_(0), right_cameras_(0),
+                                   left_features_(0), right_features_(0)
+    {
+        Mat_<double> K = Mat::eye(3, 3, CV_64F);
+        K(0, 0) = 3000; K(0, 2) = 960;
+        K(1, 1) = 3000; K(1, 2) = 540;
+        set_K(K);
+
+        set_R(Mat::eye(3, 3, CV_64F));
+
+        Mat_<double> T(3, 1);
+        T(0, 0) = -1; T(1, 0) = 0; T(2, 0) = 0;
+        set_T(T);
+
+        set_Rg(Mat::eye(3, 3, CV_64F));
+        set_Tg(Mat::zeros(3, 1, CV_64F));
+
+        set_view_port(Rect(0, 0, 1920, 1080));
+        set_window_size(Size(640 * 2, 360));
+
+        set_move_speed(1e-1);
+        set_rotation_speed(1e-2);
+        set_baseline_speed(1e-2);
+
+        InitGlut();
+    }
+
+
+    void StereoViewer::InitRun() {
+        prev_wheel_pos_ = 0;
+        prev_key_ = -1;
+        orientation_mode_ = ORIENTATION_MODE_STEREO_PAIR;
+        is_running_ = true;
+        is_left_button_pressed_ = false;
+    }
+
+
+    void StereoViewer::InitOpenGl() {
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+
+        double aspect = 2 * (double)view_port_.width / view_port_.height;
+        if (window_size_.width > aspect * window_size_.height)
+            glViewport(0, 0, aspect * window_size_.height, window_size_.height);
+        else
+            glViewport(0, 0, window_size_.width, window_size_.width / aspect);
+
+        glOrtho(view_port_.x, view_port_.br().x + view_port_.width,
+                view_port_.y, view_port_.br().y, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glDisable(GL_DEPTH_TEST);
+    }
+
+
+    void GLFWCALL internal::StereoViewerKeyCallback(int key, int state) {
+        StereoViewer &v = the_stereo_viewer();
+        if (key == GLFW_KEY_ESC)
+            v.is_running_ = false;
+        else if (key == 'w' || key == 'W') {
+            Mat_<double> oz(3, 1);
+            oz(0, 0) = 0; oz(1, 0) = 0; oz(2, 0) = 1;
+            oz = v.Rg_ * oz;
+            v.Tg_ += oz * v.move_speed_;
+        }
+        else if (key == 's' || key == 'S') {
+            Mat_<double> oz(3, 1);
+            oz(0, 0) = 0; oz(1, 0) = 0; oz(2, 0) = 1;
+            oz = v.Rg_ * oz;
+            v.Tg_ -= oz * v.move_speed_;
+        }
+        else if (key == 'a' || key == 'A') {
+            Mat_<double> ox(3, 1);
+            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
+            ox = v.Rg_ * ox;
+            v.Tg_ -= ox * v.move_speed_;
+        }
+        else if (key == 'd' || key == 'D') {
+            Mat_<double> ox(3, 1);
+            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
+            ox = v.Rg_ * ox;
+            v.Tg_ += ox * v.move_speed_;
+        }
+        else if (key == 't' || key == 'T') {
+            if (!v.scene_.empty()) {
+                RigidCamera left_camera(v.K_.clone(), v.R_.t() * v.Rg_.t(), -v.R_.t() * v.Rg_.t() * v.Tg_ - v.R_.t() * v.T_);
+                RigidCamera right_camera(v.K_.clone(), v.R_ * v.Rg_.t(), -v.R_ * v.Rg_.t() * v.Tg_ + v.R_ * v.T_);
+                if (v.left_cameras_)
+                    v.left_cameras_->push_back(left_camera);
+                if (v.right_cameras_)
+                    v.right_cameras_->push_back(right_camera);
+                if (v.left_features_) {
+                    Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
+                    v.scene_->TakeShot(left_camera, v.view_port_, *features);
+                    v.left_features_->insert(make_pair(v.left_features_->size(), features));
+                }
+                if (v.right_features_) {
+                    Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
+                    v.scene_->TakeShot(right_camera, v.view_port_, *features);
+                    v.right_features_->insert(make_pair(v.right_features_->size(), features));
+                }
+            }
+            else
+                cout << "Scene is empty\n";
+        }
+        else if (key == GLFW_KEY_F1 && key != v.prev_key_) {
+            v.orientation_mode_ = StereoViewer::ORIENTATION_MODE_STEREO_PAIR;
+            cout << "Stereo pair orientation mode\n";
+        }
+        else if (key == GLFW_KEY_F2 && key != v.prev_key_) {
+            v.orientation_mode_ = StereoViewer::ORIENTATION_MODE_RELATIVE;
+            cout << "Relative orientation mode\n";
+        }
+        else if ((key == 'h' || key == 'H') && key != v.prev_key_) {
+            cout << "\nHot keys:\n"
+                 << "    esc -- exit\n"
+                 << "    w/s/a/d -- navigation\n"
+                 << "    mouse_wheel -- baseline\n"
+                 << "    mouse_left_button -- orientation\n"
+                 << "    F1 -- turn on stereo pair orientation mode (default)\n"
+                 << "    F2 -- turn on relative orientation mode\n"
+                 << "    t -- take a snapshot\n";
+        }
+
+        v.prev_key_ = key;
+    }
+
+
+    void GLFWCALL internal::StereoViewerWindowSizeCallback(int width, int height) {
+        the_stereo_viewer().window_size_.width = width;
+        the_stereo_viewer().window_size_.height = height;
+        the_stereo_viewer().InitOpenGl();
+    }
+
+
+    void GLFWCALL internal::StereoViewerMousePosCallback(int x, int y) {
+        StereoViewer &v = the_stereo_viewer();
+        if (v.is_left_button_pressed_) {
+            int dx = x - v.start_x_;
+            int dy = y - v.start_y_;
+            Mat_<double> ox(3, 1);
+            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
+            ox *= CV_PI * dy / v.window_size_.width;
+            Mat_<double> oy(3, 1);
+            oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
+            oy *= CV_PI * dx / v.window_size_.height;
+            Mat R;
+            Rodrigues(ox + oy, R);
+
+            if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                v.Rg_ = v.start_orientation_ * R;
+            else if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_RELATIVE)
+                v.R_ = v.start_orientation_ * R;
+        }
+    }
+
+
+    void GLFWCALL internal::StereoViewerMouseButtonCallback(int button, int state) {
+        StereoViewer &v = the_stereo_viewer();
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (state == GLFW_PRESS) {
+                v.is_left_button_pressed_ = true;
+
+                if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                    v.start_orientation_ = v.Rg_.clone();
+                else if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_RELATIVE)
+                    v.start_orientation_ = v.R_.clone();
+
+                glfwGetMousePos(&v.start_x_, &v.start_y_);
+            }
+            else {
+                v.is_left_button_pressed_ = false;
+            }
+        }
+    }
+
+
+    void GLFWCALL internal::StereoViewerMouseWheelCallback(int pos) {
+        StereoViewer &v = the_stereo_viewer();
+        v.T_ *= 1 + (pos - v.prev_wheel_pos_) * v.baseline_speed_;
+        v.prev_wheel_pos_ = pos;
+    }
+
+
+    StereoViewer& the_stereo_viewer() {
+        static StereoViewer instance;
         return instance;
     }
 
