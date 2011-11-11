@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
         // Generate cameras and shots       
 
         Mat_<double> T_rel(3, 1);
-        T_rel(0, 0) = -1; T_rel(1, 0) = T_rel(2, 0) = 0;
+        T_rel(0, 0) = 1; T_rel(1, 0) = T_rel(2, 0) = 0;
         Mat_<double> rvec_rel(1, 3);
         rvec_rel(0, 0) = 0; rvec_rel(0, 1) = 0; rvec_rel(0, 2) = 0;
         Mat R_rel; Rodrigues(rvec_rel, R_rel);
@@ -125,6 +125,8 @@ int main(int argc, char **argv) {
         if (save_cameras) {
             FileStorage fs(cameras_path, FileStorage::WRITE);
             fs << "num_frames" << num_frames;
+            fs << "R_rel" << R_rel;
+            fs << "T_rel" << T_rel;
 
             for (int i = 0; i < num_frames; ++i) {
                 stringstream name;
@@ -156,6 +158,8 @@ int main(int argc, char **argv) {
         if (load_cameras) {
             FileStorage fs(cameras_path, FileStorage::READ);
             fs["num_frames"] >> num_frames;
+            fs["R_rel"] >> R_rel;
+            fs["T_rel"] >> T_rel;
 
             left_cameras.resize(num_frames);
             right_cameras.resize(num_frames);
@@ -415,16 +419,13 @@ int main(int argc, char **argv) {
         double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
                                                     ~REFINE_FLAG_SKEW);
 
-//        Mat_<double> R_ = R_rel * R_rel;
-//        Mat_<double> T_ = R_rel * R_rel * T_rel + T_rel;
-//        Mat_<double> rvec_; Rodrigues(R_, rvec_);
-//        cout << "GOLD rvec = " << -rvec_ << endl;
-//        Rodrigues(P_r_m.R(), rvec_);
-//        cout << "Final rvec = " << -rvec_ << endl;
-//        T_ = -R * T_;
-//        cout << "GOLD T = " << T_ << endl;
-//        Mat_<double> T__ = -R * P_r_m.T();
-//        cout << "Final T = " << T__ / T__(0, 0) * T_(0, 0) << endl;
+        Mat_<double> rvec_; Rodrigues(R_rel, rvec_);
+        cout << "GOLD rvec = " << rvec_ << endl;
+        Rodrigues(P_r_m.R().t(), rvec_);
+        cout << "Final rvec = " << rvec_ << endl;
+        cout << "GOLD T = " << T_rel << endl;
+        Mat_<double> T_ = -P_r_m.R().t() * P_r_m.T();
+        cout << "Final T = " << T_ / T_(0, 0) * T_rel(0, 0) << endl;
 
         Mat_<double> K_refined = P_r_m.K();
         cout << "K_refined = \n" << K_refined << endl;
