@@ -91,72 +91,7 @@ int main(int argc, char **argv) {
             T_rel = v.T().clone();
             num_frames = left_cameras.size();
         }
-        else {
-//            left_cameras.resize(num_frames);
-//            right_cameras.resize(num_frames);
-
-//            detail::ImageFeatures features;
-
-//            Mat R_cur = Mat::eye(3, 3, CV_64F);
-//            for (int i = 0; i < num_frames; ++i) {
-//                Mat_<double> T_noise(3, 1);
-//                rng.fill(T_noise, RNG::UNIFORM, -0.3, 0.3);
-//                Mat T_cur_noised = T + T_noise;
-
-//                Mat_<double> rvec_noise(1, 3);
-//                rng.fill(rvec_noise, RNG::UNIFORM, -0.3, 0.3);
-//                Mat R_noise; Rodrigues(rvec_noise, R_noise);
-//                Mat R_cur_noised = R_cur * R_noise;
-
-//                left_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (T_rel + T_cur_noised));
-//                right_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (-T_rel + T_cur_noised));
-
-//                R_cur = R * R_cur_noised;
-
-//                scene->TakeShot(left_cameras[i], viewport, features);
-//                scene->TakeShot(right_cameras[i], viewport, features);
-//            }
-            throw runtime_error("Generate dataset manually or load it");
-        }
-
-        if (num_frames < 1) {
-            throw runtime_error("Need more frames");
-        }
-
-        if (save_cameras) {
-            FileStorage fs(cameras_path, FileStorage::WRITE);
-            fs << "num_frames" << num_frames;
-            fs << "R_rel" << R_rel;
-            fs << "T_rel" << T_rel;
-
-            for (int i = 0; i < num_frames; ++i) {
-                stringstream name;
-                name << "left_cam" << i << "_K";
-                fs << name.str() << left_cameras[i].K();
-
-                name.str("");
-                name << "left_cam" << i << "_R";
-                fs << name.str() << left_cameras[i].R();
-
-                name.str("");
-                name << "left_cam" << i << "_T";
-                fs << name.str() << left_cameras[i].T();
-
-                name.str("");
-                name << "right_cam" << i << "_K";
-                fs << name.str() << right_cameras[i].K();
-
-                name.str("");
-                name << "right_cam" << i << "_R";
-                fs << name.str() << right_cameras[i].R();
-
-                name.str("");
-                name << "right_cam" << i << "_T";
-                fs << name.str() << right_cameras[i].T();
-            }
-        }
-
-        if (load_cameras) {
+        else if (load_cameras) {
             FileStorage fs(cameras_path, FileStorage::READ);
             fs["num_frames"] >> num_frames;
             fs["R_rel"] >> R_rel;
@@ -195,6 +130,70 @@ int main(int argc, char **argv) {
                 fs[name.str()] >> T;
 
                 right_cameras[i] = RigidCamera(K.clone(), R.clone(), T.clone());
+            }
+        }
+        else {
+            num_frames = 0;
+//            left_cameras.resize(num_frames);
+//            right_cameras.resize(num_frames);
+
+//            detail::ImageFeatures features;
+
+//            Mat R_cur = Mat::eye(3, 3, CV_64F);
+//            for (int i = 0; i < num_frames; ++i) {
+//                Mat_<double> T_noise(3, 1);
+//                rng.fill(T_noise, RNG::UNIFORM, -0.3, 0.3);
+//                Mat T_cur_noised = T + T_noise;
+
+//                Mat_<double> rvec_noise(1, 3);
+//                rng.fill(rvec_noise, RNG::UNIFORM, -0.3, 0.3);
+//                Mat R_noise; Rodrigues(rvec_noise, R_noise);
+//                Mat R_cur_noised = R_cur * R_noise;
+
+//                left_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (T_rel + T_cur_noised));
+//                right_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (-T_rel + T_cur_noised));
+
+//                R_cur = R * R_cur_noised;
+
+//                scene->TakeShot(left_cameras[i], viewport, features);
+//                scene->TakeShot(right_cameras[i], viewport, features);
+//            }
+        }
+
+        if (num_frames < 1) {
+            throw runtime_error("Need more frames");
+        }
+
+        if (save_cameras) {
+            FileStorage fs(cameras_path, FileStorage::WRITE);
+            fs << "num_frames" << num_frames;
+            fs << "R_rel" << R_rel;
+            fs << "T_rel" << T_rel;
+
+            for (int i = 0; i < num_frames; ++i) {
+                stringstream name;
+                name << "left_cam" << i << "_K";
+                fs << name.str() << left_cameras[i].K();
+
+                name.str("");
+                name << "left_cam" << i << "_R";
+                fs << name.str() << left_cameras[i].R();
+
+                name.str("");
+                name << "left_cam" << i << "_T";
+                fs << name.str() << left_cameras[i].T();
+
+                name.str("");
+                name << "right_cam" << i << "_K";
+                fs << name.str() << right_cameras[i].K();
+
+                name.str("");
+                name << "right_cam" << i << "_R";
+                fs << name.str() << right_cameras[i].R();
+
+                name.str("");
+                name << "right_cam" << i << "_T";
+                fs << name.str() << right_cameras[i].T();
             }
         }
 
