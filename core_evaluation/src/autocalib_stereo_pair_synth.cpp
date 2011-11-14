@@ -21,6 +21,7 @@ void AddNoise();
 Ptr<IPointCloudSceneCreator> scene_creator = new SphereSceneCreator();
 RNG rng;
 FeaturesCollection features_collection;
+FeaturesCollection features_collection_ideal;
 MatchesCollection matches_collection;
 bool do_shots_manually = false;
 int num_points = 1000;
@@ -202,13 +203,22 @@ int main(int argc, char **argv) {
             scene->TakeShot(left_cameras[i], viewport, *left_features);
             features_collection[2 * i] = left_features;
 
+            Ptr<detail::ImageFeatures> left_features_ = new detail::ImageFeatures();
+            scene->TakeShot(left_cameras[i], viewport, *left_features_);
+            features_collection_ideal[2 * i] = left_features_;
+
             Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
             scene->TakeShot(right_cameras[i], viewport, *right_features);
             features_collection[2 * i + 1] = right_features;
+
+            Ptr<detail::ImageFeatures> right_features_ = new detail::ImageFeatures();
+            scene->TakeShot(right_cameras[i], viewport, *right_features_);
+            features_collection_ideal[2 * i + 1] = right_features_;
+
         }
 
-        // Add noise before F estimation
-        AddNoise();
+//        // Add noise before F estimation
+//        AddNoise();
 
         // Save images if it's needed
 
@@ -256,6 +266,8 @@ int main(int argc, char **argv) {
         Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh);
         Mat_<double> P_l = Mat::eye(3, 4, CV_64F);
         Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
+
+        AddNoise();
 
         // Remove outliers
 
@@ -335,12 +347,19 @@ int main(int argc, char **argv) {
                 ExtractMatchedKeypoints(*(features_collection.find(2 * j)->second),
                                         *(features_collection.find(2 * j + 1)->second), *matches_lr1, xy_l1, xy_r1);
 
+//                Mat_<double> xy_l0_ideal, xy_r0_ideal, xy_l1_ideal, xy_r1_ideal;
+//                ExtractMatchedKeypoints(*(features_collection_ideal.find(2 * i)->second),
+//                                        *(features_collection_ideal.find(2 * i + 1)->second), *matches_lr0, xy_l0_ideal, xy_r0_ideal);
+//                ExtractMatchedKeypoints(*(features_collection_ideal.find(2 * j)->second),
+//                                        *(features_collection_ideal.find(2 * j + 1)->second), *matches_lr1, xy_l1_ideal, xy_r1_ideal);
+
                 Mat_<double> Hpa, H01_a;
                 Mat_<double> xyzw0_a, xyzw1_a;
                 Mat_<double> P_l_a_ = P_l.clone();
                 Mat_<double> P_r_a_ = P_r.clone();
 
-                AffineRectifyStereoCameraByTwoShots(P_l_a_, P_r_a_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
+                AffineRectifyStereoCameraByTwoShots(P_l_a_, P_r_a_, /*xy_l0_ideal, xy_r0_ideal, xy_l1_ideal, xy_r1_ideal,*/
+                                                    xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
                                                     Hpa, H01_a, xyzw0_a, xyzw1_a);
 
                 Hs_01_a[make_pair(i, j)] = H01_a;
