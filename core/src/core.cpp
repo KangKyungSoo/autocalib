@@ -522,7 +522,6 @@ namespace autocalib {
 
         AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
 
-        //cout << H01_ << endl;
         Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
         AUTOCALIB_LOG(cout << "Plane-at-infinity = " << p_inf << endl);
 
@@ -902,23 +901,32 @@ namespace autocalib {
 
     Mat ExtractCameraMatFromFundamentalMat(InputArray F) {
         CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
-        Mat F_ = F.getMat();
+        Mat F_ = F.getMat().clone();
+        F_ /= norm(F, NORM_INF);
 
         Mat epipole;
         SVD::solveZ(F_.t(), epipole);
 
         Mat P(3, 4, CV_64F);
+        Mat P3x3(P(Rect(0, 0, 3, 3)));
+        Mat(CrossProductMat(epipole) * F_).copyTo(P3x3);
+        P3x3 /= norm(P3x3);
+        double max_det = abs(determinant(P3x3));
 
-        Mat A(P(Rect(0, 0, 3, 3)));
+        Mat v(1, 3, CV_64F);
+        RNG rng(0);
 
-//        Mat v(1, 3, CV_64F);
-//        RNG rng(0);
-
-//        do {
-//            rng.fill(v, RNG::UNIFORM, 0, 1);
-            Mat(CrossProductMat(epipole) * F_ /*+ epipole * v*/).copyTo(A);
-            A /= norm(A);
-//        } while (abs(determinant(A)) < 1e-4);
+        for (int i = 0; i < 10000; ++i) {
+            rng.fill(v, RNG::UNIFORM, -100, 100);
+            Mat P3x3_cur;
+            Mat(CrossProductMat(epipole) * F_ + epipole * v).copyTo(P3x3_cur);
+            P3x3_cur /= norm(P3x3_cur, NORM_INF);
+            double det = abs(determinant(P3x3_cur));
+            if (det > max_det) {
+                P3x3 = P3x3_cur;
+                max_det = det;
+            }
+        }
 
         Mat a(P(Rect(3, 0, 1, 3)));
         epipole.copyTo(a);
@@ -1496,10 +1504,9 @@ namespace autocalib {
         EigenDecompose(H_.t(), evals1, evecs1);        
 
         for (int i = 0; i < 4; ++i) {
-            complex<double> max_val = evecs1.at<complex<double> >(i, 0);
-            for (int j = 1; j < 4; ++j)
-                if (abs(evecs1.at<complex<double> >(i, j)) > abs(max_val))
-                    max_val = evecs1.at<complex<double> >(i, j);
+            complex<double> max_val = evecs1.at<complex<double> >(i, 3);
+//            for (int j = 1; j < 4; ++j)
+//                if (abs(evecs1.at<complex<double> >(i, j)) > abs(max_val))
             for (int j = 0; j < 4; ++j)
                 evecs1.at<complex<double> >(i, j) /= max_val;
         }
@@ -1522,10 +1529,9 @@ namespace autocalib {
         EigenDecompose(-H_.t(), evals2, evecs2);
 
         for (int i = 0; i < 4; ++i) {
-            complex<double> max_val = evecs1.at<complex<double> >(i, 0);
-            for (int j = 1; j < 4; ++j)
-                if (abs(evecs1.at<complex<double> >(i, j)) > abs(max_val))
-                    max_val = evecs1.at<complex<double> >(i, j);
+            complex<double> max_val = evecs1.at<complex<double> >(i, 3);
+//            for (int j = 1; j < 4; ++j)
+//                if (abs(evecs1.at<complex<double> >(i, j)) > abs(max_val))
             for (int j = 0; j < 4; ++j)
                 evecs1.at<complex<double> >(i, j) /= max_val;
         }
@@ -1615,8 +1621,8 @@ namespace autocalib {
 
         // FM_LMEDS works much better that FM_RANSAC on synthetic datasets
 
-        //Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_RANSAC, thresh);
-        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh);
+        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_RANSAC, thresh);
+        //Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh);
 
         int num_inliers = 0;
         for (size_t i = 0; i < F_mask.size(); ++i) {
