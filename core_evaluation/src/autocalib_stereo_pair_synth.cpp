@@ -116,6 +116,7 @@ int main(int argc, char **argv) {
 //                scene->TakeShot(left_cameras[i], viewport, features);
 //                scene->TakeShot(right_cameras[i], viewport, features);
 //            }
+            throw runtime_error("Generate dataset manually or load it");
         }
 
         if (num_frames < 1) {
