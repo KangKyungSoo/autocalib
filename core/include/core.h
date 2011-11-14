@@ -204,7 +204,8 @@ namespace autocalib {
           * \param verbose Verbosity level
           * \see Verbose
           */
-        MinimizeOpts(int verbose) { Init(crit_default(), verbose); }
+        MinimizeOpts(int verbose) { Init(crit_default(), verbose); }               
+
 
         /** \return Default termination criteria. */
         static cv::TermCriteria crit_default() {
@@ -604,7 +605,20 @@ namespace autocalib {
       * \return 3D projective space homography mapping xyzw1 into xyzw2
       */
     cv::Mat FindHomographyRobust(cv::InputArray xyzw1, cv::InputArray xyzw2, cv::InputArray P2, cv::InputArray xy2,
-                                 int num_iters = 100, int subset_size = 5, double err_thresh = 1.0);
+                                 int num_iters = 100, int subset_size = 10, double err_thresh = 3.0);
+
+
+    /** Refines 3D projective space homography.
+      *
+      * \param H Homography mapping xyzw cloud
+      * \param xyzw Cloud to be mapped
+      * \param P1 Left camera matrix (must be applied to mapped cloud)
+      * \param P2 Right camera matrix (must be applied to mapped cloud)
+      * \param xy1 Left image keypoints (images of mapped points)
+      * \param xy2 Right image keypoints (images of mapped points)
+      */
+    void RefineHomographyP3(cv::InputOutputArray H, cv::InputArray xyzw, cv::InputArray P1, cv::InputArray P2,
+                            cv::InputArray xy1, cv::InputArray xy2);
 
 
     /** Calculates a plane-at-infinity coordinates from a homography.

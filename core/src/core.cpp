@@ -469,8 +469,41 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
-        //Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
+//        {
+//        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
+
+//        Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
+//        for (int i = 0; i < num_points_common; ++i) {
+//            xyzw0_mapped(0, 4 * i) = H01_(0, 0) * xyzw0_(0, 4 * i) + H01_(0, 1) * xyzw0_(0, 4 * i + 1) + H01_(0, 2) * xyzw0_(0, 4 * i + 2) + H01_(0, 3) * xyzw0_(0, 4 * i + 3);
+//            xyzw0_mapped(0, 4 * i + 1) = H01_(1, 0) * xyzw0_(0, 4 * i) + H01_(1, 1) * xyzw0_(0, 4 * i + 1) + H01_(1, 2) * xyzw0_(0, 4 * i + 2) + H01_(1, 3) * xyzw0_(0, 4 * i + 3);
+//            xyzw0_mapped(0, 4 * i + 2) = H01_(2, 0) * xyzw0_(0, 4 * i) + H01_(2, 1) * xyzw0_(0, 4 * i + 1) + H01_(2, 2) * xyzw0_(0, 4 * i + 2) + H01_(2, 3) * xyzw0_(0, 4 * i + 3);
+//            xyzw0_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
+//        }
+
+//        AUTOCALIB_LOG(
+//            cout << "Reprojection RMS error after mapping (l1 r1) = ("
+//                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw0_mapped) << " "
+//                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
+//        }
+
         Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_);
+
+//        {
+//        Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
+//        for (int i = 0; i < num_points_common; ++i) {
+//            xyzw0_mapped(0, 4 * i) = H01_(0, 0) * xyzw0_(0, 4 * i) + H01_(0, 1) * xyzw0_(0, 4 * i + 1) + H01_(0, 2) * xyzw0_(0, 4 * i + 2) + H01_(0, 3) * xyzw0_(0, 4 * i + 3);
+//            xyzw0_mapped(0, 4 * i + 1) = H01_(1, 0) * xyzw0_(0, 4 * i) + H01_(1, 1) * xyzw0_(0, 4 * i + 1) + H01_(1, 2) * xyzw0_(0, 4 * i + 2) + H01_(1, 3) * xyzw0_(0, 4 * i + 3);
+//            xyzw0_mapped(0, 4 * i + 2) = H01_(2, 0) * xyzw0_(0, 4 * i) + H01_(2, 1) * xyzw0_(0, 4 * i + 1) + H01_(2, 2) * xyzw0_(0, 4 * i + 2) + H01_(2, 3) * xyzw0_(0, 4 * i + 3);
+//            xyzw0_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
+//        }
+
+//        AUTOCALIB_LOG(
+//            cout << "Reprojection RMS error after mapping (l1 r1) = ("
+//                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw0_mapped) << " "
+//                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
+//        }
+
+        RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -772,10 +805,7 @@ namespace autocalib {
         }
 
         EpipError_FixedK_StereoCam func(features, matches, motions_indices, params_to_refine);
-        double rms_error = MinimizeLevMarq(func, arg,
-                MinimizeOpts(cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS,
-                                              2000, std::numeric_limits<double>::epsilon()),
-                             MinimizeOpts::VERBOSE_SUMMARY));
+        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K(0, 0) = arg(0, 0);
         K(0, 1) = arg(0, 1);
@@ -1349,6 +1379,112 @@ namespace autocalib {
         }
 
         return H_best;
+    }
+
+
+    namespace {
+
+        class HomographyP3ReprojError {
+        public:
+            HomographyP3ReprojError(Mat_<double> xyzw, Mat_<double> P1, Mat_<double> P2,
+                                    Mat_<double> xy1, Mat_<double> xy2)
+                : xyzw_(xyzw), P1_(P1), P2_(P2), xy1_(xy1), xy2_(xy2),
+                  num_points_(xyzw.cols / 4), step_(1e-6) {}
+
+            void operator()(const Mat &arg, Mat &err);
+            void Jacobian(const Mat &arg, Mat &jac);
+
+            int dimension() const { return 4 * num_points_; }
+
+        private:
+            Mat_<double> xyzw_;
+            Mat_<double> P1_, P2_;
+            Mat_<double> xy1_, xy2_;
+            int num_points_;
+            double step_;
+            Mat_<double> err_;
+        };
+
+
+        void HomographyP3ReprojError::operator ()(const Mat &arg, Mat &err) {
+            err.create(dimension(), 1, CV_64F);
+            Mat_<double> err_(err);
+
+            Mat arg_ = Mat::ones(1, 16, CV_64F);
+            Mat tmp = arg_.colRange(0, 15);
+            arg.copyTo(tmp);
+            Mat H(arg_.reshape(0, 4));
+
+            Mat P1_H = P1_ * H;
+            Mat P2_H = P2_ * H;
+
+            Mat_<double> point(3, 1);
+
+            for (int i = 0; i < num_points_; ++i) {
+                point = P1_H * xyzw_.colRange(4 * i, 4 * (i + 1)).t();
+                err_(4 * i, 0) = xy1_(0, 2 * i) - point(0, 0) / point(2, 0);
+                err_(4 * i + 1, 0) = xy1_(0, 2 * i + 1) - point(1, 0) / point(2, 0);
+                point = P2_H * xyzw_.colRange(4 * i, 4 * (i + 1)).t();
+                err_(4 * i + 2, 0) = xy2_(0, 2 * i) - point(0, 0) / point(2, 0);
+                err_(4 * i + 3, 0) = xy2_(0, 2 * i + 1) - point(1, 0) / point(2, 0);
+            }
+        }
+
+        void HomographyP3ReprojError::Jacobian(const Mat &arg, Mat &jac) {
+            Mat_<double> arg_(arg.clone());
+
+            jac.create(dimension(), arg_.cols, CV_64F);
+            Mat_<double> jac_(jac);
+            jac_.setTo(0);
+
+            for (int i = 0; i < arg_.cols; ++i) {
+                double val = arg_(0, i);
+
+                arg_(0, i) += step_;
+                Mat tmp = jac_.col(i);
+                (*this)(arg_, tmp);
+
+                arg_(0, i) = val - step_;
+                (*this)(arg_, err_);
+                arg_(0, i) = val;
+
+                for (int j = 0; j < dimension(); ++j)
+                    jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
+            }
+        }
+
+    } // namespace
+
+
+    void RefineHomographyP3(InputOutputArray H, InputArray xyzw, InputArray P1, InputArray P2,
+                            InputArray xy1, InputArray xy2)
+    {
+        CV_Assert(H.getMat().type() == CV_64F && H.getMat().size() == Size(4, 4));
+        CV_Assert(xyzw.getMat().type() == CV_64F && xyzw.getMat().rows == 1 && xyzw.getMat().cols % 4 == 0);
+        CV_Assert(P1.getMat().type() == CV_64F && P1.getMat().size() == Size(4, 3));
+        CV_Assert(P2.getMat().type() == CV_64F && P2.getMat().size() == Size(4, 3));
+        CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy2.getMat().cols % 2 == 0);
+        CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
+        CV_Assert(xy1.getMat().cols / 2 == xy2.getMat().cols / 2);
+        CV_Assert(xy1.getMat().cols / 2 == xyzw.getMat().cols / 4);
+
+        Mat_<double> xyzw_(xyzw.getMat());
+        Mat_<double> P1_(P1.getMat());
+        Mat_<double> P2_(P2.getMat());
+        Mat_<double> xy1_(xy1.getMat());
+        Mat_<double> xy2_(xy2.getMat());
+
+        Mat_<double> arg = H.getMatRef().clone();
+        arg = arg.reshape(1);
+        arg /= arg(0, 15);
+        Mat_<double> arg_ = arg.colRange(0, 15);
+
+        HomographyP3ReprojError func(xyzw_, P1_, P2_, xy1_, xy2_);
+        MinimizeLevMarq(func, arg_, MinimizeOpts::VERBOSE_SUMMARY);
+
+        Mat tmp = arg.colRange(0, 15);
+        arg_.copyTo(tmp);
+        H.getMatRef() = arg.reshape(4);
     }
 
 
