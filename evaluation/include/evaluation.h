@@ -322,7 +322,7 @@ namespace evaluation {
 
     class StereoViewer {
     public:
-        void set_scene(cv::Ptr<PointCloudScene> scene) { scene_ = scene; }
+        void set_scene(cv::Ptr<ISyntheticScene> scene) { scene_ = scene; }
 
         /** \return Camera intinsics */
         cv::Mat_<double> K() const { return K_; }
@@ -379,7 +379,7 @@ namespace evaluation {
         void InitRun();
         void InitOpenGl();
 
-        cv::Ptr<PointCloudScene> scene_;
+        cv::Ptr<ISyntheticScene> scene_;
         cv::Mat_<double> K_, R_, T_, Rg_, Tg_;
         cv::Rect view_port_;
 

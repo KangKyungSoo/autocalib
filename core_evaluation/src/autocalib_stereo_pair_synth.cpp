@@ -56,11 +56,25 @@ int main(int argc, char **argv) {
             srand(seed);
         }
 
-        Ptr<PointCloudScene> scene;
+        Ptr<ISyntheticScene> scene;
 
         // Generate synthetic scene
 
-        scene = scene_creator->Create(num_points, rng);
+        CompositeSceneBuilder csb;
+
+        Ptr<PointCloudScene> scene1 = new SphereScene(num_points, rng);
+        Mat tmp(3, 1, CV_64F);
+        rng.fill(tmp, RNG::UNIFORM, -2, 2);
+        scene1->set_T(tmp.clone());
+
+        Ptr<PointCloudScene> scene2 = new SphereScene(num_points, rng);
+
+        csb.Add(scene1);
+        csb.Add(scene2);
+
+        Ptr<CompositeScene> cs = csb.Build();
+        scene = static_cast<CompositeScene*>(cs);
+        cs.addref();
 
         vector<RigidCamera> left_cameras;
         vector<RigidCamera> right_cameras;
