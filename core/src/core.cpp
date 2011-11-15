@@ -1665,8 +1665,6 @@ namespace autocalib {
 
         vector<uchar> F_mask;
 
-        // FM_LMEDS works much better that FM_RANSAC on synthetic datasets
-
         Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_RANSAC, thresh);
         //Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh);
 
