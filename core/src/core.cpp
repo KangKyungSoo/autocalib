@@ -469,24 +469,7 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
-//        {
-//        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
-
-//        Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
-//        for (int i = 0; i < num_points_common; ++i) {
-//            xyzw0_mapped(0, 4 * i) = H01_(0, 0) * xyzw0_(0, 4 * i) + H01_(0, 1) * xyzw0_(0, 4 * i + 1) + H01_(0, 2) * xyzw0_(0, 4 * i + 2) + H01_(0, 3) * xyzw0_(0, 4 * i + 3);
-//            xyzw0_mapped(0, 4 * i + 1) = H01_(1, 0) * xyzw0_(0, 4 * i) + H01_(1, 1) * xyzw0_(0, 4 * i + 1) + H01_(1, 2) * xyzw0_(0, 4 * i + 2) + H01_(1, 3) * xyzw0_(0, 4 * i + 3);
-//            xyzw0_mapped(0, 4 * i + 2) = H01_(2, 0) * xyzw0_(0, 4 * i) + H01_(2, 1) * xyzw0_(0, 4 * i + 1) + H01_(2, 2) * xyzw0_(0, 4 * i + 2) + H01_(2, 3) * xyzw0_(0, 4 * i + 3);
-//            xyzw0_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
-//        }
-
-//        AUTOCALIB_LOG(
-//            cout << "Reprojection RMS error after mapping (l1 r1) = ("
-//                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw0_mapped) << " "
-//                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
-//        }
-
-        Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_);
+        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
 
 //        {
 //        Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
@@ -503,7 +486,22 @@ namespace autocalib {
 //                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
 //        }
 
-        RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
+//        {
+//        Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_);
+//        Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
+//        for (int i = 0; i < num_points_common; ++i) {
+//            xyzw0_mapped(0, 4 * i) = H01_(0, 0) * xyzw0_(0, 4 * i) + H01_(0, 1) * xyzw0_(0, 4 * i + 1) + H01_(0, 2) * xyzw0_(0, 4 * i + 2) + H01_(0, 3) * xyzw0_(0, 4 * i + 3);
+//            xyzw0_mapped(0, 4 * i + 1) = H01_(1, 0) * xyzw0_(0, 4 * i) + H01_(1, 1) * xyzw0_(0, 4 * i + 1) + H01_(1, 2) * xyzw0_(0, 4 * i + 2) + H01_(1, 3) * xyzw0_(0, 4 * i + 3);
+//            xyzw0_mapped(0, 4 * i + 2) = H01_(2, 0) * xyzw0_(0, 4 * i) + H01_(2, 1) * xyzw0_(0, 4 * i + 1) + H01_(2, 2) * xyzw0_(0, 4 * i + 2) + H01_(2, 3) * xyzw0_(0, 4 * i + 3);
+//            xyzw0_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
+//        }
+//        AUTOCALIB_LOG(
+//            cout << "Reprojection RMS error after mapping (l1 r1) = ("
+//                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw0_mapped) << " "
+//                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
+//        }
+
+        //RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -931,6 +929,8 @@ namespace autocalib {
         Mat a(P(Rect(3, 0, 1, 3)));
         epipole.copyTo(a);
 
+        //cout << P << endl;
+
         return P;
     }
 
@@ -969,7 +969,7 @@ namespace autocalib {
 
         // Find points
 
-        Mat_<double> A(4, 4);
+        Mat_<double> A(6, 4);
 
         for (int i = 0; i < num_points; ++i) {
             A.setTo(0);
@@ -978,6 +978,8 @@ namespace autocalib {
                 A(1, j) = xy1_(0, 2 * i + 1) * P1_(2, j) - P1_(1, j);
                 A(2, j) = xy2_(0, 2 * i) * P2_(2, j) - P2_(0, j);
                 A(3, j) = xy2_(0, 2 * i + 1) * P2_(2, j) - P2_(1, j);
+                A(4, j) = xy1_(0, 2 * i) * P1_(1, j) - xy1_(0, 2 * i + 1) * P1_(0, j);
+                A(5, j) = xy2_(0, 2 * i) * P2_(1, j) - xy2_(0, 2 * i + 1) * P2_(0, j);
             }
 
             // See http://stackoverflow.com/questions/2276445/triangulation-direct-linear-transform
@@ -985,8 +987,11 @@ namespace autocalib {
             Mat(A.row(1)) /= norm(A.row(1));
             Mat(A.row(2)) /= norm(A.row(2));
             Mat(A.row(3)) /= norm(A.row(3));
+            Mat(A.row(4)) /= norm(A.row(4));
+            Mat(A.row(5)) /= norm(A.row(5));
 
             Mat sol;
+            SVD svd(A, SVD::FULL_UV);
             SVD::solveZ(A, sol);
             Mat_<double> pt = xyzw_.colRange(4 * i, 4 * (i + 1));
             Mat(sol.t()).copyTo(pt);
@@ -1161,11 +1166,53 @@ namespace autocalib {
         CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
         CV_Assert(xyzw1.getMat().cols / 4 == xyzw2.getMat().cols / 4);
 
-        Mat_<double> xyzw1_ = xyzw1.getMat();
-        Mat_<double> xyzw2_ = xyzw2.getMat();
+        Mat_<double> xyzw1_ = xyzw1.getMat().clone();
+        Mat_<double> xyzw2_ = xyzw2.getMat().clone();
 
         int num_points = xyzw1_.cols / 4;       
-        CV_Assert(num_points >= 5); // TODO why 5?
+        CV_Assert(num_points >= 5);
+
+        // Normalize points
+
+        Mat_<double> max_xyzw(1, 4);
+        max_xyzw.setTo(-numeric_limits<double>::max());
+        for (int i = 0; i < num_points; ++i) {
+            max_xyzw(0, 0) = std::max(max_xyzw(0, 0), std::abs(xyzw1_(0, 4 * i)));
+            max_xyzw(0, 1) = std::max(max_xyzw(0, 1), std::abs(xyzw1_(0, 4 * i + 1)));
+            max_xyzw(0, 2) = std::max(max_xyzw(0, 2), std::abs(xyzw1_(0, 4 * i + 2)));
+            max_xyzw(0, 3) = std::max(max_xyzw(0, 3), std::abs(xyzw1_(0, 4 * i + 3)));
+        }
+        Mat_<double> norm_coef1(1, 4);
+        norm_coef1(0, 0) = 1 / max_xyzw(0, 0);
+        norm_coef1(0, 1) = 1 / max_xyzw(0, 1);
+        norm_coef1(0, 2) = 1 / max_xyzw(0, 2);
+        norm_coef1(0, 3) = 1 / max_xyzw(0, 3);
+
+        max_xyzw.setTo(-numeric_limits<double>::max());
+        for (int i = 0; i < num_points; ++i) {
+            max_xyzw(0, 0) = std::max(max_xyzw(0, 0), std::abs(xyzw2_(0, 4 * i)));
+            max_xyzw(0, 1) = std::max(max_xyzw(0, 1), std::abs(xyzw2_(0, 4 * i + 1)));
+            max_xyzw(0, 2) = std::max(max_xyzw(0, 2), std::abs(xyzw2_(0, 4 * i + 2)));
+            max_xyzw(0, 3) = std::max(max_xyzw(0, 3), std::abs(xyzw2_(0, 4 * i + 3)));
+        }
+        Mat_<double> norm_coef2(1, 4);
+        norm_coef2(0, 0) = 1 / max_xyzw(0, 0);
+        norm_coef2(0, 1) = 1 / max_xyzw(0, 1);
+        norm_coef2(0, 2) = 1 / max_xyzw(0, 2);
+        norm_coef2(0, 3) = 1 / max_xyzw(0, 3);
+
+        for (int i = 0; i < num_points; ++i) {
+            xyzw1_(0, 4 * i) *= norm_coef1(0, 0);
+            xyzw1_(0, 4 * i + 1) *= norm_coef1(0, 1);
+            xyzw1_(0, 4 * i + 2) *= norm_coef1(0, 2);
+            xyzw1_(0, 4 * i + 3) *= norm_coef1(0, 3);
+            xyzw2_(0, 4 * i) *= norm_coef2(0, 0);
+            xyzw2_(0, 4 * i + 1) *= norm_coef2(0, 1);
+            xyzw2_(0, 4 * i + 2) *= norm_coef2(0, 2);
+            xyzw2_(0, 4 * i + 3) *= norm_coef2(0, 3);
+        }
+
+        // Find homography
 
         Mat_<double> A(6 * num_points, 16);
         A.setTo(0);
@@ -1209,8 +1256,7 @@ namespace autocalib {
 
         Mat_<double> H;
         SVD::solveZ(A, H);
-        H = H.reshape(4);
-
+        H = Mat::diag(norm_coef2.t()).inv() * H.reshape(4) * Mat::diag(norm_coef1.t());
         return H / pow(abs(determinant(H)), 0.25);
     }
 
@@ -1242,6 +1288,12 @@ namespace autocalib {
         Mat_<double> H_best;
         int num_inliers_max = numeric_limits<int>::min();
         double total_err_min = numeric_limits<double>::max();
+
+//        for (int i = 0; i < num_points; ++i) {
+//            cout << xyzw1_(0, 4 * i) << " " << xyzw1_(0, 4 * i + 1) << " " << xyzw1_(0, 4 * i + 2) << " " << xyzw1_(0, 4 * i + 3) << " " << endl;
+//            cout << xyzw2_(0, 4 * i) << " " << xyzw2_(0, 4 * i + 1) << " " << xyzw2_(0, 4 * i + 2) << " " << xyzw2_(0, 4 * i + 3) << " " << endl;
+//            cin.get();
+//        }
 
         for (int iter = 0; iter < num_iters; ++iter) {
 
@@ -1500,67 +1552,63 @@ namespace autocalib {
         CV_Assert(H.getMat().type() == CV_64F && H.getMat().size() == Size(4, 4));
         Mat_<double> H_(H.getMat() / pow(abs(determinant(H)), 0.25));
 
+        // Process H
+
         Mat_<double> evals1, evecs1;
         EigenDecompose(H_.t(), evals1, evecs1);        
 
-        for (int i = 0; i < 4; ++i) {
-            complex<double> max_val = evecs1.at<complex<double> >(i, 3);
-//            for (int j = 1; j < 4; ++j)
-//                if (abs(evecs1.at<complex<double> >(i, j)) > abs(max_val))
+        for (int i = 0; i < 4; ++i)
             for (int j = 0; j < 4; ++j)
-                evecs1.at<complex<double> >(i, j) /= max_val;
-        }
+                evecs1.at<complex<double> >(i, j) /= evecs1.at<complex<double> >(i, 3);
 
-        cout << evecs1 << endl;
-
-        int best1 = 0;
-        double min_max_im1 = numeric_limits<double>::max();
+        int best_evec1 = 0;
+        double minmax_imag1 = numeric_limits<double>::max();
 
         for (int i = 1; i < 4; ++i) {
-            double max_im = max(abs(evecs1(i, 1)), abs(evecs1(i, 3)),
-                                abs(evecs1(i, 5)), abs(evecs1(i, 7)));
-            if (max_im < min_max_im1) {
-                best1 = i;
-                min_max_im1 = max_im;
+            double max_imag = max(abs(evecs1(i, 1)), abs(evecs1(i, 3)),
+                                  abs(evecs1(i, 5)), abs(evecs1(i, 7)));
+            if (max_imag < minmax_imag1) {
+                best_evec1 = i;
+                minmax_imag1 = max_imag;
             }
         }
+
+        // Process -H
 
         Mat_<double> evals2, evecs2;
         EigenDecompose(-H_.t(), evals2, evecs2);
 
-        for (int i = 0; i < 4; ++i) {
-            complex<double> max_val = evecs1.at<complex<double> >(i, 3);
-//            for (int j = 1; j < 4; ++j)
-//                if (abs(evecs1.at<complex<double> >(i, j)) > abs(max_val))
+        for (int i = 0; i < 4; ++i)
             for (int j = 0; j < 4; ++j)
-                evecs1.at<complex<double> >(i, j) /= max_val;
-        }
+                evecs2.at<complex<double> >(i, j) /= evecs2.at<complex<double> >(i, 3);
 
-        int best2 = 0;
-        double min_max_im2 = numeric_limits<double>::max();
+        int best_evec2 = 0;
+        double minmax_imag2 = numeric_limits<double>::max();
 
         for (int i = 1; i < 4; ++i) {
-            double max_im = max(abs(evecs2(i, 1)), abs(evecs2(i, 3)),
-                                abs(evecs2(i, 5)), abs(evecs2(i, 7)));
-            if (max_im < min_max_im2) {
-                best2 = i;
-                min_max_im2 = max_im;
+            double max_imag = max(abs(evecs2(i, 1)), abs(evecs2(i, 3)),
+                                  abs(evecs2(i, 5)), abs(evecs2(i, 7)));
+            if (max_imag < minmax_imag2) {
+                best_evec2 = i;
+                minmax_imag2 = max_imag;
             }
         }
 
+        // Return "the most real" vector
+
         vector<complex<double> > pinf(4);
 
-        if (min_max_im1 < min_max_im2) {
-            pinf[0] = evecs1.at<complex<double> >(best1, 0);
-            pinf[1] = evecs1.at<complex<double> >(best1, 1);
-            pinf[2] = evecs1.at<complex<double> >(best1, 2);
-            pinf[3] = evecs1.at<complex<double> >(best1, 3);
+        if (minmax_imag1 < minmax_imag2) {
+            pinf[0] = evecs1.at<complex<double> >(best_evec1, 0);
+            pinf[1] = evecs1.at<complex<double> >(best_evec1, 1);
+            pinf[2] = evecs1.at<complex<double> >(best_evec1, 2);
+            pinf[3] = evecs1.at<complex<double> >(best_evec1, 3);
         }
         else {
-            pinf[0] = evecs2.at<complex<double> >(best2, 0);
-            pinf[1] = evecs2.at<complex<double> >(best2, 1);
-            pinf[2] = evecs2.at<complex<double> >(best2, 2);
-            pinf[3] = evecs2.at<complex<double> >(best2, 3);
+            pinf[0] = evecs2.at<complex<double> >(best_evec2, 0);
+            pinf[1] = evecs2.at<complex<double> >(best_evec2, 1);
+            pinf[2] = evecs2.at<complex<double> >(best_evec2, 2);
+            pinf[3] = evecs2.at<complex<double> >(best_evec2, 3);
             H.getMatRef() = -H_;
         }
 
@@ -1568,8 +1616,6 @@ namespace autocalib {
         pinf[1] /= pinf[3];
         pinf[2] /= pinf[3];
         pinf[3] = 1;
-
-        cout << pinf[0] << " " << pinf[1] << " " << pinf[2] << " " << pinf[3] << endl;
 
         Mat_<double> pinf_real(4, 1);
         pinf_real(0, 0) = pinf[0].real();
