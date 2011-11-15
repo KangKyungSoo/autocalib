@@ -469,38 +469,7 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
-        Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
-
-//        {
-//        Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
-//        for (int i = 0; i < num_points_common; ++i) {
-//            xyzw0_mapped(0, 4 * i) = H01_(0, 0) * xyzw0_(0, 4 * i) + H01_(0, 1) * xyzw0_(0, 4 * i + 1) + H01_(0, 2) * xyzw0_(0, 4 * i + 2) + H01_(0, 3) * xyzw0_(0, 4 * i + 3);
-//            xyzw0_mapped(0, 4 * i + 1) = H01_(1, 0) * xyzw0_(0, 4 * i) + H01_(1, 1) * xyzw0_(0, 4 * i + 1) + H01_(1, 2) * xyzw0_(0, 4 * i + 2) + H01_(1, 3) * xyzw0_(0, 4 * i + 3);
-//            xyzw0_mapped(0, 4 * i + 2) = H01_(2, 0) * xyzw0_(0, 4 * i) + H01_(2, 1) * xyzw0_(0, 4 * i + 1) + H01_(2, 2) * xyzw0_(0, 4 * i + 2) + H01_(2, 3) * xyzw0_(0, 4 * i + 3);
-//            xyzw0_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
-//        }
-
-//        AUTOCALIB_LOG(
-//            cout << "Reprojection RMS error after mapping (l1 r1) = ("
-//                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw0_mapped) << " "
-//                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
-//        }
-
-//        {
-//        Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_);
-//        Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
-//        for (int i = 0; i < num_points_common; ++i) {
-//            xyzw0_mapped(0, 4 * i) = H01_(0, 0) * xyzw0_(0, 4 * i) + H01_(0, 1) * xyzw0_(0, 4 * i + 1) + H01_(0, 2) * xyzw0_(0, 4 * i + 2) + H01_(0, 3) * xyzw0_(0, 4 * i + 3);
-//            xyzw0_mapped(0, 4 * i + 1) = H01_(1, 0) * xyzw0_(0, 4 * i) + H01_(1, 1) * xyzw0_(0, 4 * i + 1) + H01_(1, 2) * xyzw0_(0, 4 * i + 2) + H01_(1, 3) * xyzw0_(0, 4 * i + 3);
-//            xyzw0_mapped(0, 4 * i + 2) = H01_(2, 0) * xyzw0_(0, 4 * i) + H01_(2, 1) * xyzw0_(0, 4 * i + 1) + H01_(2, 2) * xyzw0_(0, 4 * i + 2) + H01_(2, 3) * xyzw0_(0, 4 * i + 3);
-//            xyzw0_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
-//        }
-//        AUTOCALIB_LOG(
-//            cout << "Reprojection RMS error after mapping (l1 r1) = ("
-//                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw0_mapped) << " "
-//                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
-//        }
-
+        Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_);
         //RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
@@ -1573,6 +1542,8 @@ namespace autocalib {
             }
         }
 
+        cout << evecs1 << endl;
+
         // Process -H
 
         Mat_<double> evals2, evecs2;
@@ -1616,6 +1587,8 @@ namespace autocalib {
         pinf[1] /= pinf[3];
         pinf[2] /= pinf[3];
         pinf[3] = 1;
+
+        cout << pinf[0] << " " << pinf[1] << " " << pinf[2] << " " << pinf[3] << endl;
 
         Mat_<double> pinf_real(4, 1);
         pinf_real(0, 0) = pinf[0].real();

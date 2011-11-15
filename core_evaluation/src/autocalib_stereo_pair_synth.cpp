@@ -63,8 +63,8 @@ int main(int argc, char **argv) {
         CompositeSceneBuilder csb;
 
         Ptr<PointCloudScene> scene1 = new SphereScene(num_points, rng);
-        Mat tmp(3, 1, CV_64F);
-        rng.fill(tmp, RNG::UNIFORM, -2, 2);
+        Mat_<double> tmp(3, 1, CV_64F);
+        tmp(0, 0) = -2; tmp(1, 0) = 0; tmp(2, 0) = 0;
         scene1->set_T(tmp.clone());
 
         Ptr<PointCloudScene> scene2 = new SphereScene(num_points, rng);
