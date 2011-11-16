@@ -26,6 +26,147 @@ namespace autocalib {
     }
 
 
+    Mat FindHomographyP2Linear_SmallObject(InputArray xy1, InputArray xy2, int num_iters) {
+        CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
+        CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
+        CV_Assert(xy1.getMat().cols / 2 == xy2.getMat().cols / 2);
+
+        Mat_<double> xy1_ = xy1.getMat().clone();
+        Mat_<double> xy2_ = xy2.getMat().clone();
+
+        int num_points = xy1_.cols / 2;
+        CV_Assert(num_points >= 6);
+
+        // Normalize points
+
+        Mat_<double> T1 = CalcNormalizationMat3x3(xy1);
+        Mat_<double> T2 = CalcNormalizationMat3x3(xy2);
+
+        for (int i = 0; i < num_points; ++i) {
+            xy1_(0, 2 * i) = T1(0, 0) * xy1_(0, 2 * i) + T1(0, 2);
+            xy1_(0, 2 * i + 1) = T1(1, 1) * xy1_(0, 2 * i + 1) + T1(1, 2);
+            xy2_(0, 2 * i) = T2(0, 0) * xy2_(0, 2 * i) + T2(0, 2);
+            xy2_(0, 2 * i + 1) = T2(1, 1) * xy2_(0, 2 * i + 1) + T2(1, 2);
+        }
+
+        // Find the homography
+
+        Mat_<double> A(3 * num_points, 12);
+        A.setTo(0);
+
+        Mat_<double> lambda(1, num_points);
+        lambda.setTo(1e-2);
+
+        Mat_<double> S1 = Mat::zeros(3, 3, CV_64F);
+        S1(0, 1) = 1; S1(1, 0) = -1;
+
+        Mat_<double> S2 = Mat::zeros(3, 3, CV_64F);
+        S2(0, 2) = 1; S2(2, 0) = -1;
+
+        Mat_<double> S3 = Mat::zeros(3, 3, CV_64F);
+        S3(1, 2) = 1; S3(2, 1) = -1;
+
+        Mat_<double> p2(3, 1), p1(3, 1);
+        p2(2, 0) = p1(2, 0) = 1;
+
+        SVD svd;
+        Mat_<double> H_and_KT(12, 1);
+        Mat_<double> H(3, 3), KT(3, 1);
+
+        for (int iter = 0; iter < num_iters; ++iter) {
+            for (int i = 0; i < num_points; ++i) {
+                double x1 = xy1_(0, 2 * i), y1 = xy1_(0, 2 * i + 1);
+                double x2 = xy2_(0, 2 * i), y2 = xy2_(0, 2 * i + 1);
+                double l = lambda(0, i);
+
+                A(3 * i, 0) = -y2 * x1;
+                A(3 * i, 1) = -y2 * y1;
+                A(3 * i, 2) = -y2;
+                A(3 * i, 3) = x2 * x1;
+                A(3 * i, 4) = x2 * y1;
+                A(3 * i, 5) = x2;
+                A(3 * i, 9) = -l * y1;
+                A(3 * i, 10) = l * x1;
+
+                A(3 * i + 1, 0) = -x1;
+                A(3 * i + 1, 1) = -y1;
+                A(3 * i + 1, 2) = -1;
+                A(3 * i + 1, 6) = x2 * x1;
+                A(3 * i + 1, 7) = x2 * y1;
+                A(3 * i + 1, 8) = x2;
+                A(3 * i + 1, 9) = -l;
+                A(3 * i + 1, 11) = l * x1;
+
+                A(3 * i + 2, 3) = -x1;
+                A(3 * i + 2, 4) = -y1;
+                A(3 * i + 2, 5) = -1;
+                A(3 * i + 2, 6) = y2 * x1;
+                A(3 * i + 2, 7) = y2 * y1;
+                A(3 * i + 2, 8) = y2;
+                A(3 * i + 2, 10) = -l;
+                A(3 * i + 2, 11) = l * y1;
+            }
+
+            svd.solveZ(A, H_and_KT);
+
+            H = H_and_KT.rowRange(0, 9).reshape(0, 3);
+            KT = H_and_KT.rowRange(9, 12);
+            cout << KT << endl;
+
+            // Update lambda
+
+            bool stop = false;
+
+            for (int i = 0; i < num_points; ++i) {
+                p1(0, 0) = xy1_(0, 2 * i); p1(1, 0) = xy1_(0, 2 * i + 1);
+                p2(0, 0) = xy2_(0, 2 * i); p2(1, 0) = xy2_(0, 2 * i + 1);
+
+                lambda(0, i) = 0;
+
+                double denom = Mat(p2.t() * S1 * KT).at<double>(0, 0);
+                if (abs(denom) > 1e-6) {
+                    //cout << Mat(p2.t() * S1 * H * p1).at<double>(0, 0) / denom << endl;
+                    lambda(0, i) -= Mat(p2.t() * S1 * H * p1).at<double>(0, 0) / denom;
+                }
+                else {
+                    stop = true;
+                    break;
+                }
+
+                denom = Mat(p2.t() * S2 * KT).at<double>(0, 0);
+                if (abs(denom) > 1e-6) {
+                    //cout << Mat(p2.t() * S2 * H * p1).at<double>(0, 0) / denom << endl;
+                    lambda(0, i) -= Mat(p2.t() * S2 * H * p1).at<double>(0, 0) / denom;
+                }
+                else {
+                    stop = true;
+                    break;
+                }
+
+                denom = Mat(p2.t() * S3 * KT).at<double>(0, 0);
+                if (abs(denom) > 1e-6) {
+                    //cout << Mat(p2.t() * S3 * H * p1).at<double>(0, 0) / denom << endl;
+                    lambda(0, i) -= Mat(p2.t() * S3 * H * p1).at<double>(0, 0) / denom;
+                }
+                else {
+                    stop = true;
+                    break;
+                }
+
+                lambda(0, i) /= 3;
+            }
+
+            //cout << lambda << endl;
+            cout << stop << endl;
+
+            if (stop)
+                break;
+        }
+
+        return T2.inv() * H * T1;
+    }
+
+
     Mat CalibRotationalCameraLinear(const HomographiesP2 &Hs, double *residual_error) {
         int num_Hs = (int)Hs.size();
         if (num_Hs < 1)
@@ -411,10 +552,10 @@ namespace autocalib {
 
         AUTOCALIB_LOG(
             cout << "\nDLT reprojection RMS errors (l0 r0 l1 r1) = ("
-                 << CalcRmsReprojectionError(xy_l0, P_l_, xyzw0_) << " "
-                 << CalcRmsReprojectionError(xy_r0, P_r_, xyzw0_) << " "
-                 << CalcRmsReprojectionError(xy_l1, P_l_, xyzw1_) << " "
-                 << CalcRmsReprojectionError(xy_r1, P_r_, xyzw1_) << ")\n");
+                 << CalcRmsReprojectionErrorP(xy_l0, P_l_, xyzw0_) << " "
+                 << CalcRmsReprojectionErrorP(xy_r0, P_r_, xyzw0_) << " "
+                 << CalcRmsReprojectionErrorP(xy_l1, P_l_, xyzw1_) << " "
+                 << CalcRmsReprojectionErrorP(xy_r1, P_r_, xyzw1_) << ")\n");
 
         // Leave only common part of point clouds
 
@@ -469,8 +610,8 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
-        //Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
-        Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_, num_iters, subset_size, thresh);
+        //Mat_<double> H01_ = FindHomographyP3Linear(xyzw0_, xyzw1_);
+        Mat_<double> H01_ = FindHomographyP3Robust(xyzw0_, xyzw1_, P_r_, xy_r1_, num_iters, subset_size, thresh);
         //RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
@@ -483,8 +624,8 @@ namespace autocalib {
 
         AUTOCALIB_LOG(
             cout << "Reprojection RMS error after mapping (l1 r1) = ("
-                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw0_mapped) << " "
-                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
+                 << CalcRmsReprojectionErrorP(xy_l1_, P_l_, xyzw0_mapped) << " "
+                 << CalcRmsReprojectionErrorP(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
 
         // Finding plane-at-infinity
 
@@ -512,10 +653,10 @@ namespace autocalib {
 
         AUTOCALIB_LOG(
             cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
-                 << CalcRmsReprojectionError(xy_l0_, P_l_, xyzw0_) << " "
-                 << CalcRmsReprojectionError(xy_r0_, P_r_, xyzw0_) << " "
-                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw1_) << " "
-                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_) << ")\n");
+                 << CalcRmsReprojectionErrorP(xy_l0_, P_l_, xyzw0_) << " "
+                 << CalcRmsReprojectionErrorP(xy_r0_, P_r_, xyzw0_) << " "
+                 << CalcRmsReprojectionErrorP(xy_l1_, P_l_, xyzw1_) << " "
+                 << CalcRmsReprojectionErrorP(xy_r1_, P_r_, xyzw1_) << ")\n");
 
         P_l.getMatRef() = P_l_;
         P_r.getMatRef() = P_r_;
@@ -1223,8 +1364,38 @@ namespace autocalib {
     }
 
 
-    double CalcRmsReprojectionError(InputArray xy, InputArray P, InputArray xyzw)
-    {
+    double CalcRmsReprojectionErrorH(InputArray xy1, InputArray xy2, InputArray H12) {
+        CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
+        CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy2.getMat().cols % 2 == 0);
+        CV_Assert(xy1.getMat().cols / 2 == xy2.getMat().cols / 2);
+        CV_Assert(H12.getMat().type() == CV_64F && H12.getMat().size() == Size(3, 3));
+
+        Mat_<double> xy1_ = xy1.getMat();
+        Mat_<double> xy2_ = xy2.getMat();
+        Mat_<double> H12_ = H12.getMat();
+        int num_points = xy1_.cols / 2;
+
+        double rms_error = 0;
+
+        for (size_t i = 0; i < num_points; ++i) {
+            double x1 = xy1_(0, 2 * i), y1 = xy1_(0, 2 * i + 1);
+            double x2 = xy2_(0, 2 * i), y2 = xy2_(0, 2 * i + 1);
+
+            double x2_ = H12_(0, 0) * x1 + H12_(0, 1) * y1 + H12_(0, 2);
+            double y2_ = H12_(1, 0) * x1 + H12_(1, 1) * y1 + H12_(1, 2);
+            double z2_ = H12_(2, 0) * x1 + H12_(2, 1) * y1 + H12_(2, 2);
+            x2_ /= z2_; y2_ /= z2_;
+
+            rms_error += sqr(x2 - x2_) + sqr(y2 - y2_);
+        }
+
+        rms_error = sqrt(rms_error / num_points);
+
+        return rms_error;
+    }
+
+
+    double CalcRmsReprojectionErrorP(InputArray xy, InputArray P, InputArray xyzw) {
         CV_Assert(xy.getMat().type() == CV_64F && xy.getMat().rows == 1 && xy.getMat().cols % 2 == 0);
         CV_Assert(P.getMat().type() == CV_64F && P.getMat().size() == Size(4, 3));
         CV_Assert(xyzw.getMat().type() == CV_64F && xyzw.getMat().rows == 1 && xyzw.getMat().cols % 4 == 0);
@@ -1298,7 +1469,7 @@ namespace autocalib {
     }
 
 
-    Mat FindHomographyLinear(InputArray xyzw1, InputArray xyzw2) {
+    Mat FindHomographyP3Linear(InputArray xyzw1, InputArray xyzw2) {
         CV_Assert(xyzw1.getMat().type() == CV_64F && xyzw1.getMat().rows == 1 && xyzw1.getMat().cols % 4 == 0);
         CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
         CV_Assert(xyzw1.getMat().cols / 4 == xyzw2.getMat().cols / 4);
@@ -1398,8 +1569,8 @@ namespace autocalib {
     }
 
 
-    Mat FindHomographyRobust(InputArray xyzw1, InputArray xyzw2, InputArray P2, InputArray xy2,
-                             int num_iters, int subset_size, double err_thresh)
+    Mat FindHomographyP3Robust(InputArray xyzw1, InputArray xyzw2, InputArray P2, InputArray xy2,
+                               int num_iters, int subset_size, double err_thresh)
     {
         CV_Assert(xyzw1.getMat().type() == CV_64F && xyzw1.getMat().rows == 1 && xyzw1.getMat().cols % 4 == 0);
         CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
@@ -1464,7 +1635,7 @@ namespace autocalib {
                 xy2_subset(0, 2 * i + 1) = xy2_(0, 2 * subset[i] + 1);
             }
 
-            Mat_<double> H = FindHomographyLinear(xyzw1_subset, xyzw2_subset);
+            Mat_<double> H = FindHomographyP3Linear(xyzw1_subset, xyzw2_subset);
 
             for (int i = 0; i < num_points; ++i) {
                 xyzw1_mapped(0, 4 * i) = H(0, 0) * xyzw1_(0, 4 * i) + H(0, 1) * xyzw1_(0, 4 * i + 1) +
@@ -1572,7 +1743,7 @@ namespace autocalib {
                 }
             }
 
-            H_best = FindHomographyLinear(xyzw1_subset, xyzw2_subset);
+            H_best = FindHomographyP3Linear(xyzw1_subset, xyzw2_subset);
         }
 
         return H_best;
