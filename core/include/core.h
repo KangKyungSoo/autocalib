@@ -319,6 +319,9 @@ namespace autocalib {
       * \param matches_ll Matches between left images of two pairs
       * \param Hpa Homography upgrading projective reconstruction into affine one
       * \param H01 Homography mapping the first pair point cloud into the second pair point cloud
+      * \param num_iters Number of iterations for H estimation
+      * \param subset_size Subset size for H estimation
+      * \param thresh Error threshold of H estimation
       * \param xyzw0 First pair point cloud
       * \param xyzw1 Second pair point cloud
       */
@@ -326,12 +329,27 @@ namespace autocalib {
             cv::InputOutputArray P_l, cv::InputOutputArray P_r,
             cv::InputOutputArray xy_l0, cv::InputOutputArray xy_r0,
             cv::InputOutputArray xy_l1, cv::InputOutputArray xy_r1,
-            const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1,
-            const cv::Ptr<std::vector<cv::DMatch> > &matches_ll,
+            const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1, const cv::Ptr<std::vector<cv::DMatch> > &matches_ll,
+            int num_iters, int subset_size, double thresh,
             cv::OutputArray Hpa, cv::OutputArray H01, cv::OutputArray xyzw0, cv::OutputArray xyzw1);
 
 
-    /** Refines a stereo camera paramers.
+    /** Refines a stereo camera parameters.
+      *
+      * \param cam Stereo camera parameters
+      * \param features Frames features
+      * \param matches Matches between left frames of stereo pairs and between
+                       left and right frames of stereo pairs
+      * \param params_to_refine Flags indicating parameters which should be refined
+      * \return Epipolar distance error
+      * \see RefineFlag
+      */
+    double RefineStereoCamera(RigidCamera &cam, const FeaturesCollection &features,
+                              const MatchesCollection &matches, int params_to_refine = REFINE_FLAG_ALL);
+
+
+
+    /** Refines a stereo camera parameters.
       *
       * The following notation is used for frames (or cameras) indices: (2*i, 2*i+1) is
       * the indices pair of two frames in the i'th stereo pair. 2*i is the left frame,
@@ -638,10 +656,11 @@ namespace autocalib {
       * \param features Features
       * \param matches Matches in (2*i, 2*i+1) or reversed format, other are ignored
       * \param thresh Error threshold
+      * \param conf Confidence
       * \return Fundamental matrix
       */
-    cv::Mat FindFundamentalMatFromPairs(const FeaturesCollection &features,
-                                        const MatchesCollection &matches, double thresh = 3.);
+    cv::Mat FindFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
+                                        double thresh = 3., double conf = 0.99);
 
 
     //============================================================================

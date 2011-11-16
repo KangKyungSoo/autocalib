@@ -29,12 +29,17 @@ Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
 int seed = 1;
-double F_est_thresh = 3.;
+double F_est_thresh = 0.3;
+double F_est_conf = 0.99;
+int H_est_num_iters = 100;
+int H_est_subset_size = 10;
+double H_est_thresh = 3.;
 double noise_stddev = -1; // No noise
 double conf_thresh = 0;
 bool create_images = false;
 bool save_cameras = false;
 bool load_cameras = false;
+bool refine_relative_params_only = false;
 string cameras_path;
 string log_file;
 
@@ -84,7 +89,7 @@ int main(int argc, char **argv) {
         // Generate cameras and shots       
 
         Mat_<double> T_rel(3, 1);
-        T_rel(0, 0) = 1; T_rel(1, 0) = T_rel(2, 0) = 0;
+        T_rel(0, 0) = 1; T_rel(1, 0) = 1; T_rel(2, 0) = 1;
         Mat_<double> rvec_rel(1, 3);
         rvec_rel(0, 0) = 0; rvec_rel(0, 1) = 0; rvec_rel(0, 2) = 0;
         Mat R_rel; Rodrigues(rvec_rel, R_rel);
@@ -223,7 +228,6 @@ int main(int argc, char **argv) {
             features_collection[2 * i + 1] = right_features;
         }
 
-        // Add noise before F estimation
         AddNoise();
 
         // Save images if it's needed
@@ -269,7 +273,7 @@ int main(int argc, char **argv) {
 
         cout << "\nFinding F...\n";
 
-        Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh);
+        Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh, F_est_conf);
         Mat_<double> P_l = Mat::eye(3, 4, CV_64F);
         Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
 
@@ -357,6 +361,7 @@ int main(int argc, char **argv) {
                 Mat_<double> P_r_a_ = P_r.clone();
 
                 AffineRectifyStereoCameraByTwoShots(P_l_a_, P_r_a_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
+                                                    H_est_num_iters, H_est_subset_size, H_est_thresh,
                                                     Hpa, H01_a, xyzw0_a, xyzw1_a);
 
                 Hs_01_a[make_pair(i, j)] = H01_a;
@@ -369,7 +374,7 @@ int main(int argc, char **argv) {
                 // rotations in the linear autocalibration algorithm.
 
                 Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
-                //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+                Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
             }
         }
 
@@ -416,27 +421,31 @@ int main(int argc, char **argv) {
             total_estimations++;
         }
 
-        detail::Graph eff_corresp(num_frames);
-        for (size_t i = 0; i < num_frames - 1; ++i) {
-            for (size_t j = i + 1; j < num_frames; ++j) {
-                eff_corresp.addEdge(i, j, 0);
-                eff_corresp.addEdge(j, i, 0);
-            }
-        }
-
-        AbsoluteMotions abs_motions;
-        CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
-
         Mat avg_R;
         Rodrigues(total_rvec / total_estimations, avg_R);
         RigidCamera P_r_m(K_init, avg_R, total_T / total_estimations);
 
         double final_rms_error = 0;
 
-        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
-                                             ~REFINE_FLAG_SKEW);
-        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
-                                             ~REFINE_FLAG_SKEW);
+        if (refine_relative_params_only) {
+            final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+            final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+        }
+        else {
+            detail::Graph eff_corresp(num_frames);
+            for (size_t i = 0; i < num_frames - 1; ++i) {
+                for (size_t j = i + 1; j < num_frames; ++j) {
+                    eff_corresp.addEdge(i, j, 0);
+                    eff_corresp.addEdge(j, i, 0);
+                }
+            }
+
+            AbsoluteMotions abs_motions;
+            CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
+
+            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+        }
 
         Mat_<double> rvec_; Rodrigues(R_rel, rvec_);
         cout << "GOLD rvec = " << rvec_ << endl;
@@ -512,6 +521,14 @@ void ParseArgs(int argc, char **argv) {
             seed = atoi(argv[++i]);
         else if (string(argv[i]) == "--F-est-thresh")
             F_est_thresh = atof(argv[++i]);
+        else if (string(argv[i]) == "--F-est-conf")
+            F_est_conf = atof(argv[++i]);
+        else if (string(argv[i]) == "--H-est-num-iters")
+            H_est_num_iters = atof(argv[++i]);
+        else if (string(argv[i]) == "--H-est-subset-size")
+            H_est_subset_size = atof(argv[++i]);
+        else if (string(argv[i]) == "--H-est-thresh")
+            H_est_thresh = atof(argv[++i]);
         else if (string(argv[i]) == "--noise-stddev")
             noise_stddev = atof(argv[++i]);
         else if (string(argv[i]) == "--create-images")
@@ -523,6 +540,9 @@ void ParseArgs(int argc, char **argv) {
         else if (string(argv[i]) == "--load-cams") {
             load_cameras = true;
             cameras_path = argv[++i];
+        }
+        else if (string(argv[i]) == "--rel-only") {
+            refine_relative_params_only = atoi(argv[i++]);
         }
         else if (string(argv[i]) == "--log-file")
             log_file = argv[++i];

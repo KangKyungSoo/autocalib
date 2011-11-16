@@ -377,8 +377,8 @@ namespace autocalib {
     void AffineRectifyStereoCameraByTwoShots(
             InputOutputArray P_l, InputOutputArray P_r,
             InputOutputArray xy_l0, InputOutputArray xy_r0, InputOutputArray xy_l1, InputOutputArray xy_r1,
-            const Ptr<vector<DMatch> > &matches_lr0, const Ptr<vector<DMatch> > &matches_lr1,
-            const Ptr<vector<DMatch> > &matches_ll,
+            const Ptr<vector<DMatch> > &matches_lr0, const Ptr<vector<DMatch> > &matches_lr1, const Ptr<vector<DMatch> > &matches_ll,
+            int num_iters, int subset_size, double thresh,
             OutputArray Hpa, OutputArray H01, OutputArray xyzw0, OutputArray xyzw1)
     {
         CV_Assert(P_l.getMat().type() == CV_64F && P_l.getMat().size() == Size(4, 3));
@@ -470,7 +470,7 @@ namespace autocalib {
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
         //Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
-        Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_);
+        Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_, num_iters, subset_size, thresh);
         //RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
@@ -546,12 +546,179 @@ namespace autocalib {
                                                      1 / (x2_ * x2_ + y2_ * y2_));
         }
 
-        class EpipError_FixedK_StereoCam {
+
+        class EpipError_CommonK_RelativeOnly_StereoCamera {
         public:
-            EpipError_FixedK_StereoCam(const FeaturesCollection &features,
-                                       const MatchesCollection &matches,
-                                       const vector<int> &motions_indices,
-                                       int params_to_refine)
+            EpipError_CommonK_RelativeOnly_StereoCamera(
+                    const FeaturesCollection &features,
+                    const MatchesCollection &matches,
+                    int params_to_refine)
+                : features_(&features), matches_(&matches), step_(1e-4),
+                  params_to_refine_(params_to_refine)
+            {
+                num_matches_ = 0;
+                for (MatchesCollection::const_iterator iter = matches_->begin();
+                     iter != matches_->end(); ++iter)
+                {
+                    if (IsLeftRightPair(iter->first.first, iter->first.second))
+                        num_matches_ += (int)iter->second->size();
+                }
+            }
+
+            void operator()(const Mat &arg, Mat &err);
+            void Jacobian(const Mat &arg, Mat &jac);
+
+            int dimension() const { return num_matches_; }
+
+        private:
+            const FeaturesCollection *features_;
+            const MatchesCollection *matches_;
+            int num_matches_;
+            int params_to_refine_;
+
+            const double step_;
+            Mat_<double> err_;
+        };
+
+
+        void EpipError_CommonK_RelativeOnly_StereoCamera::operator()(const Mat &arg, Mat &err) {
+            Mat_<double> arg_(arg);
+
+            err.create(dimension(), 1, CV_64F);
+            Mat_<double> err_(err);
+
+            Mat_<double> K = Mat::eye(3, 3, CV_64F);
+            K(0, 0) = arg_(0, 0);
+            K(0, 1) = arg_(0, 1);
+            K(0, 2) = arg_(0, 2);
+            K(1, 1) = arg_(0, 3);
+            K(1, 2) = arg_(0, 4);
+            Mat K_inv = K.inv();
+
+            Mat_<double> rvec_rel(1, 3);
+            rvec_rel(0, 0) = arg_(0, 5);
+            rvec_rel(0, 1) = arg_(0, 6);
+            rvec_rel(0, 2) = arg_(0, 7);
+            Mat R_rel;
+            Rodrigues(rvec_rel, R_rel);
+
+            Mat_<double> T_rel(3, 1);
+            T_rel(0, 0) = arg_(0, 8);
+            T_rel(1, 0) = arg_(0, 9);
+            T_rel(2, 0) = arg_(0, 10);
+
+            Mat_<double> F_rel = K_inv.t() * CrossProductMat(T_rel) * R_rel * K_inv;
+
+            int pos = 0;
+            for (MatchesCollection::const_iterator iter = matches_->begin();
+                 iter != matches_->end(); ++iter)
+            {
+                int from = iter->first.first;
+                int to = iter->first.second;
+
+                const vector<KeyPoint> &kps_from = features_->find(from)->second->keypoints;
+                const vector<KeyPoint> &kps_to = features_->find(to)->second->keypoints;
+
+                if (IsLeftRightPair(from, to)) {
+                    const vector<DMatch> &matches = *(iter->second);
+                    for (size_t i = 0; i < matches.size(); ++i) {
+                        const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
+                        const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
+                        err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F_rel, p0.x, p0.y));
+                    }
+                }
+            }
+        }
+
+
+        void EpipError_CommonK_RelativeOnly_StereoCamera::Jacobian(const Mat &arg, Mat &jac) {
+            Mat_<double> arg_(arg.clone());
+
+            jac.create(dimension(), arg_.cols, CV_64F);
+            Mat_<double> jac_(jac);
+            jac_.setTo(0);
+
+            // Maps argument index to the respective intrinsic parameter
+            static const int flags_tbl[] = {REFINE_FLAG_FX, REFINE_FLAG_SKEW, REFINE_FLAG_PPX,
+                                            REFINE_FLAG_FY, REFINE_FLAG_PPY};
+
+            for (int i = 0; i < arg_.cols; ++i) {
+                if (i > 4 || (params_to_refine_ & flags_tbl[i])) {
+                    double val = arg_(0, i);
+
+                    arg_(0, i) += step_;
+                    Mat tmp = jac_.col(i);
+                    (*this)(arg_, tmp);
+
+                    arg_(0, i) = val - step_;
+                    (*this)(arg_, err_);
+                    arg_(0, i) = val;
+
+                    for (int j = 0; j < dimension(); ++j)
+                        jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
+                }
+            }
+        }
+    } // namespace
+
+
+    double RefineStereoCamera(RigidCamera &cam, const FeaturesCollection &features,
+                              const MatchesCollection &matches, int params_to_refine)
+    {
+        Mat_<double> arg(1, 5/*K*/ + 3/*R*/ + 3/*T*/);
+
+        Mat_<double> K(cam.K());
+        arg(0, 0) = K(0, 0);
+        arg(0, 1) = K(0, 1);
+        arg(0, 2) = K(0, 2);
+        arg(0, 3) = K(1, 1);
+        arg(0, 4) = K(1, 2);
+
+        Mat_<double> rvec;
+        Rodrigues(cam.R(), rvec);
+        arg(0, 5) = rvec(0, 0);
+        arg(0, 6) = rvec(0, 1);
+        arg(0, 7) = rvec(0, 2);
+
+        Mat_<double> T(cam.T());
+        arg(0, 8) = T(0, 0);
+        arg(0, 9) = T(1, 0);
+        arg(0, 10) = T(2, 0);
+
+        EpipError_CommonK_RelativeOnly_StereoCamera func(features, matches, params_to_refine);
+        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
+
+        K(0, 0) = arg(0, 0);
+        K(0, 1) = arg(0, 1);
+        K(0, 2) = arg(0, 2);
+        K(1, 1) = arg(0, 3);
+        K(1, 2) = arg(0, 4);
+
+        rvec(0, 0) = arg(0, 5);
+        rvec(0, 1) = arg(0, 6);
+        rvec(0, 2) = arg(0, 7);
+
+        T(0, 0) = arg(0, 8);
+        T(1, 0) = arg(0, 9);
+        T(2, 0) = arg(0, 10);
+
+        Mat R;
+        Rodrigues(rvec, R);
+        cam = RigidCamera(K, R, T);
+
+        return rms_error;
+    }
+
+
+    namespace {
+
+        class EpipError_CommonK_StereoCamera {
+        public:
+            EpipError_CommonK_StereoCamera(
+                    const FeaturesCollection &features,
+                    const MatchesCollection &matches,
+                    const vector<int> &motions_indices,
+                    int params_to_refine)
                 : features_(&features), matches_(&matches), step_(1e-4),
                   params_to_refine_(params_to_refine)
             {
@@ -582,7 +749,7 @@ namespace autocalib {
         };
 
 
-        void EpipError_FixedK_StereoCam::operator()(const Mat &arg, Mat &err) {
+        void EpipError_CommonK_StereoCamera::operator()(const Mat &arg, Mat &err) {
             Mat_<double> arg_(arg);
 
             err.create(dimension(), 1, CV_64F);
@@ -689,7 +856,7 @@ namespace autocalib {
         }
 
 
-        void EpipError_FixedK_StereoCam::Jacobian(const Mat &arg, Mat &jac) {
+        void EpipError_CommonK_StereoCamera::Jacobian(const Mat &arg, Mat &jac) {
             Mat_<double> arg_(arg.clone());
 
             jac.create(dimension(), arg_.cols, CV_64F);
@@ -771,7 +938,7 @@ namespace autocalib {
             arg(0, 11 + 6 * (i - 1) + 5) = T_l(2, 0);
         }
 
-        EpipError_FixedK_StereoCam func(features, matches, motions_indices, params_to_refine);
+        EpipError_CommonK_StereoCamera func(features, matches, motions_indices, params_to_refine);
         double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K(0, 0) = arg(0, 0);
@@ -1602,7 +1769,7 @@ namespace autocalib {
 
 
     Mat FindFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
-                                    double thresh)
+                                    double thresh, double conf)
     {
         int num_matches = 0;
         for (MatchesCollection::const_iterator iter = matches.begin();
@@ -1639,7 +1806,7 @@ namespace autocalib {
 
         vector<uchar> F_mask;
 
-        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_RANSAC, thresh);
+        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_RANSAC, thresh, conf);
         //Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh);
 
         int num_inliers = 0;

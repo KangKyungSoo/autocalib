@@ -549,43 +549,55 @@ namespace evaluation {
             Mat_<double> oz(3, 1);
             oz(0, 0) = 0; oz(1, 0) = 0; oz(2, 0) = 1;
             oz = v.Rg_ * oz;
-            v.Tg_ += oz * v.move_speed_;
+            if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                v.Tg_ += oz * v.move_speed_;
+            else
+                v.T_ += oz * v.move_speed_;
         }
         else if (key == 's' || key == 'S') {
             Mat_<double> oz(3, 1);
             oz(0, 0) = 0; oz(1, 0) = 0; oz(2, 0) = 1;
             oz = v.Rg_ * oz;
-            v.Tg_ -= oz * v.move_speed_;
+            if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                v.Tg_ -= oz * v.move_speed_;
+            else
+                v.T_ -= oz * v.move_speed_;
         }
         else if (key == 'a' || key == 'A') {
             Mat_<double> ox(3, 1);
             ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
             ox = v.Rg_ * ox;
-            v.Tg_ -= ox * v.move_speed_;
+            if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                v.Tg_ -= ox * v.move_speed_;
+            else
+                v.T_ -= ox * v.move_speed_;
         }
         else if (key == 'd' || key == 'D') {
             Mat_<double> ox(3, 1);
             ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
             ox = v.Rg_ * ox;
-            v.Tg_ += ox * v.move_speed_;
+            if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                v.Tg_ += ox * v.move_speed_;
+            else
+                v.T_ += ox * v.move_speed_;
         }
         else if (key == GLFW_KEY_UP) {
             Mat_<double> oy(3, 1);
             oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
             oy = v.Rg_ * oy;
-            v.Tg_ += oy * v.move_speed_;
+            if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                v.Tg_ += oy * v.move_speed_;
+            else
+                v.T_ += oy * v.move_speed_;
         }
         else if (key == GLFW_KEY_DOWN) {
             Mat_<double> oy(3, 1);
             oy(0, 0) = 0; oy(1, 0) = 1; oy(2, 0) = 0;
             oy = v.Rg_ * oy;
-            v.Tg_ -= oy * v.move_speed_;
-        }
-        else if (key == 'd' || key == 'D') {
-            Mat_<double> ox(3, 1);
-            ox(0, 0) = 1; ox(1, 0) = 0; ox(2, 0) = 0;
-            ox = v.Rg_ * ox;
-            v.Tg_ += ox * v.move_speed_;
+            if (v.orientation_mode_ == StereoViewer::ORIENTATION_MODE_STEREO_PAIR)
+                v.Tg_ -= oy * v.move_speed_;
+            else
+                v.T_ -= oy * v.move_speed_;
         }
         else if (key == GLFW_KEY_LEFT) {
             Mat_<double> oz(3, 1);
