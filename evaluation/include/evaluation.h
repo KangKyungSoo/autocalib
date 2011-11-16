@@ -258,7 +258,7 @@ namespace evaluation {
         /** \param T Local-to-world translation */
         void set_T(cv::Mat_<double> T) { T_ = T; }
 
-        /** \param Viewport (it defines the final image size) */
+        /** \param view_port (it defines the final image size) */
         void set_view_port(cv::Rect view_port) { view_port_ = view_port; }
 
         void set_window_size(cv::Size window_size) { window_size_= window_size; }
@@ -349,7 +349,7 @@ namespace evaluation {
         /** \param Tg Local-to-world translation of stereo pair */
         void set_Tg(cv::Mat_<double> Tg) { Tg_ = Tg; }
 
-        /** \param Viewport (it defines final image size) */
+        /** \param view_port (it defines final image size) */
         void set_view_port(cv::Rect view_port) { view_port_ = view_port; }
 
         void set_window_size(cv::Size window_size) { window_size_= window_size; }
