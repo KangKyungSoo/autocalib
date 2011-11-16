@@ -720,14 +720,14 @@ namespace autocalib {
     } // namespace
 
 
-    double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions motions,
+    double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions &motions,
                               const FeaturesCollection &features, const MatchesCollection &matches,
                               int params_to_refine)
     {
         // Normalize rotations and compute indices
 
-        Mat R_norm = motions.begin()->second.R();
-        Mat T_norm = motions.begin()->second.T();
+        Mat R_norm = motions.begin()->second.R().clone();
+        Mat T_norm = motions.begin()->second.T().clone();
 
         vector<int> motions_indices;
 
@@ -805,7 +805,7 @@ namespace autocalib {
             T_l(0, 0) = arg(0, 11 + 6 * (i - 1) + 3);
             T_l(1, 0) = arg(0, 11 + 6 * (i - 1) + 4);
             T_l(2, 0) = arg(0, 11 + 6 * (i - 1) + 5);
-            motions.find(motions_indices[i])->second.set_T(T_l);
+            motions.find(motions_indices[i])->second.set_T(T_l);            
         }
 
         return rms_error;

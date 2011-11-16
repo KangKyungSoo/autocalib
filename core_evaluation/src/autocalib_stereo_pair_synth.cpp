@@ -62,15 +62,17 @@ int main(int argc, char **argv) {
 
         CompositeSceneBuilder csb;
 
-        Ptr<PointCloudScene> scene1 = new SphereScene(num_points, rng);
-        Mat_<double> tmp(3, 1, CV_64F);
-        tmp(0, 0) = -2; tmp(1, 0) = 0; tmp(2, 0) = 0;
-        scene1->set_T(tmp.clone());
-
-        Ptr<PointCloudScene> scene2 = new SphereScene(num_points, rng);
-
-        csb.Add(scene1);
-        csb.Add(scene2);
+        for (int i = 0; i < 2; ++i) {
+            for (int j = 0; j < 2; ++j) {
+                for (int k = 0; k < 2; ++k) {
+                    Ptr<PointCloudScene> scene = new SphereScene(num_points, rng);
+                    Mat_<double> T(3, 1, CV_64F);
+                    T(0, 0) = i; T(1, 0) = j; T(2, 0) = k;
+                    scene->set_T(T * 5);
+                    csb.Add(scene);
+                }
+            }
+        }
 
         Ptr<CompositeScene> cs = csb.Build();
         scene = static_cast<CompositeScene*>(cs);
@@ -429,8 +431,12 @@ int main(int argc, char **argv) {
         Rodrigues(total_rvec / total_estimations, avg_R);
         RigidCamera P_r_m(K_init, avg_R, total_T / total_estimations);
 
-        double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
-                                                    ~REFINE_FLAG_SKEW);
+        double final_rms_error = 0;
+
+        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
+                                             ~REFINE_FLAG_SKEW);
+        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection,
+                                             ~REFINE_FLAG_SKEW);
 
         Mat_<double> rvec_; Rodrigues(R_rel, rvec_);
         cout << "GOLD rvec = " << rvec_ << endl;
