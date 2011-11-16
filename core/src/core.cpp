@@ -469,6 +469,7 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
+        //Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
         Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_);
         //RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 

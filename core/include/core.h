@@ -342,7 +342,9 @@ namespace autocalib {
       * \param features Frames features
       * \param matches Matches between left frames of stereo pairs and between
                        left and right frames of stereo pairs
+      * \param params_to_refine Flags indicating parameters which should be refined
       * \return Epipolar distance error
+      * \see RefineFlag
       */
     double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions &motions,
                               const FeaturesCollection &features, const MatchesCollection &matches,
@@ -716,7 +718,7 @@ namespace autocalib {
       *
       * \param num_frames Number of frames
       * \param rel_confs Pairwise matches confidences
-      * \param graph Efficient correspondences subgraph (it's an oriented graph and it's a tree)
+      * \param eff_corresp Efficient correspondences subgraph (it's an oriented graph and it's a tree)
       * \param rel_confs_eff Efficient pairwise matches confiedences (optional)
       * \return Extracted graph center (if many then one of)
       */
