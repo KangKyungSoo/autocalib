@@ -242,6 +242,18 @@ namespace autocalib {
     //============================================================================
     // Rotation model camera autocalibration
 
+
+    /** Finds the P2 space homography assuming that object is small in contrast with the
+      * distance to it.
+      *
+      * \param xy1 First image keypoints
+      * \param xy2 Second image keypoints
+      * \param num_iters Number of iterations
+      * \return Homography mapping xy1 to xy2
+      */
+    cv::Mat FindHomographyP2Linear_SmallObject(cv::InputArray xy1, cv::InputArray xy2, int num_iters = 10);
+
+
     /** Calculates rotational camera intrinsics using a linear algorithm.
       *
       * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 482.
@@ -329,7 +341,8 @@ namespace autocalib {
             cv::InputOutputArray P_l, cv::InputOutputArray P_r,
             cv::InputOutputArray xy_l0, cv::InputOutputArray xy_r0,
             cv::InputOutputArray xy_l1, cv::InputOutputArray xy_r1,
-            const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1, const cv::Ptr<std::vector<cv::DMatch> > &matches_ll,
+            const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1,
+            const cv::Ptr<std::vector<cv::DMatch> > &matches_ll,
             int num_iters, int subset_size, double thresh,
             cv::OutputArray Hpa, cv::OutputArray H01, cv::OutputArray xyzw0, cv::OutputArray xyzw1);
 
@@ -567,14 +580,25 @@ namespace autocalib {
     cv::Mat CalcNormalizationMat3x3(cv::InputArray xy);       
 
 
-    /** Calculates the reprojection RMS error.
+    /** Calculates the reprojection RMS error of the given P2 homography and image keypoints.
+      *
+      * \param xy1 First image keypoints
+      * \param xy2 Second image keypoints
+      * \param H12 Homography mapping xy1 to xy2
+      * \return RMS reprojection error
+      */
+    double CalcRmsReprojectionErrorH(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray H12);
+
+
+    /** Calculates the reprojection RMS error of the given keypoints, camera matrix,
+      * and point cloud.
       *
       * \param xy Image keypoints
       * \param P Camera matrix
       * \param xyzw Points
       * \return RMS reprojection error
       */
-    double CalcRmsReprojectionError(cv::InputArray xy, cv::InputArray P, cv::InputArray xyzw);
+    double CalcRmsReprojectionErrorP(cv::InputArray xy, cv::InputArray P, cv::InputArray xyzw);
 
 
     /** Calculates the point-to-epopolar-line RMS distance.
@@ -610,7 +634,7 @@ namespace autocalib {
       * \param xyzw2 Second point cloud
       * \return 3D projective space homography mapping xyzw1 into xyzw2
       */
-    cv::Mat FindHomographyLinear(cv::InputArray xyzw1, cv::InputArray xyzw2);
+    cv::Mat FindHomographyP3Linear(cv::InputArray xyzw1, cv::InputArray xyzw2);
 
 
     /** Finds the 3D projective space homography using MSAC procedure.
@@ -624,8 +648,8 @@ namespace autocalib {
       * \param err_thresh Error threshold for inliers classification
       * \return 3D projective space homography mapping xyzw1 into xyzw2
       */
-    cv::Mat FindHomographyRobust(cv::InputArray xyzw1, cv::InputArray xyzw2, cv::InputArray P2, cv::InputArray xy2,
-                                 int num_iters = 100, int subset_size = 10, double err_thresh = 3.0);
+    cv::Mat FindHomographyP3Robust(cv::InputArray xyzw1, cv::InputArray xyzw2, cv::InputArray P2, cv::InputArray xy2,
+                                   int num_iters = 100, int subset_size = 10, double err_thresh = 3.0);
 
 
     /** Refines 3D projective space homography.

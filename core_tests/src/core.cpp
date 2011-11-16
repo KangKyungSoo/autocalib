@@ -71,6 +71,67 @@ TEST(ExtractCameraMatFromFundamentalMat, CanRun) {
 }
 
 
+TEST(FindHomographyP2Linear_SmallObject, CanFindHomographyOnIdealDataset) {
+    int num_points = 10;
+    RNG rng(0);
+
+    Mat_<double> xyz(1, 3 * num_points);
+    rng.fill(xyz, RNG::UNIFORM, -1, 1);
+
+    for (int i = 0; i < num_points; ++i)
+        xyz(0, 3 * i + 2) += 100;
+
+    Mat_<double> K = Mat::eye(3, 3, CV_64F);
+    K(0, 0) = 2000; K(0, 2) = 500;
+    K(1, 1) = 2000; K(1, 2) = 500;
+
+    Mat_<double> rvec(3, 1);
+    rng.fill(rvec, RNG::UNIFORM, -1, 1);
+    Mat_<double> R;
+    Rodrigues(rvec, R);
+
+    Mat_<double> T(3, 1);
+    T(0, 0) = 0.001; T(1, 0) = -0.01; T(2, 0) = 0;
+
+    Mat_<double> xy1(1, 2 * num_points);
+    for (int i = 0; i < num_points; ++i) {
+        double x = K(0, 0) * xyz(0, 3 * i) + K(0, 1) * xyz(0, 3 * i + 1) + K(0, 2) * xyz(0, 3 * i + 2);
+        double y = K(1, 0) * xyz(0, 3 * i) + K(1, 1) * xyz(0, 3 * i + 1) + K(1, 2) * xyz(0, 3 * i + 2);
+        double z = K(2, 0) * xyz(0, 3 * i) + K(2, 1) * xyz(0, 3 * i + 1) + K(2, 2) * xyz(0, 3 * i + 2);
+        xy1(0, 2 * i) = x / z;
+        xy1(0, 2 * i + 1) = y / z;
+    }
+
+    Mat_<double> R_ = K * R.t();
+    Mat_<double> T_ = -K * R_ * T;
+
+    Mat_<double> xy2(1, 2 * num_points);
+
+    for (int i = 0; i < num_points; ++i) {
+        double x = R_(0, 0) * xyz(0, 3 * i) + R_(0, 1) * xyz(0, 3 * i + 1) + R_(0, 2) * xyz(0, 3 * i + 2) + T_(0, 0);
+        double y = R_(1, 0) * xyz(0, 3 * i) + R_(1, 1) * xyz(0, 3 * i + 1) + R_(1, 2) * xyz(0, 3 * i + 2) + T_(1, 0);
+        double z = R_(2, 0) * xyz(0, 3 * i) + R_(2, 1) * xyz(0, 3 * i + 1) + R_(2, 2) * xyz(0, 3 * i + 2) + T_(2, 0);
+        xy2(0, 2 * i) = x / z;
+        xy2(0, 2 * i + 1) = y / z;
+    }
+
+    Mat H12 = FindHomographyP2Linear_SmallObject(xy1, xy2, 100);
+    Mat_<double> R_est = K.inv() * H12 * K;
+    R_est /= norm(R_est);
+    cout << R_est << endl;
+
+    Mat H12_opencv = findHomography(Mat(xy1).reshape(2), Mat(xy2).reshape(2));
+    R_est = K.inv() * H12_opencv * K;
+    R_est /= pow(determinant(R_est), 1. / 3.);
+    R_est /= norm(R_est);
+    cout << R_est << endl;
+
+    R /= norm(R);
+    cout << R << endl;
+
+}
+
+
 class TriangulationMetric : public testing::TestWithParam<tr1::tuple<Ptr<ITringulationMethodCreator>,
                                                                      Ptr<IPointCloudSceneCreator> > > { };
 
@@ -224,7 +285,7 @@ INSTANTIATE_TEST_CASE_P(StdSynthScenes,
                             testing::Values(new SphereSceneCreator(), new CubeSceneCreator())));
 
 
-TEST(FindHomographyLinear, NoiselessSynthDataset) {
+TEST(FindHomographyP3Linear, NoiselessSynthDataset) {
     RNG rng(0);
     int num_points = 1000; // 5 is the minimum acceptable value
 
@@ -245,7 +306,7 @@ TEST(FindHomographyLinear, NoiselessSynthDataset) {
         xyzw2(0, 4 * i + 3) = H(3, 0) * xyzw1(0, 4 * i) + H(3, 1) * xyzw1(0, 4 * i + 1) + H(3, 2) * xyzw1(0, 4 * i + 2) + H(3, 3) * xyzw1(0, 4 * i + 3);
     }
 
-    Mat_<double> H_found = FindHomographyLinear(xyzw1, xyzw2);
+    Mat_<double> H_found = FindHomographyP3Linear(xyzw1, xyzw2);
 
     H /= H(3, 3);
     H_found /= H_found(3, 3);
