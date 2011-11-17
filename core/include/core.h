@@ -329,7 +329,8 @@ namespace autocalib {
             cv::InputOutputArray P_l, cv::InputOutputArray P_r,
             cv::InputOutputArray xy_l0, cv::InputOutputArray xy_r0,
             cv::InputOutputArray xy_l1, cv::InputOutputArray xy_r1,
-            const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1, const cv::Ptr<std::vector<cv::DMatch> > &matches_ll,
+            const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1, 
+            const cv::Ptr<std::vector<cv::DMatch> > &matches_ll,
             int num_iters, int subset_size, double thresh,
             cv::OutputArray Hpa, cv::OutputArray H01, cv::OutputArray xyzw0, cv::OutputArray xyzw1);
 
