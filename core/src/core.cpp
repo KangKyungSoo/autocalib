@@ -1801,6 +1801,9 @@ namespace autocalib {
 
             ExtractMatchedKeypoints(f1, f2, *(iter->second), xy1_, xy2_);
 
+            Mat F = findFundamentalMat(Mat(xy1_).reshape(2), Mat(xy2_).reshape(2));
+            cout << F << endl;
+
             offset += (int)iter->second->size();
         }
 
