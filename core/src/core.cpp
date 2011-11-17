@@ -470,7 +470,7 @@ namespace autocalib {
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
         //Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
-        Mat_<double> H01_ = FindHomographyRobust(xyzw0_, xyzw1_, P_r_, xy_r1_, num_iters, subset_size, thresh);
+        Mat_<double> H01_ = FindHomographyP3Robust(xyzw0_, xyzw1_, P_r_, xy_r1_, num_iters, subset_size, thresh);
         //RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
@@ -1298,7 +1298,7 @@ namespace autocalib {
     }
 
 
-    Mat FindHomographyLinear(InputArray xyzw1, InputArray xyzw2) {
+    Mat FindHomographyP3Linear(InputArray xyzw1, InputArray xyzw2) {
         CV_Assert(xyzw1.getMat().type() == CV_64F && xyzw1.getMat().rows == 1 && xyzw1.getMat().cols % 4 == 0);
         CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
         CV_Assert(xyzw1.getMat().cols / 4 == xyzw2.getMat().cols / 4);
@@ -1398,8 +1398,8 @@ namespace autocalib {
     }
 
 
-    Mat FindHomographyRobust(InputArray xyzw1, InputArray xyzw2, InputArray P2, InputArray xy2,
-                             int num_iters, int subset_size, double err_thresh)
+    Mat FindHomographyP3Robust(InputArray xyzw1, InputArray xyzw2, InputArray P2, InputArray xy2,
+                               int num_iters, int subset_size, double err_thresh)
     {
         CV_Assert(xyzw1.getMat().type() == CV_64F && xyzw1.getMat().rows == 1 && xyzw1.getMat().cols % 4 == 0);
         CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
@@ -1464,7 +1464,7 @@ namespace autocalib {
                 xy2_subset(0, 2 * i + 1) = xy2_(0, 2 * subset[i] + 1);
             }
 
-            Mat_<double> H = FindHomographyLinear(xyzw1_subset, xyzw2_subset);
+            Mat_<double> H = FindHomographyP3Linear(xyzw1_subset, xyzw2_subset);
 
             for (int i = 0; i < num_points; ++i) {
                 xyzw1_mapped(0, 4 * i) = H(0, 0) * xyzw1_(0, 4 * i) + H(0, 1) * xyzw1_(0, 4 * i + 1) +
@@ -1572,7 +1572,7 @@ namespace autocalib {
                 }
             }
 
-            H_best = FindHomographyLinear(xyzw1_subset, xyzw2_subset);
+            H_best = FindHomographyP3Linear(xyzw1_subset, xyzw2_subset);
         }
 
         return H_best;

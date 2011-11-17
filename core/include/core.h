@@ -611,7 +611,7 @@ namespace autocalib {
       * \param xyzw2 Second point cloud
       * \return 3D projective space homography mapping xyzw1 into xyzw2
       */
-    cv::Mat FindHomographyLinear(cv::InputArray xyzw1, cv::InputArray xyzw2);
+    cv::Mat FindHomographyP3Linear(cv::InputArray xyzw1, cv::InputArray xyzw2);
 
 
     /** Finds the 3D projective space homography using MSAC procedure.
@@ -625,8 +625,8 @@ namespace autocalib {
       * \param err_thresh Error threshold for inliers classification
       * \return 3D projective space homography mapping xyzw1 into xyzw2
       */
-    cv::Mat FindHomographyRobust(cv::InputArray xyzw1, cv::InputArray xyzw2, cv::InputArray P2, cv::InputArray xy2,
-                                 int num_iters = 100, int subset_size = 10, double err_thresh = 3.0);
+    cv::Mat FindHomographyP3Robust(cv::InputArray xyzw1, cv::InputArray xyzw2, cv::InputArray P2, cv::InputArray xy2,
+                                   int num_iters = 100, int subset_size = 10, double err_thresh = 3.0);
 
 
     /** Refines 3D projective space homography.

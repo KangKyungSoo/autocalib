@@ -224,7 +224,7 @@ INSTANTIATE_TEST_CASE_P(StdSynthScenes,
                             testing::Values(new SphereSceneCreator(), new CubeSceneCreator())));
 
 
-TEST(FindHomographyLinear, NoiselessSynthDataset) {
+TEST(FindHomographyP3Linear, NoiselessSynthDataset) {
     RNG rng(0);
     int num_points = 1000; // 5 is the minimum acceptable value
 
@@ -245,7 +245,7 @@ TEST(FindHomographyLinear, NoiselessSynthDataset) {
         xyzw2(0, 4 * i + 3) = H(3, 0) * xyzw1(0, 4 * i) + H(3, 1) * xyzw1(0, 4 * i + 1) + H(3, 2) * xyzw1(0, 4 * i + 2) + H(3, 3) * xyzw1(0, 4 * i + 3);
     }
 
-    Mat_<double> H_found = FindHomographyLinear(xyzw1, xyzw2);
+    Mat_<double> H_found = FindHomographyP3Linear(xyzw1, xyzw2);
 
     H /= H(3, 3);
     H_found /= H_found(3, 3);

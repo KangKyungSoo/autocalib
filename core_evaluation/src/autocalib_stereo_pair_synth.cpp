@@ -39,6 +39,7 @@ double conf_thresh = 0;
 bool create_images = false;
 bool save_cameras = false;
 bool load_cameras = false;
+bool refine = true;
 bool refine_relative_params_only = false;
 string cameras_path;
 string log_file;
@@ -434,23 +435,25 @@ int main(int argc, char **argv) {
 
         double final_rms_error = 0;
 
-        if (refine_relative_params_only) {
-            final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
-            final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
-        }
-        else {
-            detail::Graph eff_corresp(num_frames);
-            for (size_t i = 0; i < num_frames - 1; ++i) {
-                for (size_t j = i + 1; j < num_frames; ++j) {
-                    eff_corresp.addEdge(i, j, 0);
-                    eff_corresp.addEdge(j, i, 0);
-                }
+        if (refine) {
+            if (refine_relative_params_only) {
+                final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+                final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
             }
+            else {
+                detail::Graph eff_corresp(num_frames);
+                for (size_t i = 0; i < num_frames - 1; ++i) {
+                    for (size_t j = i + 1; j < num_frames; ++j) {
+                        eff_corresp.addEdge(i, j, 0);
+                        eff_corresp.addEdge(j, i, 0);
+                    }
+                }
 
-            AbsoluteMotions abs_motions;
-            CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
+                AbsoluteMotions abs_motions;
+                CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
 
-            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+            }
         }
 
         Mat_<double> rvec_; Rodrigues(R_rel, rvec_);
@@ -461,16 +464,16 @@ int main(int argc, char **argv) {
         Mat_<double> T_ = -P_r_m.R().t() * P_r_m.T();
         cout << "Final T = " << T_ / T_(0, 0) * T_rel(0, 0) << endl;
 
-        Mat_<double> K_refined = P_r_m.K();
-        cout << "K_refined = \n" << K_refined << endl;
+        Mat_<double> K_final = P_r_m.K();
+        cout << "K_final = \n" << K_final << endl;
 
         if (!log_file.empty()) {
             ofstream f(log_file.c_str(), ios_base::app);
             f << K_gold(0, 0) << ";" << K_gold(1, 1) << ";" << K_gold(0, 2) << ";" << K_gold(1, 2) << ";" << K_gold(0, 1) << ";"
-              << num_frames << ";" << noise_stddev << ";" << F_est_thresh << ";"
+              << noise_stddev << ";"
               << K_init(0, 0) << ";" << K_init(1, 1) << ";" << K_init(0, 2) << ";" << K_init(1, 2) << ";" << K_init(0, 1) << ";"
-              << K_refined(0, 0) << ";" << K_refined(1, 1) << ";" << K_refined(0, 2) << ";" << K_refined(1, 2) << ";" << K_refined(0, 1) << ";"
-              << residual_error << ";" << final_rms_error << ";";
+              << K_final(0, 0) << ";" << K_final(1, 1) << ";" << K_final(0, 2) << ";" << K_final(1, 2) << ";" << K_final(0, 1) << ";"
+              << final_rms_error << ";";
             for (int i = 0; i < argc; ++i)
                 f << argv[i] << " ";
             f << ";\n";
@@ -547,8 +550,10 @@ void ParseArgs(int argc, char **argv) {
             load_cameras = true;
             cameras_path = argv[++i];
         }
+        else if (string(argv[i]) == "--refine")
+            refine = atoi(argv[++i]);
         else if (string(argv[i]) == "--rel-only") {
-            refine_relative_params_only = atoi(argv[i++]);
+            refine_relative_params_only = atoi(argv[++i]);
         }
         else if (string(argv[i]) == "--log-file")
             log_file = argv[++i];
