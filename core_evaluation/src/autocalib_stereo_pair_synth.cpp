@@ -444,7 +444,6 @@ int main(int argc, char **argv) {
             CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
 
             final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
-            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
         }
 
         Mat_<double> rvec_; Rodrigues(R_rel, rvec_);
