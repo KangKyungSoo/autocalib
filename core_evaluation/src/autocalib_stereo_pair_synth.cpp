@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
         // Generate cameras and shots       
 
         Mat_<double> T_rel(3, 1);
-        T_rel(0, 0) = 1; T_rel(1, 0) = 1; T_rel(2, 0) = 1;
+        T_rel(0, 0) = 1; T_rel(1, 0) = 0; T_rel(2, 0) = 0;
         Mat_<double> rvec_rel(1, 3);
         rvec_rel(0, 0) = 0; rvec_rel(0, 1) = 0; rvec_rel(0, 2) = 0;
         Mat R_rel; Rodrigues(rvec_rel, R_rel);
@@ -115,7 +115,11 @@ int main(int argc, char **argv) {
         else if (load_cameras) {
             FileStorage fs(cameras_path, FileStorage::READ);
             fs["num_frames"] >> num_frames;
-            fs["R_rel"] >> R_rel;
+
+            Mat tmp;
+            fs["R_rel_vec"] >> tmp;
+            Rodrigues(tmp, R_rel);
+
             fs["T_rel"] >> T_rel;
 
             left_cameras.resize(num_frames);
@@ -188,7 +192,10 @@ int main(int argc, char **argv) {
         if (save_cameras) {
             FileStorage fs(cameras_path, FileStorage::WRITE);
             fs << "num_frames" << num_frames;
-            fs << "R_rel" << R_rel;
+
+            Mat tmp;
+            Rodrigues(R_rel, tmp);
+            fs << "R_rel_vec" << tmp;
             fs << "T_rel" << T_rel;
 
             for (int i = 0; i < num_frames; ++i) {
