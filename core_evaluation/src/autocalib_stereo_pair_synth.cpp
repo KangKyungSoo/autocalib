@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
                 for (int k = 0; k < 2; ++k) {
                     Ptr<PointCloudScene> scene = new SphereScene(num_points, rng);
                     Mat_<double> T(3, 1, CV_64F);
-                    T(0, 0) = i; T(1, 0) = j; T(2, 0) = k;
+                    T(0, 0) = i - 0.5; T(1, 0) = j - 0.5; T(2, 0) = k - 0.5;
                     scene->set_T(T * 5);
                     csb.Add(scene);
                 }
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
             rvec(0, 0) = 0; rvec(0, 1) = 0; rvec(0, 2) = 0;
             Mat R; Rodrigues(rvec, R);
             Mat_<double> T(3, 1);
-            T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -10;
+            T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -30;
 
             StereoViewer &v = the_stereo_viewer();
             v.set_scene(scene);
@@ -159,34 +159,44 @@ int main(int argc, char **argv) {
             }
         }
         else {
+            left_cameras.resize(num_frames);
+            right_cameras.resize(num_frames);
+
             for (int i = 0; i < num_frames; ++i) {
+                Mat_<double> T(3, 1);
+                T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -15;
 
+                Mat_<double> T_noise(3, 1);
+                rng.fill(T_noise, RNG::UNIFORM, -1, 1);
+                T_noise(0, 0) *= 1.0; T_noise(1, 0) *= 1.0; T_noise(2, 0) *= 1.0;
+                T += T_noise;
+
+                Mat_<double> rvec(3, 1);
+                rng.fill(rvec, RNG::UNIFORM, -1, 1);
+
+                Mat_<double> rvec_noise(3, 1);
+                rng.fill(rvec_noise, RNG::UNIFORM, -1, 1);
+                rvec += rvec_noise;
+
+                Mat_<double> R;
+                Rodrigues(rvec, R);
+
+                left_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R, R * T);
+                right_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R * R_rel, R * (T + T_rel));
+
+                detail::ImageFeatures features;
+                scene->TakeShot(left_cameras[i], viewport, features);
+                Mat img = CreateImage(features);
+                Mat tmp;
+                resize(img, tmp, Size(), 0.5, 0.5);
+                imshow("img", tmp);
+                waitKey();
+                scene->TakeShot(right_cameras[i], viewport, features);
+                img = CreateImage(features);
+                resize(img, tmp, Size(), 0.5, 0.5);
+                imshow("img", tmp);
+                waitKey();
             }
-            num_frames = 0;
-//            left_cameras.resize(num_frames);
-//            right_cameras.resize(num_frames);
-
-//            detail::ImageFeatures features;
-
-//            Mat R_cur = Mat::eye(3, 3, CV_64F);
-//            for (int i = 0; i < num_frames; ++i) {
-//                Mat_<double> T_noise(3, 1);
-//                rng.fill(T_noise, RNG::UNIFORM, -0.3, 0.3);
-//                Mat T_cur_noised = T + T_noise;
-
-//                Mat_<double> rvec_noise(1, 3);
-//                rng.fill(rvec_noise, RNG::UNIFORM, -0.3, 0.3);
-//                Mat R_noise; Rodrigues(rvec_noise, R_noise);
-//                Mat R_cur_noised = R_cur * R_noise;
-
-//                left_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel, R_cur_noised * (T_rel + T_cur_noised));
-//                right_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R_cur_noised * R_rel.t(), R_cur_noised * (-T_rel + T_cur_noised));
-
-//                R_cur = R * R_cur_noised;
-
-//                scene->TakeShot(left_cameras[i], viewport, features);
-//                scene->TakeShot(right_cameras[i], viewport, features);
-//            }
         }
 
         if (num_frames < 1) {
@@ -237,7 +247,7 @@ int main(int argc, char **argv) {
 
             Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
             scene->TakeShot(right_cameras[i], viewport, *right_features);
-            features_collection[2 * i + 1] = right_features;
+            features_collection[2 * i + 1] = right_features;            
         }
 
         AddNoise();
