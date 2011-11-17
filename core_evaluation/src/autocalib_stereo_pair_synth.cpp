@@ -95,13 +95,13 @@ int main(int argc, char **argv) {
         rvec_rel(0, 0) = 0; rvec_rel(0, 1) = 0; rvec_rel(0, 2) = 0;
         Mat R_rel; Rodrigues(rvec_rel, R_rel);
 
-        Mat_<double> rvec(1, 3);
-        rvec(0, 0) = 0; rvec(0, 1) = 0; rvec(0, 2) = 0;
-        Mat R; Rodrigues(rvec, R);
-        Mat_<double> T(3, 1);
-        T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -10;
-
         if (do_shots_manually) {
+            Mat_<double> rvec(1, 3);
+            rvec(0, 0) = 0; rvec(0, 1) = 0; rvec(0, 2) = 0;
+            Mat R; Rodrigues(rvec, R);
+            Mat_<double> T(3, 1);
+            T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -10;
+
             StereoViewer &v = the_stereo_viewer();
             v.set_scene(scene);
             v.set_K(K_gold); v.set_R(R_rel); v.set_T(T_rel);
@@ -159,6 +159,9 @@ int main(int argc, char **argv) {
             }
         }
         else {
+            for (int i = 0; i < num_frames; ++i) {
+
+            }
             num_frames = 0;
 //            left_cameras.resize(num_frames);
 //            right_cameras.resize(num_frames);
@@ -197,6 +200,7 @@ int main(int argc, char **argv) {
             Mat tmp;
             Rodrigues(R_rel, tmp);
             fs << "R_rel_vec" << tmp;
+
             fs << "T_rel" << T_rel;
 
             for (int i = 0; i < num_frames; ++i) {
