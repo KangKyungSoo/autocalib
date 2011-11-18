@@ -28,7 +28,8 @@ int num_frames = 2;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
-Mat_<double> K_init_stddev = Mat::zeros(3, 3, CV_64F);
+Mat_<double> K_add_min = Mat::zeros(3, 3, CV_64F);
+Mat_<double> K_add_max = Mat::zeros(3, 3, CV_64F);
 int seed = 1;
 double F_est_thresh = 0.3;
 double F_est_conf = 0.99;
@@ -407,11 +408,11 @@ int main(int argc, char **argv) {
 
         for (int iter = 0; iter < num_iters; ++iter) {
             Mat_<double> K_init_add = Mat::zeros(3, 3, CV_64F);
-            K_init_add(0, 0) = rng.gaussian(K_init_stddev(0, 0));
-            K_init_add(0, 1) = rng.gaussian(K_init_stddev(0, 1));
-            K_init_add(0, 2) = rng.gaussian(K_init_stddev(0, 2));
-            K_init_add(1, 1) = rng.gaussian(K_init_stddev(1, 1));
-            K_init_add(1, 2) = rng.gaussian(K_init_stddev(1, 2));
+            K_init_add(0, 0) = rng.uniform(K_add_min(0, 0), K_add_max(0, 0));
+            K_init_add(0, 1) = rng.uniform(K_add_min(0, 1), K_add_max(0, 1));
+            K_init_add(0, 2) = rng.uniform(K_add_min(0, 2), K_add_max(0, 2));
+            K_init_add(1, 1) = rng.uniform(K_add_min(1, 1), K_add_max(1, 1));
+            K_init_add(1, 2) = rng.uniform(K_add_min(1, 2), K_add_max(1, 2));
 
             // Linear autocalibration
 
@@ -570,12 +571,20 @@ void ParseArgs(int argc, char **argv) {
             K_init(1, 2) = atof(argv[i + 5]);
             i += 5;
         }
-        else if (string(argv[i]) == "--K-init-stddev") {
-            K_init_stddev(0, 0) = atof(argv[i + 1]);
-            K_init_stddev(0, 1) = atof(argv[i + 2]);
-            K_init_stddev(0, 2) = atof(argv[i + 3]);
-            K_init_stddev(1, 1) = atof(argv[i + 4]);
-            K_init_stddev(1, 2) = atof(argv[i + 5]);
+        else if (string(argv[i]) == "--K-add-min") {
+            K_add_min(0, 0) = atof(argv[i + 1]);
+            K_add_min(0, 1) = atof(argv[i + 2]);
+            K_add_min(0, 2) = atof(argv[i + 3]);
+            K_add_min(1, 1) = atof(argv[i + 4]);
+            K_add_min(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--K-add-max") {
+            K_add_max(0, 0) = atof(argv[i + 1]);
+            K_add_max(0, 1) = atof(argv[i + 2]);
+            K_add_max(0, 2) = atof(argv[i + 3]);
+            K_add_max(1, 1) = atof(argv[i + 4]);
+            K_add_max(1, 2) = atof(argv[i + 5]);
             i += 5;
         }
         else if (string(argv[i]) == "--seed")
