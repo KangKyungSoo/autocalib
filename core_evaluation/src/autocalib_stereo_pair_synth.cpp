@@ -28,6 +28,7 @@ int num_frames = 2;
 Rect viewport = Rect(0, 0, 1920, 1080);
 Mat_<double> K_gold;
 Mat_<double> K_init;
+Mat_<double> K_init_stddev = Mat::zeros(3, 3, CV_64F);
 int seed = 1;
 double F_est_thresh = 0.3;
 double F_est_conf = 0.99;
@@ -39,6 +40,7 @@ double conf_thresh = 0;
 bool create_images = false;
 bool save_cameras = false;
 bool load_cameras = false;
+int num_iters = 1;
 bool refine = true;
 bool refine_relative_params_only = false;
 string cameras_path;
@@ -73,8 +75,8 @@ int main(int argc, char **argv) {
                 for (int k = 0; k < 2; ++k) {
                     Ptr<PointCloudScene> scene = new SphereScene(num_points, rng);
                     Mat_<double> T(3, 1, CV_64F);
-                    T(0, 0) = i - 0.5; T(1, 0) = j - 0.5; T(2, 0) = k - 0.5;
-                    scene->set_T(T * 5);
+                    T(0, 0) = (i - 0.5) * 5; T(1, 0) = (j - 0.5) * 3; T(2, 0) = (k - 0.5) * 5;
+                    scene->set_T(T);
                     csb.Add(scene);
                 }
             }
@@ -90,9 +92,9 @@ int main(int argc, char **argv) {
         // Generate cameras and shots       
 
         Mat_<double> T_rel(3, 1);
-        T_rel(0, 0) = 1; T_rel(1, 0) = 0; T_rel(2, 0) = 0;
+        T_rel(0, 0) = 1; T_rel(1, 0) = 1; T_rel(2, 0) = 1;
         Mat_<double> rvec_rel(1, 3);
-        rvec_rel(0, 0) = 0; rvec_rel(0, 1) = 0; rvec_rel(0, 2) = 0;
+        rvec_rel(0, 0) = 0.1; rvec_rel(0, 1) = -0.1; rvec_rel(0, 2) = 0.2;
         Mat R_rel; Rodrigues(rvec_rel, R_rel);
 
         if (do_shots_manually) {
@@ -100,7 +102,7 @@ int main(int argc, char **argv) {
             rvec(0, 0) = 0; rvec(0, 1) = 0; rvec(0, 2) = 0;
             Mat R; Rodrigues(rvec, R);
             Mat_<double> T(3, 1);
-            T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -30;
+            T(0, 0) = 0; T(1, 0) = 0; T(2, 0) = -20;
 
             StereoViewer &v = the_stereo_viewer();
             v.set_scene(scene);
@@ -184,18 +186,18 @@ int main(int argc, char **argv) {
                 left_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R, R * T);
                 right_cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R * R_rel, R * (T + T_rel));
 
-                detail::ImageFeatures features;
-                scene->TakeShot(left_cameras[i], viewport, features);
-                Mat img = CreateImage(features);
-                Mat tmp;
-                resize(img, tmp, Size(), 0.5, 0.5);
-                imshow("img", tmp);
-                waitKey();
-                scene->TakeShot(right_cameras[i], viewport, features);
-                img = CreateImage(features);
-                resize(img, tmp, Size(), 0.5, 0.5);
-                imshow("img", tmp);
-                waitKey();
+//                detail::ImageFeatures features;
+//                scene->TakeShot(left_cameras[i], viewport, features);
+//                Mat img = CreateImage(features);
+//                Mat tmp;
+//                resize(img, tmp, Size(), 0.5, 0.5);
+//                imshow("img", tmp);
+//                waitKey();
+//                scene->TakeShot(right_cameras[i], viewport, features);
+//                img = CreateImage(features);
+//                resize(img, tmp, Size(), 0.5, 0.5);
+//                imshow("img", tmp);
+//                waitKey();
             }
         }
 
@@ -400,96 +402,124 @@ int main(int argc, char **argv) {
             }
         }
 
-        // Linear autocalibration
+        Mat_<double> K_est, R_est, T_est;
+        double min_rms_error = numeric_limits<double>::max();
 
-        double residual_error = 0;
-        if (K_init.empty()) {
-            cout << "\nLinear calibrating...\n";
-            K_init = CalibRotationalCameraLinearNoSkew(Hs_inf, &residual_error);
-            cout << "K_linear = \n" << K_init << endl;
-        }
+        for (int iter = 0; iter < num_iters; ++iter) {
+            Mat_<double> K_init_add = Mat::zeros(3, 3, CV_64F);
+            K_init_add(0, 0) = rng.gaussian(K_init_stddev(0, 0));
+            K_init_add(0, 1) = rng.gaussian(K_init_stddev(0, 1));
+            K_init_add(0, 2) = rng.gaussian(K_init_stddev(0, 2));
+            K_init_add(1, 1) = rng.gaussian(K_init_stddev(1, 1));
+            K_init_add(1, 2) = rng.gaussian(K_init_stddev(1, 2));
 
-        // Metric rectification
+            // Linear autocalibration
 
-        cout << "\nMetric rectification...\n";
-
-        Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
-        Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
-        K_init.copyTo(Ham_3x3);
-
-        RelativeMotions rel_motions;
-
-        int total_estimations = 0;
-        Mat_<double> total_rvec = Mat::zeros(3, 1, CV_64F);
-        Mat_<double> total_T = Mat::zeros(3, 1, CV_64F);
-
-        for (HomographiesP3::iterator iter = Hs_01_a.begin(); iter != Hs_01_a.end(); ++iter) {
-            Mat H01_a = iter->second;
-            Mat H01_m = Ham.inv() * H01_a * Ham;
-            H01_m /= H01_m.at<double>(3, 3);
-            iter->second = H01_m;
-
-            Mat R01 = H01_m(Rect(0, 0, 3, 3));
-            Mat T01 = H01_m(Rect(3, 0, 1, 3));
-            rel_motions[iter->first] = Motion(R01, T01);
-
-            RigidCamera rigid_cam = RigidCamera::FromProjectiveMat(Ps_r_a[iter->first] * Ham);
-
-            Mat rvec;
-            Rodrigues(rigid_cam.R(), rvec);
-            total_rvec += rvec;
-
-            total_T += rigid_cam.T();
-            total_estimations++;
-        }
-
-        Mat avg_R;
-        Rodrigues(total_rvec / total_estimations, avg_R);
-        RigidCamera P_r_m(K_init, avg_R, total_T / total_estimations);
-
-        double final_rms_error = 0;
-
-        if (refine) {
-            if (refine_relative_params_only) {
-                final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
-                final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+            double residual_error = 0;
+            if (K_init.empty()) {
+                cout << "\nLinear calibrating...\n";
+                K_init = CalibRotationalCameraLinearNoSkew(Hs_inf, &residual_error);
+                cout << "K_linear = \n" << K_init << endl;
             }
-            else {
-                detail::Graph eff_corresp(num_frames);
-                for (size_t i = 0; i < num_frames - 1; ++i) {
-                    for (size_t j = i + 1; j < num_frames; ++j) {
-                        eff_corresp.addEdge(i, j, 0);
-                        eff_corresp.addEdge(j, i, 0);
+
+            cout << "\nK_init = \n" << K_init << endl;
+
+            Mat K_init_corrected = K_init + K_init_add;
+            cout << "\nK_init_corrected = \n" << K_init_corrected << endl;
+
+            // Metric rectification
+
+            cout << "\nMetric rectification...\n";
+
+            Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
+            Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
+            K_init_corrected.copyTo(Ham_3x3);
+
+            RelativeMotions rel_motions;
+
+            int total_estimations = 0;
+            Mat_<double> total_rvec = Mat::zeros(3, 1, CV_64F);
+            Mat_<double> total_T = Mat::zeros(3, 1, CV_64F);
+
+            for (HomographiesP3::iterator iter = Hs_01_a.begin(); iter != Hs_01_a.end(); ++iter) {
+                Mat H01_a = iter->second;
+                Mat H01_m = Ham.inv() * H01_a * Ham;
+                H01_m /= H01_m.at<double>(3, 3);
+
+                Mat R01 = H01_m(Rect(0, 0, 3, 3));
+                Mat T01 = H01_m(Rect(3, 0, 1, 3));
+                rel_motions[iter->first] = Motion(R01, T01);
+
+                RigidCamera rigid_cam = RigidCamera::FromProjectiveMat(Ps_r_a[iter->first] * Ham);
+
+                Mat rvec;
+                Rodrigues(rigid_cam.R(), rvec);
+                total_rvec += rvec;
+
+                total_T += rigid_cam.T();
+                total_estimations++;
+            }
+
+            Mat avg_R;
+            Rodrigues(total_rvec / total_estimations, avg_R);
+
+            Mat avg_T = total_T / total_estimations;
+
+            RigidCamera P_r_m(K_init_corrected, avg_R.clone(), avg_T.clone());
+
+            double final_rms_error = 0;
+
+            if (refine) {
+                if (refine_relative_params_only) {
+                    final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+                    final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+                }
+                else {
+                    detail::Graph eff_corresp(num_frames);
+                    for (size_t i = 0; i < num_frames - 1; ++i) {
+                        for (size_t j = i + 1; j < num_frames; ++j) {
+                            eff_corresp.addEdge(i, j, 0);
+                            eff_corresp.addEdge(j, i, 0);
+                        }
                     }
+
+                    AbsoluteMotions abs_motions;
+                    CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
+
+                    final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
                 }
 
-                AbsoluteMotions abs_motions;
-                CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
+                cout << "\nK_refined = \n" << P_r_m.K() << endl;
+            }
 
-                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+            if (final_rms_error < min_rms_error) {
+                K_est = P_r_m.K();
+                R_est = P_r_m.R().t();
+                T_est = -P_r_m.R().t() * P_r_m.T();
+                min_rms_error = final_rms_error;
             }
         }
 
-        Mat_<double> rvec_; Rodrigues(R_rel, rvec_);
-        cout << "GOLD rvec = " << rvec_ << endl;
-        Rodrigues(P_r_m.R().t(), rvec_);
-        cout << "Final rvec = " << rvec_ << endl;
-        cout << "GOLD T = " << T_rel << endl;
-        Mat_<double> T_ = -P_r_m.R().t() * P_r_m.T();
-        cout << "Final T = " << T_ / T_(0, 0) * T_rel(0, 0) << endl;
+        Mat_<double> rvec_;
+        Rodrigues(R_rel, rvec_);
+        cout << "rvec gold = " << rvec_ << endl;
 
-        Mat_<double> K_final = P_r_m.K();
-        cout << "K_final = \n" << K_final << endl;
+        Rodrigues(R_est, rvec_);
+        cout << "rvec est = " << rvec_ << endl;
+
+        cout << "T gold = " << T_rel << endl;
+        cout << "T est = " << T_est / T_est(0, 0) * T_rel(0, 0) << endl;
+        cout << "K_est = \n" << K_est << endl;
 
         if (!log_file.empty()) {
             ofstream f(log_file.c_str(), ios_base::app);
             f << K_gold(0, 0) << ";" << K_gold(1, 1) << ";" << K_gold(0, 2) << ";" << K_gold(1, 2) << ";" << K_gold(0, 1) << ";"
               << noise_stddev << ";"
               << K_init(0, 0) << ";" << K_init(1, 1) << ";" << K_init(0, 2) << ";" << K_init(1, 2) << ";" << K_init(0, 1) << ";"
-              << K_final(0, 0) << ";" << K_final(1, 1) << ";" << K_final(0, 2) << ";" << K_final(1, 2) << ";" << K_final(0, 1) << ";"
-              << final_rms_error << ";";
-            for (int i = 0; i < argc; ++i)
-                f << argv[i] << " ";
+              << K_est(0, 0) << ";" << K_est(1, 1) << ";" << K_est(0, 2) << ";" << K_est(1, 2) << ";" << K_est(0, 1) << ";"
+              << min_rms_error << ";";
+//            for (int i = 0; i < argc; ++i)
+//                f << argv[i] << " ";
             f << ";\n";
         }
     }
@@ -540,6 +570,14 @@ void ParseArgs(int argc, char **argv) {
             K_init(1, 2) = atof(argv[i + 5]);
             i += 5;
         }
+        else if (string(argv[i]) == "--K-init-stddev") {
+            K_init_stddev(0, 0) = atof(argv[i + 1]);
+            K_init_stddev(0, 1) = atof(argv[i + 2]);
+            K_init_stddev(0, 2) = atof(argv[i + 3]);
+            K_init_stddev(1, 1) = atof(argv[i + 4]);
+            K_init_stddev(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
         else if (string(argv[i]) == "--seed")
             seed = atoi(argv[++i]);
         else if (string(argv[i]) == "--F-est-thresh")
@@ -564,6 +602,8 @@ void ParseArgs(int argc, char **argv) {
             load_cameras = true;
             cameras_path = argv[++i];
         }
+        else if (string(argv[i]) == "--num-iters")
+            num_iters = atoi(argv[++i]);
         else if (string(argv[i]) == "--refine")
             refine = atoi(argv[++i]);
         else if (string(argv[i]) == "--rel-only") {
