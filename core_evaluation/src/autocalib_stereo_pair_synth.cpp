@@ -525,8 +525,6 @@ int main(int argc, char **argv) {
             f << T_rel(0, 0) << ";" << T_rel(1, 0) << ";" << T_rel(2, 0) << ";"
               << tmp(0, 0) << ";" << tmp(1, 0) << ";" << tmp(2, 0) << ";"
               << min_rms_error << ";";
-//            for (int i = 0; i < argc; ++i)
-//                f << argv[i] << " ";
             f << endl;
         }
     }
