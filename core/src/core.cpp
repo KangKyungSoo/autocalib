@@ -980,6 +980,306 @@ namespace autocalib {
     }
 
 
+    namespace {
+
+        class EpipError_K1_and_K2_StereoCamera {
+        public:
+            EpipError_K1_and_K2_StereoCamera(
+                    const FeaturesCollection &features,
+                    const MatchesCollection &matches,
+                    const vector<int> &motions_indices,
+                    int params_to_refine)
+                : features_(&features), matches_(&matches), step_(1e-4),
+                  params_to_refine_(params_to_refine)
+            {
+                num_matches_ = 0;
+                for (MatchesCollection::const_iterator iter = matches_->begin();
+                     iter != matches_->end(); ++iter)
+                    num_matches_ += (int)iter->second->size();
+
+                motions_indices_inv_.assign(*max_element(motions_indices.begin(), motions_indices.end()) + 1, -1);
+                for (size_t i = 0; i < motions_indices.size(); ++i)
+                    motions_indices_inv_[motions_indices[i]] = i;
+            }
+
+            void operator()(const Mat &arg, Mat &err);
+            void Jacobian(const Mat &arg, Mat &jac);
+
+            int dimension() const { return num_matches_; }
+
+        private:
+            const FeaturesCollection *features_;
+            const MatchesCollection *matches_;
+            int num_matches_;
+            vector<int> motions_indices_inv_;
+            int params_to_refine_;
+
+            const double step_;
+            Mat_<double> err_;
+        };
+
+
+        void EpipError_K1_and_K2_StereoCamera::operator()(const Mat &arg, Mat &err) {
+            Mat_<double> arg_(arg);
+
+            err.create(dimension(), 1, CV_64F);
+            Mat_<double> err_(err);
+
+            Mat_<double> K0 = Mat::eye(3, 3, CV_64F);
+            K0(0, 0) = arg_(0, 0);
+            K0(0, 1) = arg_(0, 1);
+            K0(0, 2) = arg_(0, 2);
+            K0(1, 1) = arg_(0, 3);
+            K0(1, 2) = arg_(0, 4);
+            Mat K0_inv = K0.inv();
+
+            Mat_<double> K1 = Mat::eye(3, 3, CV_64F);
+            K1(0, 0) = arg_(0, 5);
+            K1(0, 1) = arg_(0, 6);
+            K1(0, 2) = arg_(0, 7);
+            K1(1, 1) = arg_(0, 8);
+            K1(1, 2) = arg_(0, 9);
+            Mat K1_inv = K1.inv();
+
+            Mat_<double> rvec_rel(1, 3);
+            rvec_rel(0, 0) = arg_(0, 10);
+            rvec_rel(0, 1) = arg_(0, 11);
+            rvec_rel(0, 2) = arg_(0, 12);
+            Mat R_rel;
+            Rodrigues(rvec_rel, R_rel);
+
+            Mat_<double> T_rel(3, 1);
+            T_rel(0, 0) = arg_(0, 13);
+            T_rel(1, 0) = arg_(0, 14);
+            T_rel(2, 0) = arg_(0, 15);
+
+            Mat_<double> F_rel = K1_inv.t() * CrossProductMat(T_rel) * R_rel * K0_inv;
+
+            int pos = 0;
+            for (MatchesCollection::const_iterator iter = matches_->begin();
+                 iter != matches_->end(); ++iter)
+            {
+                int from = iter->first.first;
+                int to = iter->first.second;
+
+                const vector<KeyPoint> &kps_from = features_->find(from)->second->keypoints;
+                const vector<KeyPoint> &kps_to = features_->find(to)->second->keypoints;
+
+                if (BothAreLeft(from, to)) {
+                    int from_ = from / 2;
+                    int to_ = to / 2;
+
+                    Mat_<double> rvec_from(1, 3);
+                    if (motions_indices_inv_[from_] > 0) {
+                        rvec_from(0, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1));
+                        rvec_from(0, 1) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 1);
+                        rvec_from(0, 2) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 2);
+                    }
+                    else
+                        rvec_from.setTo(0);
+                    Mat R_from;
+                    Rodrigues(rvec_from, R_from);
+
+                    Mat_<double> rvec_to(1, 3);
+                    if (motions_indices_inv_[to_] > 0) {
+                        rvec_to(0, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1));
+                        rvec_to(0, 1) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 1);
+                        rvec_to(0, 2) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 2);
+                    }
+                    else
+                        rvec_to.setTo(0);
+                    Mat R_to;
+                    Rodrigues(rvec_to, R_to);
+
+                    Mat_<double> T_from(3, 1);
+                    if (motions_indices_inv_[from_] > 0) {
+                        T_from(0, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 3);
+                        T_from(1, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 4);
+                        T_from(2, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[from_] - 1) + 5);
+                    }
+                    else
+                        T_from.setTo(0);
+
+                    Mat_<double> T_to(3, 1);
+                    if (motions_indices_inv_[to_] > 0) {
+                        T_to(0, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 3);
+                        T_to(1, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 4);
+                        T_to(2, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 5);
+                    }
+                    else
+                        T_to.setTo(0);
+
+                    Mat R = R_to * R_from.t();
+                    Mat_<double> F = K0_inv.t() * CrossProductMat(R * T_from - T_to) * R * K0_inv;
+
+                    const vector<DMatch> &matches = *(iter->second);
+                    for (size_t i = 0; i < matches.size(); ++i) {
+                        const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
+                        const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
+                        err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F, p0.x, p0.y));
+                    }
+                }
+                else if (IsLeftRightPair(from, to)) {
+                    const vector<DMatch> &matches = *(iter->second);
+                    for (size_t i = 0; i < matches.size(); ++i) {
+                        const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
+                        const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
+                        err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F_rel, p0.x, p0.y));
+                    }
+                }
+                else {
+                    CV_Error(CV_StsError, "bad matches");
+                }
+            }
+        }
+
+
+        void EpipError_K1_and_K2_StereoCamera::Jacobian(const Mat &arg, Mat &jac) {
+            Mat_<double> arg_(arg.clone());
+
+            jac.create(dimension(), arg_.cols, CV_64F);
+            Mat_<double> jac_(jac);
+            jac_.setTo(0);
+
+            // Maps argument index to the respective intrinsic parameter
+            static const int flags_tbl[] = {REFINE_FLAG_FX, REFINE_FLAG_SKEW, REFINE_FLAG_PPX,
+                                            REFINE_FLAG_FY, REFINE_FLAG_PPY};
+
+            for (int i = 0; i < arg_.cols; ++i) {
+                if (i > 4 || (params_to_refine_ & flags_tbl[i])) {
+                    double val = arg_(0, i);
+
+                    arg_(0, i) += step_;
+                    Mat tmp = jac_.col(i);
+                    (*this)(arg_, tmp);
+
+                    arg_(0, i) = val - step_;
+                    (*this)(arg_, err_);
+                    arg_(0, i) = val;
+
+                    for (int j = 0; j < dimension(); ++j)
+                        jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
+                }
+            }
+        }
+    } // namespace
+
+
+    double RefineStereoCamera(const InputOutputArray K1, const InputOutputArray K2, const InputOutputArray R, const InputOutputArray T,
+                              AbsoluteMotions &motions, const FeaturesCollection &features, const MatchesCollection &matches,
+                              int params_to_refine)
+    {
+        CV_Assert(K1.getMat().type() == CV_64F && K1.getMat().size() == Size(3, 3));
+        CV_Assert(K2.getMat().type() == CV_64F && K2.getMat().size() == Size(3, 3));
+        CV_Assert(R.getMat().type() == CV_64F && R.getMat().size() == Size(3, 3));
+        CV_Assert(T.getMat().type() == CV_64F && T.getMat().size() == Size(1, 3));
+
+        // Normalize rotations and compute indices
+
+        Mat R_norm = motions.begin()->second.R().clone();
+        Mat T_norm = motions.begin()->second.T().clone();
+
+        vector<int> motions_indices;
+
+        for (AbsoluteMotions::iterator iter = motions.begin(); iter != motions.end(); ++iter) {
+            iter->second.set_T(iter->second.T() - iter->second.R() * R_norm.t() * T_norm);
+            iter->second.set_R(iter->second.R() * R_norm.t());
+            motions_indices.push_back(iter->first);
+        }
+
+        Mat_<double> arg(1, 5/*K1*/ + 5/*K2*/ + 3/*R*/ + 3/*T*/ + 6 * (int)motions.size());
+
+        Mat_<double> K1_(K1.getMat());
+        arg(0, 0) = K1_(0, 0);
+        arg(0, 1) = K1_(0, 1);
+        arg(0, 2) = K1_(0, 2);
+        arg(0, 3) = K1_(1, 1);
+        arg(0, 4) = K1_(1, 2);
+
+        Mat_<double> K2_(K2.getMat());
+        arg(0, 5) = K2_(0, 0);
+        arg(0, 6) = K2_(0, 1);
+        arg(0, 7) = K2_(0, 2);
+        arg(0, 8) = K2_(1, 1);
+        arg(0, 9) = K2_(1, 2);
+
+        Mat_<double> rvec_;
+        Rodrigues(R.getMat(), rvec_);
+        arg(0, 10) = rvec_(0, 0);
+        arg(0, 11) = rvec_(0, 1);
+        arg(0, 12) = rvec_(0, 2);
+
+        Mat_<double> T_(T.getMat());
+        arg(0, 13) = T_(0, 0);
+        arg(0, 14) = T_(1, 0);
+        arg(0, 15) = T_(2, 0);
+
+        for (size_t i = 1; i < motions_indices.size(); ++i) {
+            Mat_<double> rvec_l;
+            Rodrigues(motions.find(motions_indices[i])->second.R(), rvec_l);
+            arg(0, 16 + 6 * (i - 1)) = rvec_l(0, 0);
+            arg(0, 16 + 6 * (i - 1) + 1) = rvec_l(0, 1);
+            arg(0, 16 + 6 * (i - 1) + 2) = rvec_l(0, 2);
+
+            Mat_<double> T_l = motions.find(motions_indices[i])->second.T();
+            arg(0, 16 + 6 * (i - 1) + 3) = T_l(0, 0);
+            arg(0, 16 + 6 * (i - 1) + 4) = T_l(1, 0);
+            arg(0, 16 + 6 * (i - 1) + 5) = T_l(2, 0);
+        }
+
+        EpipError_K1_and_K2_StereoCamera func(features, matches, motions_indices, params_to_refine);
+        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
+
+        K1_(0, 0) = arg(0, 0);
+        K1_(0, 1) = arg(0, 1);
+        K1_(0, 2) = arg(0, 2);
+        K1_(1, 1) = arg(0, 3);
+        K1_(1, 2) = arg(0, 4);
+
+        K2_(0, 0) = arg(0, 5);
+        K2_(0, 1) = arg(0, 6);
+        K2_(0, 2) = arg(0, 7);
+        K2_(1, 1) = arg(0, 8);
+        K2_(1, 2) = arg(0, 9);
+
+        rvec_(0, 0) = arg(0, 10);
+        rvec_(0, 1) = arg(0, 11);
+        rvec_(0, 2) = arg(0, 12);
+
+        T_(0, 0) = arg(0, 13);
+        T_(1, 0) = arg(0, 14);
+        T_(2, 0) = arg(0, 15);
+
+        for (size_t i = 1; i < motions_indices.size(); ++i) {
+            Mat_<double> rvec_l(1, 3);
+            rvec_l(0, 0) = arg(0, 16 + 6 * (i - 1));
+            rvec_l(0, 1) = arg(0, 16 + 6 * (i - 1) + 1);
+            rvec_l(0, 2) = arg(0, 16 + 6 * (i - 1) + 2);
+
+            Mat R_l;
+            Rodrigues(rvec_l, R_l);
+            motions.find(motions_indices[i])->second.set_R(R_l);
+
+            Mat_<double> T_l(3, 1);
+            T_l(0, 0) = arg(0, 16 + 6 * (i - 1) + 3);
+            T_l(1, 0) = arg(0, 16 + 6 * (i - 1) + 4);
+            T_l(2, 0) = arg(0, 16 + 6 * (i - 1) + 5);
+            motions.find(motions_indices[i])->second.set_T(T_l);
+        }
+
+        K1.getMatRef() = K1_;
+        K2.getMatRef() = K2_;
+
+        Mat tmp;
+        Rodrigues(rvec_, tmp);
+        R.getMatRef() = tmp;
+
+        T.getMatRef() = T_;
+
+        return rms_error;
+    }
+
+
     void BestOf2NearestMatcher::match(const cv::detail::ImageFeatures &f1, 
                                       const cv::detail::ImageFeatures &f2,
                                       cv::detail::MatchesInfo &mi) 
