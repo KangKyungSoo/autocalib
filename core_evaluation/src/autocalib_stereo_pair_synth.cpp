@@ -501,12 +501,13 @@ int main(int argc, char **argv) {
             }
         }
 
-        Mat_<double> rvec_;
-        Rodrigues(R_rel, rvec_);
-        cout << "rvec gold = " << rvec_ << endl;
+        Mat_<double> rvec_gold;
+        Rodrigues(R_rel, rvec_gold);
+        cout << "rvec gold = " << rvec_gold << endl;
 
-        Rodrigues(R_est, rvec_);
-        cout << "rvec est = " << rvec_ << endl;
+        Mat_<double> rvec_est;
+        Rodrigues(R_est, rvec_est);
+        cout << "rvec est = " << rvec_est << endl;
 
         cout << "T gold = " << T_rel << endl;
         cout << "T est = " << T_est / T_est(0, 0) * T_rel(0, 0) << endl;
@@ -518,10 +519,15 @@ int main(int argc, char **argv) {
               << noise_stddev << ";"
               << K_init(0, 0) << ";" << K_init(1, 1) << ";" << K_init(0, 2) << ";" << K_init(1, 2) << ";" << K_init(0, 1) << ";"
               << K_est(0, 0) << ";" << K_est(1, 1) << ";" << K_est(0, 2) << ";" << K_est(1, 2) << ";" << K_est(0, 1) << ";"
+              << rvec_gold(0, 0) << ";" << rvec_gold(0, 1) << ";" << rvec_gold(0, 2) << ";"
+              << rvec_est(0, 0) << ";" << rvec_est(0, 1) << ";" << rvec_est(0, 2) << ";";
+            Mat_<double> tmp = T_est / T_est(0, 0) * T_rel(0, 0);
+            f << T_rel(0, 0) << ";" << T_rel(1, 0) << ";" << T_rel(2, 0) << ";"
+              << tmp(0, 0) << ";" << tmp(1, 0) << ";" << tmp(2, 0) << ";"
               << min_rms_error << ";";
 //            for (int i = 0; i < argc; ++i)
 //                f << argv[i] << " ";
-            f << ";\n";
+            f << endl;
         }
     }
     catch (const exception &e) {
