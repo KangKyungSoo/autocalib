@@ -120,12 +120,11 @@ int main(int argc, char **argv) {
         Mat_<double> P_l = Mat::eye(3, 4, CV_64F);
         Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
 
-        // Remove outliers
+        // Remove outliers, compute confidences
 
         cout << "\nRemoving outliers...\n";
 
         RelativeConfidences rel_confs;
-        MatchesCollection conf_matches_collection;
 
         for (MatchesCollection::iterator iter = matches_collection.begin();
              iter != matches_collection.end(); ++iter)
@@ -171,10 +170,36 @@ int main(int argc, char **argv) {
 
             iter->second = inliers;
 
-            if (conf > conf_thresh) {
-                conf_matches_collection[iter->first] = inliers;
+            if (conf > conf_thresh)
                 rel_confs[iter->first] = conf;
+        }
+
+        // Select confident subset
+
+        set<int> conf_pair_indices;
+
+        for (MatchesCollection::iterator iter = matches_collection.begin();
+             iter != matches_collection.end(); ++iter)
+        {
+            if (IsLeftRightPair(iter->first.first, iter->first.second) && rel_confs[iter->first] > conf_thresh) {
+                conf_pair_indices.insert(iter->first.first / 2);
             }
+        }
+
+        MatchesCollection conf_matches_collection;
+
+        for (MatchesCollection::iterator iter = matches_collection.begin();
+             iter != matches_collection.end(); ++iter)
+        {
+            bool is_conf_lr_pair = IsLeftRightPair(iter->first.first, iter->first.second)
+                                   && rel_confs[iter->first] > conf_thresh
+                                   && conf_pair_indices.find(iter->first.first / 2) != conf_pair_indices.end();
+
+            bool is_conf_ll_pair = BothAreLeft(iter->first.first, iter->first.second)
+                                   && rel_confs[iter->first] > conf_thresh;
+
+            if (is_conf_ll_pair || is_conf_lr_pair)
+                conf_matches_collection[iter->first] = iter->second;
         }
 
         // Affine rectification
@@ -184,17 +209,24 @@ int main(int argc, char **argv) {
         HomographiesP2 Hs_inf;
         HomographiesP3 Hs_01_a;
 
-        for (size_t i = 0; i < num_frames - 1; ++i) {
-            for (size_t j = i + 1; j < num_frames; ++j) {
-                Ptr<vector<DMatch> > matches_lr0 = matches_collection.find(make_pair(2 * i, 2 * i + 1))->second;
-                Ptr<vector<DMatch> > matches_lr1 = matches_collection.find(make_pair(2 * j, 2 * j + 1))->second;
-                Ptr<vector<DMatch> > matches_ll = matches_collection.find(make_pair(2 * i, 2 * j))->second;
+        for (MatchesCollection::iterator iter = conf_matches_collection.begin();
+             iter != conf_matches_collection.end(); ++iter)
+        {
+            if (IsLeftRightPair(iter->first.first, iter->first.second)) {
+
+                // Get image indices
+                int from = iter->first.first / 2;
+                int to = iter->first.second / 2;
+
+                Ptr<vector<DMatch> > matches_lr0 = matches_collection.find(make_pair(2 * from, 2 * from + 1))->second;
+                Ptr<vector<DMatch> > matches_lr1 = matches_collection.find(make_pair(2 * to, 2 * to + 1))->second;
+                Ptr<vector<DMatch> > matches_ll = matches_collection.find(make_pair(2 * from, 2 * to))->second;
 
                 Mat_<double> xy_l0, xy_r0, xy_l1, xy_r1;
-                ExtractMatchedKeypoints(*(features_collection.find(2 * i)->second),
-                                        *(features_collection.find(2 * i + 1)->second), *matches_lr0, xy_l0, xy_r0);
-                ExtractMatchedKeypoints(*(features_collection.find(2 * j)->second),
-                                        *(features_collection.find(2 * j + 1)->second), *matches_lr1, xy_l1, xy_r1);
+                ExtractMatchedKeypoints(*(features_collection.find(2 * from)->second),
+                                        *(features_collection.find(2 * from + 1)->second), *matches_lr0, xy_l0, xy_r0);
+                ExtractMatchedKeypoints(*(features_collection.find(2 * to)->second),
+                                        *(features_collection.find(2 * to + 1)->second), *matches_lr1, xy_l1, xy_r1);
 
                 Mat_<double> Hpa, H01_a;
                 Mat_<double> xyzw0_a, xyzw1_a;
@@ -205,16 +237,16 @@ int main(int argc, char **argv) {
                                                     H_est_num_iters, H_est_subset_size, H_est_thresh,
                                                     Hpa, H01_a, xyzw0_a, xyzw1_a);
 
-                Hs_01_a[make_pair(i, j)] = H01_a;
+                Hs_01_a[make_pair(from, to)] = H01_a;
 
-                Ps_l_a[make_pair(i, j)] = P_l_a_;
-                Ps_r_a[make_pair(i, j)] = P_r_a_;
+                Ps_l_a[make_pair(from, to)] = P_l_a_;
+                Ps_r_a[make_pair(from, to)] = P_r_a_;
 
                 // Stereo pair relative rotation can be very close to the identity matrix. That
                 // can lead to numerical instability in K estimation process, so we avoid using those
                 // rotations in the linear autocalibration algorithm.
 
-                Hs_inf[make_pair(2 * i, 2 * j)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
+                Hs_inf[make_pair(2 * from, 2 * to)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
                 //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
             }
         }
@@ -252,7 +284,7 @@ int main(int argc, char **argv) {
 
             Mat R01 = H01_m(Rect(0, 0, 3, 3));
             Mat T01 = H01_m(Rect(3, 0, 1, 3));
-            rel_motions[iter->first] = Motion(R01, T01);
+            rel_motions[iter->first] = Motion(R01, T01);           
 
             RigidCamera rigid_cam = RigidCamera::FromProjectiveMat(Ps_r_a[iter->first] * Ham);
 
@@ -271,20 +303,19 @@ int main(int argc, char **argv) {
 
         RigidCamera P_r_m(K_init, avg_R.clone(), avg_T.clone());
 
-        double final_rms_error = 0;
-
-        detail::Graph eff_corresp(num_frames);
-        for (size_t i = 0; i < num_frames - 1; ++i) {
-            for (size_t j = i + 1; j < num_frames; ++j) {
-                eff_corresp.addEdge(i, j, 0);
-                eff_corresp.addEdge(j, i, 0);
+        detail::Graph eff_corresp;
+        RelativeConfidences ll_rel_confs;
+        for (RelativeConfidences::iterator iter = rel_confs.begin(); iter != rel_confs.end(); ++iter) {
+            if (BothAreLeft(iter->first.first, iter->first.second)) {
+                ll_rel_confs[make_pair(iter->first.first / 2, iter->first.second / 2)] = iter->second;
             }
         }
+        int ref_pair_idx = ExtractEfficientCorrespondences(num_frames, ll_rel_confs, eff_corresp);
 
         AbsoluteMotions abs_motions;
-        CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
+        CalcAbsoluteMotions(rel_motions, eff_corresp, ref_pair_idx, abs_motions);
 
-        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+        double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
 
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 
