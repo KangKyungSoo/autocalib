@@ -125,6 +125,7 @@ int main(int argc, char **argv) {
         cout << "\nRemoving outliers...\n";
 
         RelativeConfidences rel_confs;
+        MatchesCollection conf_matches_collection;
 
         for (MatchesCollection::iterator iter = matches_collection.begin();
              iter != matches_collection.end(); ++iter)
@@ -171,9 +172,8 @@ int main(int argc, char **argv) {
             iter->second = inliers;
 
             if (conf > conf_thresh) {
-                if (BothAreLeft(from, to)) {
-                    rel_confs[make_pair(from / 2, to / 2)] = conf;
-                }
+                conf_matches_collection[iter->first] = inliers;
+                rel_confs[iter->first] = conf;
             }
         }
 
