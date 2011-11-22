@@ -2056,7 +2056,8 @@ namespace autocalib {
         pinf[2] /= pinf[3];
         pinf[3] = 1;
 
-        cout << pinf[0] << " " << pinf[1] << " " << pinf[2] << " " << pinf[3] << endl;
+        AUTOCALIB_LOG(
+            cout << "pinf: " << pinf[0] << " " << pinf[1] << " " << pinf[2] << " " << pinf[3] << endl);
 
         Mat_<double> pinf_real(4, 1);
         pinf_real(0, 0) = pinf[0].real();

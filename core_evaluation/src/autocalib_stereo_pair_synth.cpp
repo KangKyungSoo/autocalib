@@ -43,7 +43,6 @@ bool save_cameras = false;
 bool load_cameras = false;
 int num_iters = 1;
 bool refine = true;
-bool refine_relative_params_only = false;
 string cameras_path;
 string log_file;
 
@@ -471,24 +470,18 @@ int main(int argc, char **argv) {
             double final_rms_error = 0;
 
             if (refine) {
-                if (refine_relative_params_only) {
-                    final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
-                    final_rms_error = RefineStereoCamera(P_r_m, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
-                }
-                else {
-                    detail::Graph eff_corresp(num_frames);
-                    for (size_t i = 0; i < num_frames - 1; ++i) {
-                        for (size_t j = i + 1; j < num_frames; ++j) {
-                            eff_corresp.addEdge(i, j, 0);
-                            eff_corresp.addEdge(j, i, 0);
-                        }
+                detail::Graph eff_corresp(num_frames);
+                for (size_t i = 0; i < num_frames - 1; ++i) {
+                    for (size_t j = i + 1; j < num_frames; ++j) {
+                        eff_corresp.addEdge(i, j, 0);
+                        eff_corresp.addEdge(j, i, 0);
                     }
-
-                    AbsoluteMotions abs_motions;
-                    CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
-
-                    final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
                 }
+
+                AbsoluteMotions abs_motions;
+                CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
+
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
 
                 cout << "\nK_refined = \n" << P_r_m.K() << endl;
             }
@@ -619,9 +612,6 @@ void ParseArgs(int argc, char **argv) {
             num_iters = atoi(argv[++i]);
         else if (string(argv[i]) == "--refine")
             refine = atoi(argv[++i]);
-        else if (string(argv[i]) == "--rel-only") {
-            refine_relative_params_only = atoi(argv[++i]);
-        }
         else if (string(argv[i]) == "--log-file")
             log_file = argv[++i];
         else
