@@ -124,8 +124,7 @@ int main(int argc, char **argv) {
 
         cout << "\nRemoving outliers...\n";
 
-//        RelativeConfidences rel_confs;
-//        MatchesCollection inliers_collection;
+        RelativeConfidences rel_confs;
 
         for (MatchesCollection::iterator iter = matches_collection.begin();
              iter != matches_collection.end(); ++iter)
@@ -171,12 +170,11 @@ int main(int argc, char **argv) {
 
             iter->second = matches;
 
-//            if (conf > conf_thresh) {
-//                inliers_collection[iter->first] = inliers;
-//                if (BothAreLeft(from, to)) {
-//                    rel_confs[make_pair(from / 2, to / 2)] = conf;
-//                }
-//            }
+            if (conf > conf_thresh) {
+                if (BothAreLeft(from, to)) {
+                    rel_confs[make_pair(from / 2, to / 2)] = conf;
+                }
+            }
         }
 
         // Affine rectification
