@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
                 if (mask(0, i))
                     inliers->push_back((*matches)[i]);
 
-            iter->second = matches;
+            iter->second = inliers;
 
             if (conf > conf_thresh) {
                 if (BothAreLeft(from, to)) {

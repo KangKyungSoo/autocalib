@@ -403,96 +403,79 @@ int main(int argc, char **argv) {
         }
 
         Mat_<double> K_est, R_est, T_est;
-        double min_rms_error = numeric_limits<double>::max();
 
-        for (int iter = 0; iter < num_iters; ++iter) {
-            Mat_<double> K_init_add = Mat::zeros(3, 3, CV_64F);
-            K_init_add(0, 0) = rng.uniform(K_add_min(0, 0), K_add_max(0, 0));
-            K_init_add(0, 1) = rng.uniform(K_add_min(0, 1), K_add_max(0, 1));
-            K_init_add(0, 2) = rng.uniform(K_add_min(0, 2), K_add_max(0, 2));
-            K_init_add(1, 1) = rng.uniform(K_add_min(1, 1), K_add_max(1, 1));
-            K_init_add(1, 2) = rng.uniform(K_add_min(1, 2), K_add_max(1, 2));
+        // Linear autocalibration
 
-            // Linear autocalibration
-
-            double residual_error = 0;
-            if (K_init.empty()) {
-                cout << "\nLinear calibrating...\n";
-                K_init = CalibRotationalCameraLinearNoSkew(Hs_inf, &residual_error);
-                cout << "K_linear = \n" << K_init << endl;
-            }
-
-            cout << "\nK_init = \n" << K_init << endl;
-
-            Mat K_init_corrected = K_init + K_init_add;
-            cout << "\nK_init_corrected = \n" << K_init_corrected << endl;
-
-            // Metric rectification
-
-            cout << "\nMetric rectification...\n";
-
-            Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
-            Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
-            K_init_corrected.copyTo(Ham_3x3);
-
-            RelativeMotions rel_motions;
-
-            int total_estimations = 0;
-            Mat_<double> total_rvec = Mat::zeros(3, 1, CV_64F);
-            Mat_<double> total_T = Mat::zeros(3, 1, CV_64F);
-
-            for (HomographiesP3::iterator iter = Hs_01_a.begin(); iter != Hs_01_a.end(); ++iter) {
-                Mat H01_a = iter->second;
-                Mat H01_m = Ham.inv() * H01_a * Ham;
-                H01_m /= H01_m.at<double>(3, 3);
-
-                Mat R01 = H01_m(Rect(0, 0, 3, 3));
-                Mat T01 = H01_m(Rect(3, 0, 1, 3));
-                rel_motions[iter->first] = Motion(R01, T01);
-
-                RigidCamera rigid_cam = RigidCamera::FromProjectiveMat(Ps_r_a[iter->first] * Ham);
-
-                Mat rvec;
-                Rodrigues(rigid_cam.R(), rvec);
-                total_rvec += rvec;
-
-                total_T += rigid_cam.T();
-                total_estimations++;
-            }
-
-            Mat avg_R;
-            Rodrigues(total_rvec / total_estimations, avg_R);
-
-            Mat avg_T = total_T / total_estimations;
-
-            RigidCamera P_r_m(K_init_corrected, avg_R.clone(), avg_T.clone());
-
-            double final_rms_error = 0;
-
-            if (refine) {
-                detail::Graph eff_corresp(num_frames);
-                for (size_t i = 0; i < num_frames - 1; ++i) {
-                    for (size_t j = i + 1; j < num_frames; ++j) {
-                        eff_corresp.addEdge(i, j, 0);
-                        eff_corresp.addEdge(j, i, 0);
-                    }
-                }
-
-                AbsoluteMotions abs_motions;
-                CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
-
-                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
-
-                cout << "\nK_refined = \n" << P_r_m.K() << endl;
-            }
-
-            if (final_rms_error < min_rms_error) {
-                K_est = P_r_m.K();
-                R_est = P_r_m.R().t();
-                T_est = -P_r_m.R().t() * P_r_m.T();
-                min_rms_error = final_rms_error;
-            }
+        double residual_error = 0;
+        if (K_init.empty()) {
+            cout << "\nLinear calibrating...\n";
+            K_init = CalibRotationalCameraLinearNoSkew(Hs_inf, &residual_error);
         }
+
+        cout << "\nK_init = \n" << K_init << endl;
+
+        // Metric rectification
+
+        cout << "\nMetric rectification...\n";
+
+        Mat_<double> Ham = Mat::eye(4, 4, CV_64F);
+        Mat Ham_3x3 = Ham(Rect(0, 0, 3, 3));
+        K_init.copyTo(Ham_3x3);
+
+        RelativeMotions rel_motions;
+
+        int total_estimations = 0;
+        Mat_<double> total_rvec = Mat::zeros(3, 1, CV_64F);
+        Mat_<double> total_T = Mat::zeros(3, 1, CV_64F);
+
+        for (HomographiesP3::iterator iter = Hs_01_a.begin(); iter != Hs_01_a.end(); ++iter) {
+            Mat H01_a = iter->second;
+            Mat H01_m = Ham.inv() * H01_a * Ham;
+            H01_m /= H01_m.at<double>(3, 3);
+
+            Mat R01 = H01_m(Rect(0, 0, 3, 3));
+            Mat T01 = H01_m(Rect(3, 0, 1, 3));
+            rel_motions[iter->first] = Motion(R01, T01);
+
+            RigidCamera rigid_cam = RigidCamera::FromProjectiveMat(Ps_r_a[iter->first] * Ham);
+
+            Mat rvec;
+            Rodrigues(rigid_cam.R(), rvec);
+            total_rvec += rvec;
+
+            total_T += rigid_cam.T();
+            total_estimations++;
+        }
+
+        Mat avg_R;
+        Rodrigues(total_rvec / total_estimations, avg_R);
+
+        Mat avg_T = total_T / total_estimations;
+
+        RigidCamera P_r_m(K_init, avg_R.clone(), avg_T.clone());
+
+        double final_rms_error = 0;
+
+        if (refine) {
+            detail::Graph eff_corresp(num_frames);
+            for (size_t i = 0; i < num_frames - 1; ++i) {
+                for (size_t j = i + 1; j < num_frames; ++j) {
+                    eff_corresp.addEdge(i, j, 0);
+                    eff_corresp.addEdge(j, i, 0);
+                }
+            }
+
+            AbsoluteMotions abs_motions;
+            CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
+
+            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+
+            cout << "\nK_refined = \n" << P_r_m.K() << endl;
+        }
+
+        K_est = P_r_m.K();
+        R_est = P_r_m.R().t();
+        T_est = -P_r_m.R().t() * P_r_m.T();
 
         Mat_<double> rvec_gold;
         Rodrigues(R_rel, rvec_gold);
@@ -517,7 +500,7 @@ int main(int argc, char **argv) {
             Mat_<double> tmp = T_est / T_est(0, 0) * T_rel(0, 0);
             f << T_rel(0, 0) << ";" << T_rel(1, 0) << ";" << T_rel(2, 0) << ";"
               << tmp(0, 0) << ";" << tmp(1, 0) << ";" << tmp(2, 0) << ";"
-              << min_rms_error << ";";
+              << final_rms_error << ";";
             f << endl;
         }
     }
