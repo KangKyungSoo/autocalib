@@ -387,7 +387,7 @@ namespace autocalib {
       * \return Epipolar distance error
       * \see RefineFlag
       */
-    double RefineStereoCamera(const cv::InputOutputArray K1, const cv::InputOutputArray K2, const cv::InputOutputArray R, const cv::InputOutputArray T,
+    double RefineStereoCamera(cv::InputOutputArray K1, cv::InputOutputArray K2, cv::InputOutputArray R, cv::InputOutputArray T,
                               AbsoluteMotions &motions, const FeaturesCollection &features, const MatchesCollection &matches,
                               int params_to_refine = REFINE_FLAG_ALL);
 
