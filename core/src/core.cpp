@@ -1165,7 +1165,7 @@ namespace autocalib {
     } // namespace
 
 
-    double RefineStereoCamera(const InputOutputArray K1, const InputOutputArray K2, const InputOutputArray R, const InputOutputArray T,
+    double RefineStereoCamera(InputOutputArray K1, InputOutputArray K2, InputOutputArray R, InputOutputArray T,
                               AbsoluteMotions &motions, const FeaturesCollection &features, const MatchesCollection &matches,
                               int params_to_refine)
     {
