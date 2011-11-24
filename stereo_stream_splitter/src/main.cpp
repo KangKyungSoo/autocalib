@@ -7,10 +7,10 @@ using namespace std;
 using namespace cv;
 
 int main(int argc, char **argv) {
-	try {
-		for (int i = 1; i < argc; ++i) {
-			string name = argv[i];
-			Mat stereo_frame = imread(name);
+    try {
+        for (int i = 1; i < argc; ++i) {
+            string name = argv[i];
+            Mat stereo_frame = imread(name);
             if (stereo_frame.empty())
                 throw runtime_error("Can't open " + name);
             name = name.substr(0, name.find_last_of('.'));
@@ -24,10 +24,10 @@ int main(int argc, char **argv) {
             stringstream right_name;
             right_name << "mono_" << name << "_r.jpg";
             imwrite(right_name.str(), right);
-		}
-	}
-	catch (const exception &e) {
-		cout << "Error: " << e.what() << endl;
-	}
-	return 0;
+        }
+    }
+    catch (const exception &e) {
+        cout << "Error: " << e.what() << endl;
+    }
+    return 0;
 }

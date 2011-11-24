@@ -23,6 +23,7 @@ vector<Mat> left_imgs, right_imgs;
 int num_frames = 0; // Use all source frames
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
+bool show_matches = false;
 int min_num_matches = 6;
 FeaturesCollection features_collection;
 MatchesCollection matches_collection;
@@ -97,18 +98,40 @@ int main(int argc, char **argv) {
         Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
 
         for (int i = 0; i < num_frames; ++i) {
-            cout << "(" << 2 * i << ", " << 2 * i + 1 << ") ";
             detail::MatchesInfo lr_mi;
             (*matcher)(*(features_collection.find(2 * i)->second), *(features_collection.find(2 * i + 1)->second), lr_mi);
             matches_collection[make_pair(2 * i, 2 * i + 1)] = new vector<DMatch>(lr_mi.matches);
+            cout << "(" << 2 * i << "->" << 2 * i + 1 << ": " << lr_mi.matches.size() << ") ";
             cout.flush();
 
+            if (show_matches) {
+                Mat img;
+                drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
+                            right_imgs[i], features_collection.find(2 * i + 1)->second->keypoints,
+                            lr_mi.matches, img);
+                Mat img_;
+                resize(img, img_, Size(), 0.5, 0.5);
+                imshow("matches", img_);
+                waitKey();
+            }
+
             for (int j = i + 1; j < num_frames; ++j) {
-                cout << "(" << 2 * i << ", " << 2 * j << ") ";
                 detail::MatchesInfo ll_mi;
                 (*matcher)(*(features_collection.find(2 * i)->second), *(features_collection.find(2 * j)->second), ll_mi);
                 matches_collection[make_pair(2 * i, 2 * j)] = new vector<DMatch>(ll_mi.matches);
+                cout << "(" << 2 * i << "->" << 2 * j << ": " << ll_mi.matches.size() << ") ";
                 cout.flush();
+
+                if (show_matches) {
+                    Mat img;
+                    drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
+                                right_imgs[j], features_collection.find(2 * j)->second->keypoints,
+                                ll_mi.matches, img);
+                    Mat img_;
+                    resize(img, img_, Size(), 0.5, 0.5);
+                    imshow("matches", img_);
+                    waitKey();
+                }
             }
         }
 
@@ -212,7 +235,7 @@ int main(int argc, char **argv) {
         for (MatchesCollection::iterator iter = conf_matches_collection.begin();
              iter != conf_matches_collection.end(); ++iter)
         {
-            if (IsLeftRightPair(iter->first.first, iter->first.second)) {
+            if (BothAreLeft(iter->first.first, iter->first.second)) {
 
                 // Get image indices
                 int from = iter->first.first / 2;
@@ -403,6 +426,8 @@ void ParseArgs(int argc, char **argv) {
                 throw runtime_error(string("Unknown matcher type: ") + argv[i + 1]);
             i++;
         }
+        else if (string(argv[i]) == "--show-matches")
+            show_matches = static_cast<bool>(atoi(argv[i + 1]));
         else if (string(argv[i]) == "--match-conf")
             matcher_creator.match_conf = static_cast<float>(atof(argv[++i]));
         else if (string(argv[i]) == "--min-num-matches")
@@ -426,11 +451,15 @@ void ParseArgs(int argc, char **argv) {
             H_est_subset_size = atof(argv[++i]);
         else if (string(argv[i]) == "--H-est-thresh")
             H_est_thresh = atof(argv[++i]);
+        else if (string(argv[i]) == "--conf-thresh")
+            conf_thresh = atof(argv[++i]);
         else if (string(argv[i]) == "--log-file")
             log_file = argv[++i];
         else {
-            if (i < argc - 1)
+            if (i < argc - 1) {
                 img_names.push_back(make_pair(argv[i], argv[i + 1]));
+                i++;
+            }
             else
                 throw runtime_error("Can't find right camera image");
         }
