@@ -28,12 +28,12 @@ int min_num_matches = 6;
 FeaturesCollection features_collection;
 MatchesCollection matches_collection;
 Mat_<double> K_init;
-double F_est_thresh = 0.3;
+double F_est_thresh = 3;
 double F_est_conf = 0.99;
 int H_est_num_iters = 100;
 int H_est_subset_size = 10;
 double H_est_thresh = 3.;
-double conf_thresh = 0;
+double conf_thresh = -1;
 string log_file;
 
 int main(int argc, char **argv) {
@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
                 if (show_matches) {
                     Mat img;
                     drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
-                                right_imgs[j], features_collection.find(2 * j)->second->keypoints,
+                                left_imgs[j], features_collection.find(2 * j)->second->keypoints,
                                 ll_mi.matches, img);
                     Mat img_;
                     resize(img, img_, Size(), 0.5, 0.5);
@@ -427,7 +427,7 @@ void ParseArgs(int argc, char **argv) {
             i++;
         }
         else if (string(argv[i]) == "--show-matches")
-            show_matches = static_cast<bool>(atoi(argv[i + 1]));
+            show_matches = static_cast<bool>(atoi(argv[++i]));
         else if (string(argv[i]) == "--match-conf")
             matcher_creator.match_conf = static_cast<float>(atof(argv[++i]));
         else if (string(argv[i]) == "--min-num-matches")
