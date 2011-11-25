@@ -659,9 +659,10 @@ namespace autocalib {
       * \param P2 Right camera matrix (must be applied to mapped cloud)
       * \param xy1 Left image keypoints (images of mapped points)
       * \param xy2 Right image keypoints (images of mapped points)
+      * \return RMS reprojection error
       */
-    void RefineHomographyP3(cv::InputOutputArray H, cv::InputArray xyzw, cv::InputArray P1, cv::InputArray P2,
-                            cv::InputArray xy1, cv::InputArray xy2);
+    double RefineHomographyP3(cv::InputOutputArray H, cv::InputArray xyzw, cv::InputArray P1, cv::InputArray P2,
+                              cv::InputArray xy1, cv::InputArray xy2);
 
 
     /** Calculates a plane-at-infinity coordinates from a homography.
