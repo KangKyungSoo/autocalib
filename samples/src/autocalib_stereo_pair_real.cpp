@@ -343,9 +343,12 @@ int main(int argc, char **argv) {
 
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 
+        cout << "\nSUMMARY\n";
+
         K_est = P_r_m.K();
         R_est = P_r_m.R().t();
         T_est = -P_r_m.R().t() * P_r_m.T();
+        T_est /= T_est(0, 0);
 
         Mat_<double> rvec_est;
         Rodrigues(R_est, rvec_est);
