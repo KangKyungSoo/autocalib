@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-set(target "${lib_name}_core_tests")
+set(target "${lib_name}_tests")
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 
 find_package(GTest REQUIRED)
