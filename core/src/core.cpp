@@ -465,13 +465,19 @@ namespace autocalib {
         // Find homography mapping the 1st cloud to the 2nd one
 
         int num_points_common = xyzw0_.cols / 4;
-
-        AUTOCALIB_LOG(
-            cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
-
+        AUTOCALIB_LOG(cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
         //Mat_<double> H01_ = FindHomographyP3Linear(xyzw0_, xyzw1_);
         Mat_<double> H01_ = FindHomographyP3Robust(xyzw0_, xyzw1_, P_r_, xy_r1_, num_iters, subset_size, thresh);
-        RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
+
+        // Refine found homography
+        // TODO refactor this
+
+        double rms_error_prev = numeric_limits<double>::max();
+        double rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
+        while (rms_error < rms_error_prev - 1e-3) {
+            rms_error_prev = rms_error;
+            rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
+        }
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -1955,8 +1961,8 @@ namespace autocalib {
     } // namespace
 
 
-    void RefineHomographyP3(InputOutputArray H, InputArray xyzw, InputArray P1, InputArray P2,
-                            InputArray xy1, InputArray xy2)
+    double RefineHomographyP3(InputOutputArray H, InputArray xyzw, InputArray P1, InputArray P2,
+                              InputArray xy1, InputArray xy2)
     {
         CV_Assert(H.getMat().type() == CV_64F && H.getMat().size() == Size(4, 4));
         CV_Assert(xyzw.getMat().type() == CV_64F && xyzw.getMat().rows == 1 && xyzw.getMat().cols % 4 == 0);
@@ -1979,11 +1985,13 @@ namespace autocalib {
         Mat_<double> arg_ = arg.colRange(0, 15);
 
         HomographyP3ReprojError func(xyzw_, P1_, P2_, xy1_, xy2_);
-        MinimizeLevMarq(func, arg_, MinimizeOpts::VERBOSE_SUMMARY);
+        double rms_error = MinimizeLevMarq(func, arg_, MinimizeOpts::VERBOSE_SUMMARY);
 
         Mat tmp = arg.colRange(0, 15);
         arg_.copyTo(tmp);
         H.getMatRef() = arg.reshape(4);
+
+        return rms_error;
     }
 
 
