@@ -419,7 +419,7 @@ namespace autocalib {
         // Leave only common part of point clouds
 
         vector<pair<int, int> > lr0_lr1_indices;
-        Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);        
+        Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);
 
         Mat_<double> xy_l0_buf(1, lr0_lr1_indices.size() * 2);
         Mat_<double> xy_r0_buf(1, lr0_lr1_indices.size() * 2);
@@ -469,9 +469,9 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
 
-        //Mat_<double> H01_ = FindHomographyLinear(xyzw0_, xyzw1_);
+        //Mat_<double> H01_ = FindHomographyP3Linear(xyzw0_, xyzw1_);
         Mat_<double> H01_ = FindHomographyP3Robust(xyzw0_, xyzw1_, P_r_, xy_r1_, num_iters, subset_size, thresh);
-        //RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
+        RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -1317,12 +1317,14 @@ namespace autocalib {
                    const vector<DMatch> &matches_ll, vector<pair<int, int> > &indices)
     {
         map<int, int> l1_to_lr1_idx;
-        for (size_t i = 0; i < matches_lr1.size(); ++i)
+        for (size_t i = 0; i < matches_lr1.size(); ++i) {
             l1_to_lr1_idx.insert(make_pair(matches_lr1[i].queryIdx, i));
+        }
 
         map<int, int> l2_to_lr2_idx;
-        for (size_t i = 0; i < matches_lr2.size(); ++i)
+        for (size_t i = 0; i < matches_lr2.size(); ++i) {
             l2_to_lr2_idx.insert(make_pair(matches_lr2[i].queryIdx, i));
+        }
 
         indices.clear();
         for (size_t i = 0; i < matches_ll.size(); ++i) {
