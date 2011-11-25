@@ -21,7 +21,7 @@ void AddNoise();
 vector<pair<string, string> > img_names;
 vector<Mat> left_imgs, right_imgs;
 bool do_median_blur = true;
-int blur_ksize = 5;
+int blur_ksize = 3;
 int num_frames = 0; // Use all source frames
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
