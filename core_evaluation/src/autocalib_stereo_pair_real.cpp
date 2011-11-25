@@ -33,7 +33,7 @@ double F_est_conf = 0.99;
 int H_est_num_iters = 100;
 int H_est_subset_size = 10;
 double H_est_thresh = 3.;
-double conf_thresh = -1;
+double conf_thresh = 1;
 string log_file;
 
 int main(int argc, char **argv) {
@@ -339,6 +339,7 @@ int main(int argc, char **argv) {
         CalcAbsoluteMotions(rel_motions, eff_corresp, ref_pair_idx, abs_motions);
 
         double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
 
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 

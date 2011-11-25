@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-set(target "${lib_name}_stereo_stream_splitter")
+set(target "${lib_name}_jps2jpg")
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 
 include_directories(${OpenCV_INCLUDE_DIR} ${CMAKE_CURRENT_DIRECTORY})
