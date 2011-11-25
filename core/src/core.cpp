@@ -2073,9 +2073,7 @@ namespace autocalib {
                                     double thresh, double conf)
     {
         int num_matches = 0;
-        for (MatchesCollection::const_iterator iter = matches.begin();
-             iter != matches.end(); ++iter)
-        {
+        for (MatchesCollection::const_iterator iter = matches.begin(); iter != matches.end(); ++iter) {
             int from = iter->first.first;
             int to = iter->first.second;
             if (IsLeftRightPair(from, to))
@@ -2085,9 +2083,7 @@ namespace autocalib {
         Mat_<double> xy1(1, num_matches * 2), xy2(1, num_matches * 2);
 
         int offset = 0;
-        for (MatchesCollection::const_iterator iter = matches.begin();
-             iter != matches.end(); ++iter)
-        {
+        for (MatchesCollection::const_iterator iter = matches.begin(); iter != matches.end(); ++iter) {
             int from = iter->first.first;
             int to = iter->first.second;
 
@@ -2102,8 +2098,10 @@ namespace autocalib {
 
             ExtractMatchedKeypoints(f1, f2, *(iter->second), xy1_, xy2_);
 
-            Mat F = findFundamentalMat(Mat(xy1_).reshape(2), Mat(xy2_).reshape(2));
-            cout << F << endl;
+            // Find fundamental matrix for debug purposes            
+            AUTOCALIB_LOG(
+                Mat F = findFundamentalMat(Mat(xy1_).reshape(2), Mat(xy2_).reshape(2), FM_RANSAC, thresh, conf);
+                cout << "F from " << from << " to " << to << " =\n" << F << endl);
 
             offset += (int)iter->second->size();
         }
@@ -2120,7 +2118,7 @@ namespace autocalib {
         }
 
         AUTOCALIB_LOG(
-            cout << "#matches = " << num_matches
+            cout << "F estimation: #matches = " << num_matches
                  << ", #inliers = " << num_inliers
                  << ", RMS err = " << CalcRmsEpipolarDistance(xy1, xy2, F) << endl);
 
