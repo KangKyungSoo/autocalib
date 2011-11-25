@@ -20,6 +20,8 @@ void AddNoise();
 
 vector<pair<string, string> > img_names;
 vector<Mat> left_imgs, right_imgs;
+bool do_median_blur = true;
+int blur_ksize = 5;
 int num_frames = 0; // Use all source frames
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
@@ -33,7 +35,7 @@ double F_est_conf = 0.99;
 int H_est_num_iters = 100;
 int H_est_subset_size = 10;
 double H_est_thresh = 3.;
-double conf_thresh = 1;
+double conf_thresh = -1;
 string log_file;
 
 int main(int argc, char **argv) {
@@ -62,6 +64,13 @@ int main(int argc, char **argv) {
             if (right_img.empty())
                 throw runtime_error("Can't open image: " + img_names[i].second);
             right_imgs.push_back(right_img);
+        }
+
+        if (do_median_blur) {
+            for (int i = 0; i < num_frames; ++i) {
+                medianBlur(left_imgs[i], left_imgs[i], blur_ksize);
+                medianBlur(right_imgs[i], right_imgs[i], blur_ksize);
+            }
         }
 
         // Find features
@@ -352,9 +361,9 @@ int main(int argc, char **argv) {
 
         Mat_<double> rvec_est;
         Rodrigues(R_est, rvec_est);
-        cout << "rvec est = " << rvec_est << endl;
+        cout << "rvec_est = " << rvec_est << endl;
 
-        cout << "T est = " << T_est << endl;
+        cout << "T_est = " << T_est << endl;
         cout << "K_est = \n" << K_est << endl;
 
         if (!log_file.empty()) {
@@ -378,6 +387,10 @@ void ParseArgs(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
         if (string(argv[i]) == "--num-frames")
             num_frames = atoi(argv[i]);
+        else if (string(argv[i]) == "--med-blur")
+            do_median_blur = static_cast<bool>(atoi(argv[++i]));
+        else if (string(argv[i]) == "--blur-ksize")
+            blur_ksize = atoi(argv[++i]);
         else if (string(argv[i]) == "--features") {
             if (string(argv[i + 1]) == "surf")
                 features_finder_creator = new SurfFeaturesFinderCreator();
