@@ -610,21 +610,6 @@ namespace autocalib {
     double CalcRmsEpipolarDistance(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray F);
 
 
-    /** Finds inliers for the given fundamental matrix.
-      *
-      * \param f1 First frame features
-      * \param f2 Second frame features
-      * \param matches Matches
-      * \param F Fundamental matrix
-      * \param err_thresh Error threshold
-      * \param mask Inliers 8U mask
-      * \return Number of inliers
-      */
-    int FindFundamentalMatInliers(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
-                                  const std::vector<cv::DMatch> &matches, cv::InputArray F, double err_thresh,
-                                  cv::InputOutputArray mask);
-
-
     /** Finds the 3D projective space homography linearly.
       *
       * The algorithm is sensitive to outliers and it requires 5 points as minimum.
@@ -685,6 +670,21 @@ namespace autocalib {
       */
     cv::Mat FindFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
                                         double thresh = 3., double conf = 0.99);
+
+
+    /** Finds inliers for the given fundamental matrix.
+      *
+      * \param f1 First frame features
+      * \param f2 Second frame features
+      * \param matches Matches
+      * \param F Fundamental matrix
+      * \param err_thresh Error threshold
+      * \param mask Inliers 8U mask
+      * \return Number of inliers
+      */
+    int FindFundamentalMatInliers(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
+                                  const std::vector<cv::DMatch> &matches, cv::InputArray F, double err_thresh,
+                                  cv::InputOutputArray mask);
 
 
     //============================================================================
@@ -810,6 +810,22 @@ namespace autocalib {
       * \return Cross product matrix
       */
     cv::Mat CrossProductMat(cv::InputArray vec);
+
+
+    /** Finds the camera centre.
+      *
+      * \param P Camera matrix
+      * \return Camera centre C such as P*C=0
+      */
+    cv::Mat CameraCentre(cv::InputArray P);
+
+
+    /** Computes the Moore–Penrose pseudo-inverse of a matrix.
+      *
+      * \param mat Matrix
+      * \return Pseudo-inverse
+      */
+    cv::Mat PseudoInverse(cv::InputArray mat);
 
 } // namespace autocalib
 

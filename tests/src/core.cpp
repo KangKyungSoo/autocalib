@@ -283,3 +283,21 @@ TEST(CalcPlaneAtInfinity, CanCalcFromEuclideanTransformation) {
     ASSERT_NEAR(0, pinf(2, 0), 1e-6);
     ASSERT_NEAR(1, pinf(3, 0), 1e-6);
 }
+
+
+TEST(CameraCentre, CanFindForRandomMat3x4) {
+    RNG rng(0);
+    Mat_<double> P = Mat::zeros(3, 4, CV_64F);
+    rng.fill(P, RNG::UNIFORM, -1, 1);
+    ASSERT_NEAR(0, norm(P * CameraCentre(P)), 1e-6);
+}
+
+
+TEST(PseudoInverse, CanFindForRandomMat3x4) {
+    RNG rng(0);
+    Mat_<double> P = Mat::zeros(3, 3, CV_64F);
+    rng.fill(P, RNG::UNIFORM, -1, 1);
+    Mat P_inv = PseudoInverse(P);
+    ASSERT_NEAR(0, norm(P * P_inv * P, P), 1e-6);
+    ASSERT_NEAR(0, norm(P_inv * P * P_inv, P_inv), 1e-6);
+}
