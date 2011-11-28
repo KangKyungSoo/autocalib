@@ -89,6 +89,8 @@ int main(int argc, char **argv) {
         }
 
         the_keypoints_extractor().set_image(left_imgs[0]);
+        vector<Point2f> keypoints;
+        the_keypoints_extractor().set_keypoints_output(&keypoints);
         the_keypoints_extractor().Run();
 
         if (do_median_blur) {
