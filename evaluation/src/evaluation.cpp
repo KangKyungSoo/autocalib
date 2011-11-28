@@ -915,6 +915,28 @@ namespace evaluation {
                 glEnd();
             }
 
+            if (is_keypoint1_selected_) {
+                glColor3f(1.f, 0.f, 0.f);
+                glBegin(GL_LINES);
+                const Point2f &pt = (*keypoints1_)[prev_keypoint_index_];
+                glVertex2f(pt.x, pt.y);
+                int x, y; glfwGetMousePos(&x, &y);
+                float u, v; ScreenToLocal(x, y, u, v);
+                glVertex2f(u, v);
+                glEnd();
+            }
+
+            if (is_keypoint2_selected_) {
+                glColor3f(1.f, 0.f, 0.f);
+                glBegin(GL_LINES);
+                const Point2f &pt = (*keypoints2_)[prev_keypoint_index_];
+                glVertex2f(pt.x + image1_.cols, pt.y);
+                int x, y; glfwGetMousePos(&x, &y);
+                float u, v; ScreenToLocal(x, y, u, v);
+                glVertex2f(u, v);
+                glEnd();
+            }
+
             glfwSwapBuffers();
         }
 
@@ -953,13 +975,27 @@ namespace evaluation {
 
     void FeaturesMatcher::InitRun() {
         is_running_ = true;
+        is_keypoint1_selected_ = false;
+        is_keypoint2_selected_ = false;
+    }
+
+
+    void FeaturesMatcher::ScreenToLocal(int x, int y, float &u, float &v) {
+        u = (float)x / window_size_.width * (image1_.cols + image2_.cols);
+        v = (1.f - (float)y / window_size_.height) * std::max(image1_.rows, image2_.rows);
     }
 
 
     void GLFWCALL internal::FeaturesMatcherKeyCallback(int key, int state) {
         FeaturesMatcher &fm = the_features_matcher();
-        if (key == GLFW_KEY_ESC)
-            fm.is_running_ = false;
+        if (key == GLFW_KEY_ESC) {
+            if (fm.is_keypoint1_selected_)
+                fm.is_keypoint1_selected_ = false;
+            else if (fm.is_keypoint2_selected_)
+                fm.is_keypoint2_selected_ = false;
+            else
+                fm.is_running_ = false;
+        }
     }
 
 
@@ -972,7 +1008,58 @@ namespace evaluation {
 
     void GLFWCALL internal::FeaturesMatcherMouseButtonCallback(int button, int state) {
         FeaturesMatcher &fm = the_features_matcher();
-        if (button == GLFW_MOUSE_BUTTON_LEFT && state == GLFW_PRESS) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (fm.matches_) {
+                int x, y; glfwGetMousePos(&x, &y);
+                float u, v; fm.ScreenToLocal(x, y, u, v);
+
+                if (state == GLFW_PRESS) {
+                    int keypoint_index = -1;
+                    float min_dist = numeric_limits<float>::max();
+
+                    if (u < fm.image1_.cols && fm.keypoints1_) {
+                        for (size_t i = 0; i < fm.keypoints1_->size(); ++i) {
+                            const Point2f &pt = (*fm.keypoints1_)[i];
+                            float dist = sqr(u - pt.x) + sqr(v - pt.y);
+                            if (dist < min_dist) {
+                                keypoint_index = i;
+                                min_dist = dist;
+                            }
+                        }
+                        if (keypoint_index != -1) {
+                            if (fm.is_keypoint2_selected_) {
+                                fm.matches_->push_back(DMatch(keypoint_index, fm.prev_keypoint_index_, 0));
+                                fm.is_keypoint2_selected_ = false;
+                            }
+                            else {
+                                fm.is_keypoint1_selected_ = true;
+                                fm.prev_keypoint_index_ = keypoint_index;
+                            }
+                        }
+                    }
+                    else if (fm.keypoints2_) {
+                        u -= (float)fm.image1_.cols;
+                        for (size_t i = 0; i < fm.keypoints2_->size(); ++i) {
+                            const Point2f &pt = (*fm.keypoints2_)[i];
+                            float dist = sqr(u - pt.x) + sqr(v - pt.y);
+                            if (dist < min_dist) {
+                                keypoint_index = i;
+                                min_dist = dist;
+                            }
+                        }
+                        if (keypoint_index != -1) {
+                            if (fm.is_keypoint1_selected_) {
+                                fm.matches_->push_back(DMatch(fm.prev_keypoint_index_, keypoint_index, 0));
+                                fm.is_keypoint1_selected_ = false;
+                            }
+                            else {
+                                fm.is_keypoint2_selected_ = true;
+                                fm.prev_keypoint_index_ = keypoint_index;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

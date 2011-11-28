@@ -503,6 +503,7 @@ namespace evaluation {
         FeaturesMatcher();
         void InitOpenGl();
         void InitRun();
+        void ScreenToLocal(int x, int y, float &u, float &v);
 
         cv::Size window_size_;
         bool is_running_;
@@ -511,6 +512,10 @@ namespace evaluation {
         cv::Mat image1_, image2_;
         const std::vector<cv::Point2f> *keypoints1_, *keypoints2_;
         std::vector<cv::DMatch> *matches_;
+
+        bool is_keypoint1_selected_;
+        bool is_keypoint2_selected_;
+        int prev_keypoint_index_;       
 
         friend void GLFWCALL internal::FeaturesMatcherKeyCallback(int key, int state);
         friend void GLFWCALL internal::FeaturesMatcherWindowSizeCallback(int width, int height);
