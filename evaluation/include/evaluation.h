@@ -416,7 +416,7 @@ namespace evaluation {
 
 
     //========================================================================
-    // Interactive features extraction and matching
+    // Manual features extraction
 
     namespace internal {
         void GLFWCALL KeypointsExtractorKeyCallback(int key, int state);
@@ -462,6 +462,61 @@ namespace evaluation {
         friend KeypointsExtractor& the_keypoints_extractor();
     };
 
+
+    //========================================================================
+    // Manual features matching
+
+    namespace internal {
+        void GLFWCALL FeaturesMatcherKeyCallback(int key, int state);
+        void GLFWCALL FeaturesMatcherWindowSizeCallback(int width, int height);
+        void GLFWCALL FeaturesMatcherMouseButtonCallback(int button, int state);
+    } // namespace internal
+
+
+    class FeaturesMatcher;
+    FeaturesMatcher& the_features_matcher();
+
+
+    class FeaturesMatcher {
+    public:
+        void set_1st_image(cv::Mat image, const std::vector<cv::Point2f> &keypoints) {
+            CV_Assert(image.type() == CV_8UC3);
+            image1_ = image;
+            keypoints1_ = &keypoints;
+        }
+
+        void set_2nd_image(cv::Mat image, const std::vector<cv::Point2f> &keypoints) {
+            CV_Assert(image.type() == CV_8UC3);
+            image2_ = image;
+            keypoints2_ = &keypoints;
+        }
+
+        void set_window_size(cv::Size window_size) { window_size_= window_size; }
+
+        void set_matches_output(std::vector<cv::DMatch> *matches) {
+            matches_ = matches;
+        }
+
+        void Run();
+
+    private:
+        FeaturesMatcher();
+        void InitOpenGl();
+        void InitRun();
+
+        cv::Size window_size_;
+        bool is_running_;
+        GLuint texture1_, texture2_;
+
+        cv::Mat image1_, image2_;
+        const std::vector<cv::Point2f> *keypoints1_, *keypoints2_;
+        std::vector<cv::DMatch> *matches_;
+
+        friend void GLFWCALL internal::FeaturesMatcherKeyCallback(int key, int state);
+        friend void GLFWCALL internal::FeaturesMatcherWindowSizeCallback(int width, int height);
+        friend void GLFWCALL internal::FeaturesMatcherMouseButtonCallback(int button, int state);
+        friend FeaturesMatcher& the_features_matcher();
+    };
 
 } // namespace evaluation
 } // namespace autocalib
