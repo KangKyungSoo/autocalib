@@ -88,6 +88,9 @@ int main(int argc, char **argv) {
             right_imgs.push_back(right_img);
         }
 
+        the_keypoints_extractor().set_image(left_imgs[0]);
+        the_keypoints_extractor().Run();
+
         if (do_median_blur) {
             for (int i = 0; i < num_frames; ++i) {
                 medianBlur(left_imgs[i], left_imgs[i], blur_ksize);

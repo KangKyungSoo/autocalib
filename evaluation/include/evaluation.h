@@ -302,7 +302,6 @@ namespace evaluation {
         friend void GLFWCALL internal::MonoViewerWindowSizeCallback(int width, int height);
         friend void GLFWCALL internal::MonoViewerMousePosCallback(int x, int y);
         friend void GLFWCALL internal::MonoViewerMouseButtonCallback(int button, int state);
-
         friend MonoViewer& the_mono_viewer();
     };
 
@@ -412,9 +411,57 @@ namespace evaluation {
         friend void GLFWCALL internal::StereoViewerMousePosCallback(int x, int y);
         friend void GLFWCALL internal::StereoViewerMouseButtonCallback(int button, int state);
         friend void GLFWCALL internal::StereoViewerMouseWheelCallback(int pos);
-
         friend StereoViewer& the_stereo_viewer();
     };
+
+
+    //========================================================================
+    // Interactive features extraction and matching
+
+    namespace internal {
+        void GLFWCALL KeypointsExtractorKeyCallback(int key, int state);
+        void GLFWCALL KeypointsExtractorWindowSizeCallback(int width, int height);
+        void GLFWCALL KeypointsExtractorMouseButtonCallback(int button, int state);
+    } // namespace internal
+
+
+    class KeypointsExtractor;
+    KeypointsExtractor& the_keypoints_extractor();
+
+
+    class KeypointsExtractor {
+    public:
+        void set_image(cv::Mat image) {
+            CV_Assert(image.type() == CV_8UC3);
+            image_ = image;
+        }
+
+        void set_window_size(cv::Size window_size) { window_size_= window_size; }
+
+        void set_keypoints_output(std::vector<cv::Point2f> *keypoints) {
+            keypoints_ = keypoints;
+        }
+
+        void Run();
+
+    private:
+        KeypointsExtractor();
+        void InitOpenGl();
+        void InitRun();
+
+        cv::Size window_size_;
+        bool is_running_;
+        GLuint texture_;
+
+        cv::Mat image_;
+        std::vector<cv::Point2f> *keypoints_;
+
+        friend void GLFWCALL internal::KeypointsExtractorKeyCallback(int key, int state);
+        friend void GLFWCALL internal::KeypointsExtractorWindowSizeCallback(int width, int height);
+        friend void GLFWCALL internal::KeypointsExtractorMouseButtonCallback(int button, int state);
+        friend KeypointsExtractor& the_keypoints_extractor();
+    };
+
 
 } // namespace evaluation
 } // namespace autocalib
