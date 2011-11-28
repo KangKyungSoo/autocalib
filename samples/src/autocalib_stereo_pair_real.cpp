@@ -89,8 +89,16 @@ int main(int argc, char **argv) {
         }
 
         vector<Point2f> keypoints[2];
+        the_keypoints_extractor().set_image(left_imgs[0]);
+        the_keypoints_extractor().set_keypoints_output(&keypoints[0]);
+        the_keypoints_extractor().Run();
+        the_keypoints_extractor().set_image(left_imgs[1]);
+        the_keypoints_extractor().set_keypoints_output(&keypoints[1]);
+        the_keypoints_extractor().Run();
         the_features_matcher().set_1st_image(left_imgs[0], keypoints[0]);
         the_features_matcher().set_2nd_image(left_imgs[1], keypoints[1]);
+        vector<DMatch> matches;
+        the_features_matcher().set_matches_output(&matches);
         the_features_matcher().Run();
 
         if (do_median_blur) {
