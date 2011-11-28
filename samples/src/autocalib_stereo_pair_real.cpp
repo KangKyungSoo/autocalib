@@ -23,6 +23,9 @@ vector<Mat> left_imgs, right_imgs;
 bool do_median_blur = true;
 int blur_ksize = 3;
 int num_frames = 0; // Use all source frames
+bool manual_registr = false;
+bool save_keypoints;
+bool load_keypoints;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
 bool show_matches = false;
@@ -88,19 +91,6 @@ int main(int argc, char **argv) {
             right_imgs.push_back(right_img);
         }
 
-        vector<Point2f> keypoints[2];
-        the_keypoints_extractor().set_image(left_imgs[0]);
-        the_keypoints_extractor().set_keypoints_output(&keypoints[0]);
-        the_keypoints_extractor().Run();
-        the_keypoints_extractor().set_image(left_imgs[1]);
-        the_keypoints_extractor().set_keypoints_output(&keypoints[1]);
-        the_keypoints_extractor().Run();
-        the_features_matcher().set_1st_image(left_imgs[0], keypoints[0]);
-        the_features_matcher().set_2nd_image(left_imgs[1], keypoints[1]);
-        vector<DMatch> matches;
-        the_features_matcher().set_matches_output(&matches);
-        the_features_matcher().Run();
-
         if (do_median_blur) {
             for (int i = 0; i < num_frames; ++i) {
                 medianBlur(left_imgs[i], left_imgs[i], blur_ksize);
@@ -108,73 +98,175 @@ int main(int argc, char **argv) {
             }
         }
 
-        // Find features
+        if (manual_registr) {
+            map<int, Ptr<vector<Point2f> > > keypoints;
 
-        cout << "\nFinding features...\n";
-        Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
+            if (load_keypoints) {
+                for (int i = 0; i < num_frames; ++i) {
+                    ifstream fl((img_names[i].first + ".txt").c_str());
+                    if (!fl.is_open())
+                        throw runtime_error("Can't open " + img_names[i].first + ".txt");
+                    Ptr<vector<Point2f> > left_keypoints = new vector<Point2f>();
+                    while (!fl.eof()) {
+                        float x, y;
+                        fl >> x >> y;
+                        left_keypoints->push_back(Point2f(x, y));
+                    }
+                    keypoints[2 * i] = left_keypoints;
+                    fl.close();
 
-        for (int i = 0; i < num_frames; ++i) {
-            int64 t = getTickCount();
-            cout << "Finding features in " << img_names[i].first << "... ";
+                    ifstream fr((img_names[i].second + ".txt").c_str());
+                    if (!fr.is_open())
+                        throw runtime_error("Can't open " + img_names[i].second + ".txt");
+                    Ptr<vector<Point2f> > right_keypoints = new vector<Point2f>();
+                    while (!fr.eof()) {
+                        float x, y;
+                        fr >> x >> y;
+                        right_keypoints->push_back(Point2f(x, y));
+                    }
+                    keypoints[2 * i + 1] = right_keypoints;
+                    fr.close();
+                }
+            }
+            else {
+                for (int i = 0; i < num_frames; ++i) {
+                    Ptr<vector<Point2f> > left_keypoints = new vector<Point2f>();
+                    the_keypoints_extractor().set_image(left_imgs[i]);
+                    the_keypoints_extractor().set_keypoints_output(left_keypoints);
+                    the_keypoints_extractor().Run();
+                    keypoints[2 * i] = left_keypoints;
 
-            Ptr<detail::ImageFeatures> left_features = new detail::ImageFeatures();
-            (*features_finder)(left_imgs[i], *left_features);
-            features_collection[2 * i] = left_features;
-
-            cout << "#features = " << features_collection.find(2 * i)->second->keypoints.size()
-                 << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
-
-            t = getTickCount();
-            cout << "Finding features in " << img_names[i].second << "... ";
-
-            Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
-            (*features_finder)(right_imgs[i], *right_features);
-            features_collection[2 * i + 1] = right_features;
-
-            cout << "#features = " << features_collection.find(2 * i + 1)->second->keypoints.size()
-                 << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
-        }
-
-        // Match everything
-
-        cout << "\nMatch everything...";
-        MatchesCollection matches_collection;
-        Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
-
-        for (int i = 0; i < num_frames; ++i) {
-            detail::MatchesInfo lr_mi;
-            (*matcher)(*(features_collection.find(2 * i)->second), *(features_collection.find(2 * i + 1)->second), lr_mi);
-            matches_collection[make_pair(2 * i, 2 * i + 1)] = new vector<DMatch>(lr_mi.matches);
-            cout << "(" << 2 * i << "->" << 2 * i + 1 << ": " << lr_mi.matches.size() << ") ";
-            cout.flush();
-
-            if (show_matches) {
-                Mat img;
-                drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
-                            right_imgs[i], features_collection.find(2 * i + 1)->second->keypoints,
-                            lr_mi.matches, img);
-                Mat img_;
-                resize(img, img_, Size(), 0.5, 0.5);
-                imshow("matches", img_);
-                waitKey();
+                    Ptr<vector<Point2f> > right_keypoints = new vector<Point2f>();
+                    the_keypoints_extractor().set_image(right_imgs[i]);
+                    the_keypoints_extractor().set_keypoints_output(right_keypoints);
+                    the_keypoints_extractor().Run();
+                    keypoints[2 * i + 1] = right_keypoints;
+                }
             }
 
-            for (int j = i + 1; j < num_frames; ++j) {
-                detail::MatchesInfo ll_mi;
-                (*matcher)(*(features_collection.find(2 * i)->second), *(features_collection.find(2 * j)->second), ll_mi);
-                matches_collection[make_pair(2 * i, 2 * j)] = new vector<DMatch>(ll_mi.matches);
-                cout << "(" << 2 * i << "->" << 2 * j << ": " << ll_mi.matches.size() << ") ";
+            if (save_keypoints) {
+                for (int i = 0; i < num_frames; ++i) {
+                    Ptr<vector<Point2f> > left_keypoints = keypoints[2 * i];
+                    ofstream fl((img_names[i].first + ".txt").c_str());
+                    for (size_t j = 0; j < left_keypoints->size(); ++j) {
+                        const Point2f &pt = (*left_keypoints)[j];
+                        fl << pt.x << " " << pt.y << endl;
+                    }
+                    fl.close();
+
+                    Ptr<vector<Point2f> > right_keypoints = keypoints[2 * i + 1];
+                    ofstream fr((img_names[i].second + ".txt").c_str());
+                    for (size_t j = 0; j < right_keypoints->size(); ++j) {
+                        const Point2f &pt = (*right_keypoints)[j];
+                        fr << pt.x << " " << pt.y << endl;
+                    }
+                    fr.close();
+                }
+            }
+
+            for (int i = 0; i < num_frames; ++i) {
+                Ptr<detail::ImageFeatures> left_features = new detail::ImageFeatures();
+                Ptr<vector<Point2f> > left_keypoints = keypoints.find(2 * i)->second;
+                for (size_t j = 0; j < left_keypoints->size(); ++j)
+                    left_features->keypoints.push_back(KeyPoint((*left_keypoints)[j], 0));
+                features_collection[2 * i] = left_features;
+
+                Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
+                Ptr<vector<Point2f> > right_keypoints = keypoints.find(2 * i + 1)->second;
+                for (size_t j = 0; j < right_keypoints->size(); ++j)
+                    right_features->keypoints.push_back(KeyPoint((*right_keypoints)[j], 0));
+                features_collection[2 * i + 1] = right_features;
+            }
+
+            for (int i = 0; i < num_frames; ++i) {
+                Ptr<vector<Point2f> > keypoints_l = keypoints.find(2 * i)->second;
+                Ptr<vector<Point2f> > keypoints_r = keypoints.find(2 * i + 1)->second;
+                Ptr<vector<DMatch> > matches_lr = new vector<DMatch>();
+                the_features_matcher().set_1st_image(left_imgs[i], *keypoints_l);
+                the_features_matcher().set_2nd_image(right_imgs[i], *keypoints_r);
+                the_features_matcher().set_matches_output(matches_lr);
+                the_features_matcher().Run();
+                matches_collection[make_pair(2 * i, 2 * i + 1)] = matches_lr;
+
+                for (int j = i + 1; j < num_frames; ++j) {
+                    keypoints_r = keypoints.find(2 * j)->second;
+                    the_features_matcher().set_2nd_image(left_imgs[j], *keypoints_r);
+                    Ptr<vector<DMatch> > matches_ll = new vector<DMatch>();
+                    the_features_matcher().set_matches_output(matches_ll);
+                    the_features_matcher().Run();
+                    matches_collection[make_pair(2 * i, 2 * j)] = matches_ll;
+                }
+            }
+        }
+        else {
+            // Find features
+
+            cout << "\nFinding features...\n";
+            Ptr<detail::FeaturesFinder> features_finder = features_finder_creator->Create();
+
+            for (int i = 0; i < num_frames; ++i) {
+                int64 t = getTickCount();
+                cout << "Finding features in " << img_names[i].first << "... ";
+
+                Ptr<detail::ImageFeatures> left_features = new detail::ImageFeatures();
+                (*features_finder)(left_imgs[i], *left_features);
+                features_collection[2 * i] = left_features;
+
+                cout << "#features = " << features_collection.find(2 * i)->second->keypoints.size()
+                     << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
+
+                t = getTickCount();
+                cout << "Finding features in " << img_names[i].second << "... ";
+
+                Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
+                (*features_finder)(right_imgs[i], *right_features);
+                features_collection[2 * i + 1] = right_features;
+
+                cout << "#features = " << features_collection.find(2 * i + 1)->second->keypoints.size()
+                     << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
+            }
+
+            // Match everything
+
+            cout << "\nMatch everything...";
+            MatchesCollection matches_collection;
+            Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
+
+            for (int i = 0; i < num_frames; ++i) {
+                detail::MatchesInfo lr_mi;
+                (*matcher)(*(features_collection.find(2 * i)->second), *(features_collection.find(2 * i + 1)->second), lr_mi);
+                matches_collection[make_pair(2 * i, 2 * i + 1)] = new vector<DMatch>(lr_mi.matches);
+                cout << "(" << 2 * i << "->" << 2 * i + 1 << ": " << lr_mi.matches.size() << ") ";
                 cout.flush();
 
                 if (show_matches) {
                     Mat img;
                     drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
-                                left_imgs[j], features_collection.find(2 * j)->second->keypoints,
-                                ll_mi.matches, img);
+                                right_imgs[i], features_collection.find(2 * i + 1)->second->keypoints,
+                                lr_mi.matches, img);
                     Mat img_;
                     resize(img, img_, Size(), 0.5, 0.5);
                     imshow("matches", img_);
                     waitKey();
+                }
+
+                for (int j = i + 1; j < num_frames; ++j) {
+                    detail::MatchesInfo ll_mi;
+                    (*matcher)(*(features_collection.find(2 * i)->second), *(features_collection.find(2 * j)->second), ll_mi);
+                    matches_collection[make_pair(2 * i, 2 * j)] = new vector<DMatch>(ll_mi.matches);
+                    cout << "(" << 2 * i << "->" << 2 * j << ": " << ll_mi.matches.size() << ") ";
+                    cout.flush();
+
+                    if (show_matches) {
+                        Mat img;
+                        drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
+                                    left_imgs[j], features_collection.find(2 * j)->second->keypoints,
+                                    ll_mi.matches, img);
+                        Mat img_;
+                        resize(img, img_, Size(), 0.5, 0.5);
+                        imshow("matches", img_);
+                        waitKey();
+                    }
                 }
             }
         }
@@ -435,6 +527,12 @@ void ParseArgs(int argc, char **argv) {
             do_median_blur = static_cast<bool>(atoi(argv[++i]));
         else if (string(argv[i]) == "--blur-ksize")
             blur_ksize = atoi(argv[++i]);
+        else if (string(argv[i]) == "--manual-registr") 
+            manual_registr = atoi(argv[++i]);
+        else if (string(argv[i]) == "--save-keypoints")
+            save_keypoints = atoi(argv[++i]);
+        else if (string(argv[i]) == "--load-keypoints")
+            load_keypoints = atoi(argv[++i]);
         else if (string(argv[i]) == "--features") {
             if (string(argv[i + 1]) == "surf")
                 features_finder_creator = new SurfFeaturesFinderCreator();
