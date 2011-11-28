@@ -476,7 +476,7 @@ namespace autocalib {
         double rms_error_prev = numeric_limits<double>::max();
         double rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 
-        while (rms_error < rms_error_prev - 1e-3) {
+        while (rms_error < rms_error_prev - 1e-2) {
             rms_error_prev = rms_error;
             rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
         }
