@@ -24,8 +24,8 @@ bool do_median_blur = true;
 int blur_ksize = 3;
 int num_frames = 0; // Use all source frames
 bool manual_registr = false;
-bool save_keypoints;
-bool load_keypoints;
+bool save_keypoints, load_keypoints;
+bool save_matches, load_matches;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
 bool show_matches = false;
@@ -182,18 +182,55 @@ int main(int argc, char **argv) {
                 Ptr<vector<Point2f> > keypoints_l = keypoints.find(2 * i)->second;
                 Ptr<vector<Point2f> > keypoints_r = keypoints.find(2 * i + 1)->second;
                 Ptr<vector<DMatch> > matches_lr = new vector<DMatch>();
-                the_features_matcher().set_1st_image(left_imgs[i], *keypoints_l);
-                the_features_matcher().set_2nd_image(right_imgs[i], *keypoints_r);
-                the_features_matcher().set_matches_output(matches_lr);
-                the_features_matcher().Run();
+                if (load_matches) {
+                    string name = img_names[i].first + "to" + img_names[i].second + ".txt";
+                    ifstream f(name.c_str());
+                    if (!f.is_open())
+                        throw runtime_error("Can't open " + name);
+                    while (!f.eof()) {
+                        int from, to;
+                        f >> from >> to;
+                        matches_lr->push_back(DMatch(from, to, 0));
+                    }
+                }
+                else {
+                    the_features_matcher().set_2nd_image(right_imgs[i], *keypoints_r);
+                    the_features_matcher().set_matches_output(matches_lr);
+                    the_features_matcher().Run();
+                    if (save_matches) {
+                        ofstream f((img_names[i].first + "to" + img_names[i].second + ".txt").c_str());
+                        for (size_t j = 0; j < matches_lr->size(); ++j) {
+                            f << (*matches_lr)[j].queryIdx << " " << (*matches_lr)[j].trainIdx << endl;
+                        }
+                    }
+                }
                 matches_collection[make_pair(2 * i, 2 * i + 1)] = matches_lr;
 
                 for (int j = i + 1; j < num_frames; ++j) {
                     keypoints_r = keypoints.find(2 * j)->second;
                     the_features_matcher().set_2nd_image(left_imgs[j], *keypoints_r);
                     Ptr<vector<DMatch> > matches_ll = new vector<DMatch>();
-                    the_features_matcher().set_matches_output(matches_ll);
-                    the_features_matcher().Run();
+                    if (load_matches) {
+                        string name = img_names[i].first + "to" + img_names[j].first + ".txt";
+                        ifstream f(name.c_str());
+                        if (!f.is_open())
+                            throw runtime_error("Can't open " + name);
+                        while (!f.eof()) {
+                            int from, to;
+                            f >> from >> to;
+                            matches_ll->push_back(DMatch(from, to, 0));
+                        }
+                    }
+                    else {
+                        the_features_matcher().set_matches_output(matches_ll);
+                        the_features_matcher().Run();
+                        if (save_matches) {
+                            ofstream f((img_names[i].first + "to" + img_names[j].first + ".txt").c_str());
+                            for (size_t k = 0; k < matches_ll->size(); ++k) {
+                                f << (*matches_lr)[k].queryIdx << " " << (*matches_lr)[k].trainIdx << endl;
+                            }
+                        }
+                    }
                     matches_collection[make_pair(2 * i, 2 * j)] = matches_ll;
                 }
             }
@@ -533,6 +570,10 @@ void ParseArgs(int argc, char **argv) {
             save_keypoints = atoi(argv[++i]);
         else if (string(argv[i]) == "--load-keypoints")
             load_keypoints = atoi(argv[++i]);
+        else if (string(argv[i]) == "--save-matches")
+            save_matches = atoi(argv[++i]);
+        else if (string(argv[i]) == "--load-matches")
+            load_matches = atoi(argv[++i]);
         else if (string(argv[i]) == "--features") {
             if (string(argv[i + 1]) == "surf")
                 features_finder_creator = new SurfFeaturesFinderCreator();
