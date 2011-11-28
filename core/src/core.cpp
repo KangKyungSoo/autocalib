@@ -2114,7 +2114,8 @@ namespace autocalib {
         }
 
         AUTOCALIB_LOG(
-            cout << "F estimation: #matches = " << num_matches
+            cout << "F_est = \n" << F 
+                 << "\n#matches = " << num_matches
                  << ", #inliers = " << num_inliers
                  << ", RMS err = " << CalcRmsEpipolarDistance(xy1, xy2, F) << endl);
 
