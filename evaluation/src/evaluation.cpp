@@ -840,5 +840,147 @@ namespace evaluation {
         return instance;
     }
 
+
+    void FeaturesMatcher::Run() {
+        if (!glfwInit())
+            throw runtime_error("Can't initialize GLFW");
+
+        if (!glfwOpenWindow(window_size_.width, window_size_.height,
+                            0, 0, 0, 0, 0, 0, GLFW_WINDOW))
+        {
+            glfwTerminate();
+            throw runtime_error("Can't create GLFW window");
+        }
+
+        glfwSetWindowTitle("Features matcher");
+        glfwSetKeyCallback(internal::FeaturesMatcherKeyCallback);
+        glfwSetWindowSizeCallback(internal::FeaturesMatcherWindowSizeCallback);
+        glfwSetMouseButtonCallback(internal::FeaturesMatcherMouseButtonCallback);
+
+        InitOpenGl();
+        InitRun();
+
+        while (is_running_ && glfwGetWindowParam(GLFW_OPENED)) {
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            glColor3f(1.f, 1.f, 1.f);
+
+            glBindTexture(GL_TEXTURE_2D, texture1_);
+            glBegin(GL_QUADS);
+            glTexCoord2f(0.f, 0.f); glVertex2f(0.f, (float)image1_.rows);
+            glTexCoord2f(1.f, 0.f); glVertex2f((float)image1_.cols, (float)image1_.rows);
+            glTexCoord2f(1.f, 1.f); glVertex2f((float)image1_.cols, 0.f);
+            glTexCoord2f(0.f, 1.f); glVertex2f(0.f, 0.f);
+            glEnd();
+
+            glBindTexture(GL_TEXTURE_2D, texture2_);
+            glBegin(GL_QUADS);
+            glTexCoord2f(0.f, 0.f); glVertex2f((float)image1_.cols, (float)image2_.rows);
+            glTexCoord2f(1.f, 0.f); glVertex2f((float)(image1_.cols + image2_.cols), (float)image2_.rows);
+            glTexCoord2f(1.f, 1.f); glVertex2f((float)(image1_.cols + image2_.cols), 0.f);
+            glTexCoord2f(0.f, 1.f); glVertex2f((float)image1_.cols, 0.f);
+            glEnd();
+
+            if (keypoints1_) {
+                glColor3f(1.f, 0.f, 0.f);
+                glPointSize(5.f);
+                glBegin(GL_POINTS);
+                for (size_t i = 0; i < keypoints1_->size(); ++i) {
+                    const Point2f &pt = (*keypoints1_)[i];
+                    glVertex2f(pt.x, pt.y);
+                }
+                glEnd();
+            }
+
+            if (keypoints2_) {
+                glColor3f(1.f, 0.f, 0.f);
+                glPointSize(5.f);
+                glBegin(GL_POINTS);
+                for (size_t i = 0; i < keypoints2_->size(); ++i) {
+                    const Point2f &pt = (*keypoints2_)[i];
+                    glVertex2f(image1_.cols + pt.x, pt.y);
+                }
+                glEnd();
+            }
+
+            if (matches_ && keypoints1_ && keypoints2_) {
+                glColor3f(1.f, 0.f, 0.f);
+                glBegin(GL_LINES);
+                for (size_t i = 0; i < matches_->size(); ++i) {
+                    const Point2f &pt1 = (*keypoints1_)[(*matches_)[i].trainIdx];
+                    const Point2f &pt2 = (*keypoints2_)[(*matches_)[i].queryIdx];
+                    glVertex2f(pt1.x, pt1.y);
+                    glVertex2f(image1_.cols + pt2.x, pt2.y);
+                }
+                glEnd();
+            }
+
+            glfwSwapBuffers();
+        }
+
+        glfwTerminate();
+    }
+
+
+    FeaturesMatcher::FeaturesMatcher() : matches_(0) {
+        set_window_size(Size(1280, 480));
+    }
+
+
+    void FeaturesMatcher::InitOpenGl() {
+        glEnable(GL_TEXTURE_2D);
+
+        glGenTextures(1, &texture1_);
+        glBindTexture(GL_TEXTURE_2D, texture1_);
+        glTexImage2D(GL_TEXTURE_2D, 0, 3, image1_.cols, image1_.rows, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, image1_.data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glGenTextures(1, &texture2_);
+        glBindTexture(GL_TEXTURE_2D, texture2_);
+        glTexImage2D(GL_TEXTURE_2D, 0, 3, image2_.cols, image2_.rows, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, image2_.data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glViewport(0, 0, window_size_.width, window_size_.height);
+        glOrtho(0, image1_.cols + image2_.cols, 0, std::max(image1_.rows, image2_.rows), -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glDisable(GL_DEPTH_TEST);
+    }
+
+
+    void FeaturesMatcher::InitRun() {
+        is_running_ = true;
+    }
+
+
+    void GLFWCALL internal::FeaturesMatcherKeyCallback(int key, int state) {
+        FeaturesMatcher &fm = the_features_matcher();
+        if (key == GLFW_KEY_ESC)
+            fm.is_running_ = false;
+    }
+
+
+    void GLFWCALL internal::FeaturesMatcherWindowSizeCallback(int width, int height) {
+        the_features_matcher().window_size_.width = width;
+        the_features_matcher().window_size_.height = height;
+        the_features_matcher().InitOpenGl();
+    }
+
+
+    void GLFWCALL internal::FeaturesMatcherMouseButtonCallback(int button, int state) {
+        FeaturesMatcher &fm = the_features_matcher();
+        if (button == GLFW_MOUSE_BUTTON_LEFT && state == GLFW_PRESS) {
+        }
+    }
+
+
+    FeaturesMatcher& the_features_matcher() {
+        static FeaturesMatcher instance;
+        return instance;
+    }
+
 } // namespace evaluation
 } // namespace autocalib
