@@ -299,7 +299,7 @@ int main(int argc, char **argv) {
 
         Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh, F_est_conf);
         Mat_<double> P_l = Mat::eye(3, 4, CV_64F);
-        Mat_<double> P_r = ExtractCameraMatFromFundamentalMat(F);
+        Mat_<double> P_r = CameraMatFromFundamentalMat(F);
 
         // Remove outliers
 

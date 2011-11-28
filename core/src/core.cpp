@@ -1344,7 +1344,7 @@ namespace autocalib {
     }
 
 
-    Mat ExtractCameraMatFromFundamentalMat(InputArray F) {
+    Mat CameraMatFromFundamentalMat(InputArray F) {
         CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
         Mat F_ = F.getMat().clone();
         F_ /= norm(F, NORM_INF);
@@ -1376,9 +1376,21 @@ namespace autocalib {
         Mat a(P(Rect(3, 0, 1, 3)));
         epipole.copyTo(a);
 
-        //cout << P << endl;
-
         return P;
+    }
+
+
+    Mat FundamentalMatFromCameraMats(InputArray P1, InputArray P2) {
+        CV_Assert(P1.getMat().type() == CV_64F && P1.getMat().size() == Size(4, 3));
+        CV_Assert(P2.getMat().type() == CV_64F && P2.getMat().size() == Size(4, 3));
+
+        Mat_<double> P1_(P1.getMat());
+        Mat_<double> P2_(P2.getMat());
+
+        Mat P1_inv = PseudoInverse(P1_);
+        Mat e2 = P2_ * CameraCentre(P1_);
+        Mat F = CrossProductMat(e2) * P2_ * P1_inv;
+        return  F;
     }
 
 
