@@ -484,14 +484,25 @@ namespace autocalib {
     //============================================================================
     // Structure and motion
 
-    /** Extracts the second camera matrix from the fundamental matrix.
+    /** Extracts the camera matrix from the fundamental matrix.
       *
       * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 256.
       *
       * \param F Fundamental matrix
       * \return Camera matrix for the second image in pair
       */
-    cv::Mat ExtractCameraMatFromFundamentalMat(cv::InputArray F);
+    cv::Mat CameraMatFromFundamentalMat(cv::InputArray F);
+
+
+    /** Builds the fundamental matrix using two camera matrices.
+      *
+      * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 246.
+      *
+      * \param P1 First camera matrix
+      * \param P2 Second camera matrix
+      * \return Fundamental matrix
+      */
+    cv::Mat FundamentalMatFromCameraMats(cv::InputArray P1, cv::InputArray P2);
 
 
     /** Intersects matches between images in stereo pairs with matches between stereo pairs.
