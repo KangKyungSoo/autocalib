@@ -756,12 +756,23 @@ namespace evaluation {
 
         while (is_running_ && glfwGetWindowParam(GLFW_OPENED)) {
             glClear(GL_COLOR_BUFFER_BIT);
+            glColor3f(1.f, 1.f, 1.f);
             glBegin(GL_QUADS);
-            glTexCoord2f(0.f, 0.f); glVertex2f(-1.f, 1.f);
-            glTexCoord2f(1.f, 0.f); glVertex2f( 1.f, 1.f);
-            glTexCoord2f(1.f, 1.f); glVertex2f( 1.f, -1.f);
-            glTexCoord2f(0.f, 1.f); glVertex2f(-1.f, -1.f);
+            glTexCoord2f(0.f, 0.f); glVertex2f(0.f, (float)image_.rows);
+            glTexCoord2f(1.f, 0.f); glVertex2f((float)image_.cols, (float)image_.rows);
+            glTexCoord2f(1.f, 1.f); glVertex2f((float)image_.cols, 0.f);
+            glTexCoord2f(0.f, 1.f); glVertex2f(0.f, 0.f);
             glEnd();
+            if (keypoints_) {
+                glColor3f(1.f, 0.f, 0.f);
+                glPointSize(5.f);
+                glBegin(GL_POINTS);
+                for (size_t i = 0; i < keypoints_->size(); ++i) {
+                    const Point2f &pt = (*keypoints_)[i];
+                    glVertex2f(pt.x, pt.y);
+                }
+                glEnd();
+            }
             glfwSwapBuffers();
         }
 
@@ -786,7 +797,7 @@ namespace evaluation {
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glViewport(0, 0, window_size_.width, window_size_.height);
-        glOrtho(-1, 1, -1, 1, -1, 1);
+        glOrtho(0, image_.cols, 0, image_.rows, -1, 1);
         glMatrixMode(GL_MODELVIEW);
         glDisable(GL_DEPTH_TEST);
     }
@@ -813,8 +824,12 @@ namespace evaluation {
 
     void GLFWCALL internal::KeypointsExtractorMouseButtonCallback(int button, int state) {
         KeypointsExtractor &ke = the_keypoints_extractor();
-        if (button == GLFW_MOUSE_BUTTON_LEFT) {
-            if (state == GLFW_PRESS) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT && state == GLFW_PRESS) {
+            if (ke.keypoints_) {
+                int x, y;
+                glfwGetMousePos(&x, &y);
+                ke.keypoints_->push_back(Point2f((float)x / ke.window_size_.width * ke.image_.cols,
+                                                 (1.f - (float)y / ke.window_size_.height) * ke.image_.rows));
             }
         }
     }
