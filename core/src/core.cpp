@@ -1580,34 +1580,6 @@ namespace autocalib {
     }
 
 
-    int FindFundamentalMatInliers(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
-                                  const vector<DMatch> &matches, InputArray F, double err_thresh,
-                                  InputOutputArray mask)
-    {
-        CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
-        Mat_<double> F_(F.getMat());
-
-        Mat &mask_tmp = mask.getMatRef();
-        mask_tmp.create(1, matches.size(), CV_8U);
-        mask_tmp.setTo(0);
-        Mat_<uchar> mask_(mask_tmp);
-        int num_inliers = 0;
-
-        for (size_t i = 0; i < matches.size(); ++i) {
-            const Point2f &p1 = f1.keypoints[matches[i].queryIdx].pt;
-            const Point2f &p2 = f2.keypoints[matches[i].trainIdx].pt;
-
-            double err = SymEpipDist2(p2.x, p2.y, F_, p1.x, p1.y);
-            if (err < err_thresh * err_thresh) {
-                mask_(0, i) = 1;
-                num_inliers++;
-            }
-        }
-
-        return num_inliers;
-    }
-
-
     Mat FindHomographyP3Linear(InputArray xyzw1, InputArray xyzw2) {
         CV_Assert(xyzw1.getMat().type() == CV_64F && xyzw1.getMat().rows == 1 && xyzw1.getMat().cols % 4 == 0);
         CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
@@ -2138,6 +2110,34 @@ namespace autocalib {
     }
 
 
+    int FindFundamentalMatInliers(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
+                                  const vector<DMatch> &matches, InputArray F, double err_thresh,
+                                  InputOutputArray mask)
+    {
+        CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
+        Mat_<double> F_(F.getMat());
+
+        Mat &mask_tmp = mask.getMatRef();
+        mask_tmp.create(1, matches.size(), CV_8U);
+        mask_tmp.setTo(0);
+        Mat_<uchar> mask_(mask_tmp);
+        int num_inliers = 0;
+
+        for (size_t i = 0; i < matches.size(); ++i) {
+            const Point2f &p1 = f1.keypoints[matches[i].queryIdx].pt;
+            const Point2f &p2 = f2.keypoints[matches[i].trainIdx].pt;
+
+            double err = SymEpipDist2(p2.x, p2.y, F_, p1.x, p1.y);
+            if (err < err_thresh * err_thresh) {
+                mask_(0, i) = 1;
+                num_inliers++;
+            }
+        }
+
+        return num_inliers;
+    }
+
+
     Mat Antidiag(int rows, int cols, int type) {
         Mat dst = Mat::zeros(rows, cols, type);
         int len = min(rows, cols);
@@ -2497,6 +2497,33 @@ namespace autocalib {
         mat(1, 0) = -mat(0, 1); mat(2, 0) = -mat(0, 2); mat(2, 1) = -mat(1, 2);
 
         return mat;
+    }
+
+
+    Mat CameraCentre(InputArray P) {
+        CV_Assert(P.getMat().type() == CV_64F && P.getMat().size() == Size(4, 3));
+        SVD svd(P.getMat(), SVD::FULL_UV);
+        return svd.vt.row(3).t();
+    }
+
+
+    Mat PseudoInverse(InputArray mat) {
+        CV_Assert(mat.getMat().type() == CV_64F);
+        Mat_<double> mat_(mat.getMat());
+
+        SVD svd(mat_, SVD::FULL_UV);
+        for (int i = 0; i < svd.w.rows; ++i) {
+            if (abs(svd.w.at<double>(i, 0)) > numeric_limits<double>::epsilon()) {
+                svd.w.at<double>(i, 0) = 1 / svd.w.at<double>(i, 0);
+            }
+        }
+
+        Mat_<double> diag = Mat::zeros(mat_.cols, mat_.rows, mat_.type());
+        for (int i = 0; i < svd.w.rows; ++i) {
+            diag(i, i) = svd.w.at<double>(i, 0);
+        }
+
+        return svd.vt.t() * diag * svd.u.t();
     }
 
 } // namespace autocalib
