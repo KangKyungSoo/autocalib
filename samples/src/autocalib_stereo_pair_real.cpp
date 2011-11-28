@@ -37,10 +37,26 @@ int H_est_subset_size = 10;
 double H_est_thresh = 3.;
 double conf_thresh = -1;
 string log_file;
+string intrinsics_file;
+Mat_<double> K1_gold, K2_gold;
+string extrinsics_file;
+Mat_<double> R_gold, T_gold;
 
 int main(int argc, char **argv) {
     try {        
         ParseArgs(argc, argv);
+
+        if (!intrinsics_file.empty()) {
+            FileStorage fs(intrinsics_file, FileStorage::READ);
+            fs["M1"] >> K1_gold;
+            fs["M2"] >> K2_gold;
+        }
+
+        if (!extrinsics_file.empty()) {
+            FileStorage fs(extrinsics_file, FileStorage::READ);
+            fs["R"] >> R_gold;
+            fs["T"] >> T_gold;
+        }
 
         srand(0);
 
@@ -463,15 +479,19 @@ void ParseArgs(int argc, char **argv) {
         else if (string(argv[i]) == "--F-est-conf")
             F_est_conf = atof(argv[++i]);
         else if (string(argv[i]) == "--H-est-num-iters")
-            H_est_num_iters = atof(argv[++i]);
+            H_est_num_iters = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-subset-size")
-            H_est_subset_size = atof(argv[++i]);
+            H_est_subset_size = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-thresh")
             H_est_thresh = atof(argv[++i]);
         else if (string(argv[i]) == "--conf-thresh")
             conf_thresh = atof(argv[++i]);
         else if (string(argv[i]) == "--log-file")
             log_file = argv[++i];
+        else if (string(argv[i]) == "--intrinsics-file")
+            intrinsics_file = argv[++i];
+        else if (string(argv[i]) == "--extrinsics-file")
+            extrinsics_file = argv[++i];
         else {
             if (i < argc - 1) {
                 img_names.push_back(make_pair(argv[i], argv[i + 1]));
