@@ -907,8 +907,8 @@ namespace evaluation {
                 glColor3f(1.f, 0.f, 0.f);
                 glBegin(GL_LINES);
                 for (size_t i = 0; i < matches_->size(); ++i) {
-                    const Point2f &pt1 = (*keypoints1_)[(*matches_)[i].trainIdx];
-                    const Point2f &pt2 = (*keypoints2_)[(*matches_)[i].queryIdx];
+                    const Point2f &pt1 = (*keypoints1_)[(*matches_)[i].queryIdx];
+                    const Point2f &pt2 = (*keypoints2_)[(*matches_)[i].trainIdx];
                     glVertex2f(pt1.x, pt1.y);
                     glVertex2f(image1_.cols + pt2.x, pt2.y);
                 }
@@ -1008,54 +1008,54 @@ namespace evaluation {
 
     void GLFWCALL internal::FeaturesMatcherMouseButtonCallback(int button, int state) {
         FeaturesMatcher &fm = the_features_matcher();
-        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT && state == GLFW_PRESS) {
             if (fm.matches_) {
                 int x, y; glfwGetMousePos(&x, &y);
                 float u, v; fm.ScreenToLocal(x, y, u, v);
 
-                if (state == GLFW_PRESS) {
-                    int keypoint_index = -1;
-                    float min_dist = numeric_limits<float>::max();
+                int keypoint_index = -1;
+                float min_dist = numeric_limits<float>::max();
 
-                    if (u < fm.image1_.cols && fm.keypoints1_) {
-                        for (size_t i = 0; i < fm.keypoints1_->size(); ++i) {
-                            const Point2f &pt = (*fm.keypoints1_)[i];
-                            float dist = sqr(u - pt.x) + sqr(v - pt.y);
-                            if (dist < min_dist) {
-                                keypoint_index = i;
-                                min_dist = dist;
-                            }
-                        }
-                        if (keypoint_index != -1) {
-                            if (fm.is_keypoint2_selected_) {
-                                fm.matches_->push_back(DMatch(keypoint_index, fm.prev_keypoint_index_, 0));
-                                fm.is_keypoint2_selected_ = false;
-                            }
-                            else {
-                                fm.is_keypoint1_selected_ = true;
-                                fm.prev_keypoint_index_ = keypoint_index;
-                            }
+                if (u < fm.image1_.cols && fm.keypoints1_) {
+                    for (size_t i = 0; i < fm.keypoints1_->size(); ++i) {
+                        const Point2f &pt = (*fm.keypoints1_)[i];
+                        float dist = sqr(u - pt.x) + sqr(v - pt.y);
+                        if (dist < min_dist) {
+                            keypoint_index = i;
+                            min_dist = dist;
                         }
                     }
-                    else if (fm.keypoints2_) {
-                        u -= (float)fm.image1_.cols;
-                        for (size_t i = 0; i < fm.keypoints2_->size(); ++i) {
-                            const Point2f &pt = (*fm.keypoints2_)[i];
-                            float dist = sqr(u - pt.x) + sqr(v - pt.y);
-                            if (dist < min_dist) {
-                                keypoint_index = i;
-                                min_dist = dist;
-                            }
+                    if (keypoint_index != -1) {
+                        //cout << "1st image, keypoint index = " << keypoint_index << endl;
+                        if (fm.is_keypoint2_selected_) {
+                            fm.matches_->push_back(DMatch(keypoint_index, fm.prev_keypoint_index_, 0));
+                            fm.is_keypoint2_selected_ = false;
                         }
-                        if (keypoint_index != -1) {
-                            if (fm.is_keypoint1_selected_) {
-                                fm.matches_->push_back(DMatch(fm.prev_keypoint_index_, keypoint_index, 0));
-                                fm.is_keypoint1_selected_ = false;
-                            }
-                            else {
-                                fm.is_keypoint2_selected_ = true;
-                                fm.prev_keypoint_index_ = keypoint_index;
-                            }
+                        else {
+                            fm.is_keypoint1_selected_ = true;
+                            fm.prev_keypoint_index_ = keypoint_index;
+                        }
+                    }
+                }
+                else if (u >= fm.image1_.cols && fm.keypoints2_) {
+                    u -= (float)fm.image1_.cols;
+                    for (size_t i = 0; i < fm.keypoints2_->size(); ++i) {
+                        const Point2f &pt = (*fm.keypoints2_)[i];
+                        float dist = sqr(u - pt.x) + sqr(v - pt.y);
+                        if (dist < min_dist) {
+                            keypoint_index = i;
+                            min_dist = dist;
+                        }
+                    }
+                    if (keypoint_index != -1) {
+                        //cout << "2nd image, keypoint index = " << keypoint_index << endl;
+                        if (fm.is_keypoint1_selected_) {
+                            fm.matches_->push_back(DMatch(fm.prev_keypoint_index_, keypoint_index, 0));
+                            fm.is_keypoint1_selected_ = false;
+                        }
+                        else {
+                            fm.is_keypoint2_selected_ = true;
+                            fm.prev_keypoint_index_ = keypoint_index;
                         }
                     }
                 }
