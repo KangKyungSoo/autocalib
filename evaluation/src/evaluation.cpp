@@ -306,9 +306,9 @@ namespace evaluation {
 
         double aspect = (double)view_port_.width / view_port_.height;
         if (window_size_.width > aspect * window_size_.height)
-            glViewport(0, 0, aspect * window_size_.height, window_size_.height);
+            glViewport(0, 0, static_cast<GLsizei>(aspect * window_size_.height), static_cast<GLsizei>(window_size_.height));
         else
-            glViewport(0, 0, window_size_.width, window_size_.width / aspect);
+            glViewport(0, 0, static_cast<GLsizei>(window_size_.width), static_cast<GLsizei>(window_size_.width / aspect));
 
         glOrtho(view_port_.x, view_port_.br().x, view_port_.y, view_port_.br().y, -1, 1);
         glMatrixMode(GL_MODELVIEW);
@@ -465,20 +465,20 @@ namespace evaluation {
             Rodrigues(Rg_, rvec);
             stringstream text;
             text << "rvec_g = " << rvec;
-            PrintText(10, 10, text.str().c_str());
+            PrintText(10.f, 10.f, text.str().c_str());
 
             text.str("");
             text << "Tg = " << Tg_;
-            PrintText(10, 70, text.str().c_str());
+            PrintText(10.f, 70.f, text.str().c_str());
 
             Rodrigues(R_, rvec);
             text.str("");
             text << "rvec = " << rvec;
-            PrintText(10 + view_port_.width, 10, text.str().c_str());
+            PrintText(static_cast<float>(10 + view_port_.width), 10.f, text.str().c_str());
 
             text.str("");
             text << "T = " << T_;
-            PrintText(10 + view_port_.width, 70, text.str().c_str());
+            PrintText(static_cast<float>(10 + view_port_.width), 70.f, text.str().c_str());
 
             glfwSwapBuffers();
         }
@@ -530,9 +530,9 @@ namespace evaluation {
 
         double aspect = 2 * (double)view_port_.width / view_port_.height;
         if (window_size_.width > aspect * window_size_.height)
-            glViewport(0, 0, aspect * window_size_.height, window_size_.height);
+            glViewport(0, 0, static_cast<GLsizei>(aspect * window_size_.height), static_cast<GLsizei>(window_size_.height));
         else
-            glViewport(0, 0, window_size_.width, window_size_.width / aspect);
+            glViewport(0, 0, static_cast<GLsizei>(window_size_.width), static_cast<GLsizei>(window_size_.width / aspect));
 
         glOrtho(view_port_.x, view_port_.br().x + view_port_.width,
                 view_port_.y, view_port_.br().y, -1, 1);
@@ -731,6 +731,97 @@ namespace evaluation {
 
     StereoViewer& the_stereo_viewer() {
         static StereoViewer instance;
+        return instance;
+    }
+
+
+    void KeypointsExtractor::Run() {
+        if (!glfwInit())
+            throw runtime_error("Can't initialize GLFW");
+
+        if (!glfwOpenWindow(window_size_.width, window_size_.height,
+                            0, 0, 0, 0, 0, 0, GLFW_WINDOW))
+        {
+            glfwTerminate();
+            throw runtime_error("Can't create GLFW window");
+        }
+
+        glfwSetWindowTitle("Keypoints extractor");
+        glfwSetKeyCallback(internal::KeypointsExtractorKeyCallback);
+        glfwSetWindowSizeCallback(internal::KeypointsExtractorWindowSizeCallback);
+        glfwSetMouseButtonCallback(internal::KeypointsExtractorMouseButtonCallback);
+
+        InitOpenGl();
+        InitRun();
+
+        while (is_running_ && glfwGetWindowParam(GLFW_OPENED)) {
+            glClear(GL_COLOR_BUFFER_BIT);
+            glBegin(GL_QUADS);
+            glTexCoord2f(0.f, 0.f); glVertex2f(-1.f, 1.f);
+            glTexCoord2f(1.f, 0.f); glVertex2f( 1.f, 1.f);
+            glTexCoord2f(1.f, 1.f); glVertex2f( 1.f, -1.f);
+            glTexCoord2f(0.f, 1.f); glVertex2f(-1.f, -1.f);
+            glEnd();
+            glfwSwapBuffers();
+        }
+
+        glfwTerminate();
+    }
+
+
+    KeypointsExtractor::KeypointsExtractor() : keypoints_(0) {
+        set_window_size(Size(640, 480));
+    }
+
+
+    void KeypointsExtractor::InitOpenGl() {
+        glEnable(GL_TEXTURE_2D);
+        glGenTextures(1, &texture_);
+        glBindTexture(GL_TEXTURE_2D, texture_);
+        glTexImage2D(GL_TEXTURE_2D, 0, 3, image_.cols, image_.rows, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, image_.data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, texture_);
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glViewport(0, 0, window_size_.width, window_size_.height);
+        glOrtho(-1, 1, -1, 1, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glDisable(GL_DEPTH_TEST);
+    }
+
+
+    void KeypointsExtractor::InitRun() {
+        is_running_ = true;
+    }
+
+
+    void GLFWCALL internal::KeypointsExtractorKeyCallback(int key, int state) {
+        KeypointsExtractor &ke = the_keypoints_extractor();
+        if (key == GLFW_KEY_ESC)
+            ke.is_running_ = false;
+    }
+
+
+    void GLFWCALL internal::KeypointsExtractorWindowSizeCallback(int width, int height) {
+        the_keypoints_extractor().window_size_.width = width;
+        the_keypoints_extractor().window_size_.height = height;
+        the_keypoints_extractor().InitOpenGl();
+    }
+
+
+    void GLFWCALL internal::KeypointsExtractorMouseButtonCallback(int button, int state) {
+        KeypointsExtractor &ke = the_keypoints_extractor();
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (state == GLFW_PRESS) {
+            }
+        }
+    }
+
+
+    KeypointsExtractor& the_keypoints_extractor() {
+        static KeypointsExtractor instance;
         return instance;
     }
 

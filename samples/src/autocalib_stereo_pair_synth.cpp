@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
         // Match synthetic shots
 
         cout << "\nMatching...\n";
-        for (size_t i = 0; i < num_frames; ++i) {
+        for (int i = 0; i < num_frames; ++i) {
             Ptr<vector<DMatch> > matches = new vector<DMatch>();
             MatchSyntheticShots(*(features_collection.find(2 * i)->second),
                                 *(features_collection.find(2 * i + 1)->second),
@@ -280,8 +280,8 @@ int main(int argc, char **argv) {
             cout << "(#matches from " << 2 * i << " to " << 2 * i + 1 << " = " << matches->size() << ") ";
             cout.flush();
         }
-        for (size_t i = 0; i < num_frames - 1; ++i) {
-            for (size_t j = i + 1; j < num_frames; ++j) {
+        for (int i = 0; i < num_frames - 1; ++i) {
+            for (int j = i + 1; j < num_frames; ++j) {
                 Ptr<vector<DMatch> > matches = new vector<DMatch>();
                 MatchSyntheticShots(*(features_collection.find(2 * i)->second),
                                     *(features_collection.find(2 * j)->second),
@@ -367,8 +367,8 @@ int main(int argc, char **argv) {
         HomographiesP2 Hs_inf;
         HomographiesP3 Hs_01_a;
 
-        for (size_t i = 0; i < num_frames - 1; ++i) {
-            for (size_t j = i + 1; j < num_frames; ++j) {
+        for (int i = 0; i < num_frames - 1; ++i) {
+            for (int j = i + 1; j < num_frames; ++j) {
                 Ptr<vector<DMatch> > matches_lr0 = matches_collection.find(make_pair(2 * i, 2 * i + 1))->second;
                 Ptr<vector<DMatch> > matches_lr1 = matches_collection.find(make_pair(2 * j, 2 * j + 1))->second;
                 Ptr<vector<DMatch> > matches_ll = matches_collection.find(make_pair(2 * i, 2 * j))->second;
@@ -458,8 +458,8 @@ int main(int argc, char **argv) {
 
         if (refine) {
             detail::Graph eff_corresp(num_frames);
-            for (size_t i = 0; i < num_frames - 1; ++i) {
-                for (size_t j = i + 1; j < num_frames; ++j) {
+            for (int i = 0; i < num_frames - 1; ++i) {
+                for (int j = i + 1; j < num_frames; ++j) {
                     eff_corresp.addEdge(i, j, 0);
                     eff_corresp.addEdge(j, i, 0);
                 }
@@ -574,9 +574,9 @@ void ParseArgs(int argc, char **argv) {
         else if (string(argv[i]) == "--F-est-conf")
             F_est_conf = atof(argv[++i]);
         else if (string(argv[i]) == "--H-est-num-iters")
-            H_est_num_iters = atof(argv[++i]);
+            H_est_num_iters = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-subset-size")
-            H_est_subset_size = atof(argv[++i]);
+            H_est_subset_size = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-thresh")
             H_est_thresh = atof(argv[++i]);
         else if (string(argv[i]) == "--noise-stddev")
