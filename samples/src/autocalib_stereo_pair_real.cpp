@@ -41,6 +41,7 @@ string intrinsics_file;
 Mat_<double> K1_gold, K2_gold;
 string extrinsics_file;
 Mat_<double> R_gold, T_gold;
+Mat_<double> F_gold;
 
 int main(int argc, char **argv) {
     try {        
@@ -56,6 +57,11 @@ int main(int argc, char **argv) {
             FileStorage fs(extrinsics_file, FileStorage::READ);
             fs["R"] >> R_gold;
             fs["T"] >> T_gold;
+        }
+
+        if (!intrinsics_file.empty() && !extrinsics_file.empty()) {
+            F_gold = K2_gold.inv().t() * CrossProductMat(T_gold) * R_gold * K1_gold.inv();
+            F_gold /= F_gold(2, 2);
         }
 
         srand(0);
@@ -159,12 +165,21 @@ int main(int argc, char **argv) {
                 }
             }
         }
+        cout << endl;
 
         // Find fundamental matrix and extract camera mat
 
         cout << "\nFinding F...\n";
 
         Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh, F_est_conf);
+
+        if (!F_gold.empty()) {
+            cout << "F_gold = \n" << F_gold << endl;
+            F = F_gold;
+        }
+
+        cout << "F_final = \n" << F << endl;
+
         Mat_<double> P_l = Mat::eye(3, 4, CV_64F);
         Mat_<double> P_r = CameraMatFromFundamentalMat(F);
 
