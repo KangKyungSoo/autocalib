@@ -23,12 +23,12 @@ vector<Mat> left_imgs, right_imgs;
 bool do_median_blur = true;
 int blur_ksize = 3;
 int num_frames = 0; // Use all source frames
-bool manual_registr = false;
+bool manual_registr;
 bool save_keypoints, load_keypoints;
 bool save_matches, load_matches;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
-bool show_matches = false;
+bool show_matches;
 int min_num_matches = 6;
 FeaturesCollection features_collection;
 MatchesCollection matches_collection;
@@ -265,8 +265,7 @@ int main(int argc, char **argv) {
 
             // Match everything
 
-            cout << "\nMatch everything...";
-            MatchesCollection matches_collection;
+            cout << "\nMatch everything... ";
             Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
 
             for (int i = 0; i < num_frames; ++i) {
