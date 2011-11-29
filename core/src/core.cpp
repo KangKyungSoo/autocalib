@@ -195,9 +195,9 @@ namespace autocalib {
 
     namespace {
 
-        class ReprojError_FixedK_OnlyR {
+        class ReprojError_KR {
         public:
-            ReprojError_FixedK_OnlyR(const FeaturesCollection &features,
+            ReprojError_KR(const FeaturesCollection &features,
                                      const MatchesCollection &matches,
                                      int params_to_refine,
                                      const vector<int> &Rs_indices)
@@ -231,7 +231,7 @@ namespace autocalib {
         };
 
 
-        void ReprojError_FixedK_OnlyR::operator()(const Mat &arg, Mat &err) {
+        void ReprojError_KR::operator()(const Mat &arg, Mat &err) {
             Mat_<double> arg_(arg);
 
             err.create(dimension(), 1, CV_64F);
@@ -291,7 +291,7 @@ namespace autocalib {
         }
 
 
-        void ReprojError_FixedK_OnlyR::Jacobian(const Mat &arg, Mat &jac) {
+        void ReprojError_KR::Jacobian(const Mat &arg, Mat &jac) {
             Mat_<double> arg_(arg.clone());
 
             jac.create(dimension(), arg_.cols, CV_64F);
@@ -354,7 +354,7 @@ namespace autocalib {
             arg(0, 5 + 3 * (i - 1) + 2) = rvec(0, 2);
         }
 
-        ReprojError_FixedK_OnlyR func(features, matches, params_to_refine, Rs_indices);
+        ReprojError_KR func(features, matches, params_to_refine, Rs_indices);
         double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K_(0, 0) = arg(0, 0);
@@ -555,9 +555,9 @@ namespace autocalib {
         }
 
 
-        class EpipError_CommonK_RelativeOnly_StereoCamera {
+        class EpipError_KRT_RelativeOnly {
         public:
-            EpipError_CommonK_RelativeOnly_StereoCamera(
+            EpipError_KRT_RelativeOnly(
                     const FeaturesCollection &features,
                     const MatchesCollection &matches,
                     int params_to_refine)
@@ -589,7 +589,7 @@ namespace autocalib {
         };
 
 
-        void EpipError_CommonK_RelativeOnly_StereoCamera::operator()(const Mat &arg, Mat &err) {
+        void EpipError_KRT_RelativeOnly::operator()(const Mat &arg, Mat &err) {
             Mat_<double> arg_(arg);
 
             err.create(dimension(), 1, CV_64F);
@@ -639,7 +639,7 @@ namespace autocalib {
         }
 
 
-        void EpipError_CommonK_RelativeOnly_StereoCamera::Jacobian(const Mat &arg, Mat &jac) {
+        void EpipError_KRT_RelativeOnly::Jacobian(const Mat &arg, Mat &jac) {
             Mat_<double> arg_(arg.clone());
 
             jac.create(dimension(), arg_.cols, CV_64F);
@@ -693,7 +693,7 @@ namespace autocalib {
         arg(0, 9) = T(1, 0);
         arg(0, 10) = T(2, 0);
 
-        EpipError_CommonK_RelativeOnly_StereoCamera func(features, matches, params_to_refine);
+        EpipError_KRT_RelativeOnly func(features, matches, params_to_refine);
         double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K(0, 0) = arg(0, 0);
@@ -720,9 +720,9 @@ namespace autocalib {
 
     namespace {
 
-        class EpipError_CommonK_StereoCamera {
+        class EpipError_KRT {
         public:
-            EpipError_CommonK_StereoCamera(
+            EpipError_KRT(
                     const FeaturesCollection &features,
                     const MatchesCollection &matches,
                     const vector<int> &motions_indices,
@@ -757,7 +757,7 @@ namespace autocalib {
         };
 
 
-        void EpipError_CommonK_StereoCamera::operator()(const Mat &arg, Mat &err) {
+        void EpipError_KRT::operator()(const Mat &arg, Mat &err) {
             Mat_<double> arg_(arg);
 
             err.create(dimension(), 1, CV_64F);
@@ -864,7 +864,7 @@ namespace autocalib {
         }
 
 
-        void EpipError_CommonK_StereoCamera::Jacobian(const Mat &arg, Mat &jac) {
+        void EpipError_KRT::Jacobian(const Mat &arg, Mat &jac) {
             Mat_<double> arg_(arg.clone());
 
             jac.create(dimension(), arg_.cols, CV_64F);
@@ -946,7 +946,7 @@ namespace autocalib {
             arg(0, 11 + 6 * (i - 1) + 5) = T_l(2, 0);
         }
 
-        EpipError_CommonK_StereoCamera func(features, matches, motions_indices, params_to_refine);
+        EpipError_KRT func(features, matches, motions_indices, params_to_refine);
         double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K(0, 0) = arg(0, 0);
@@ -981,6 +981,250 @@ namespace autocalib {
             T_l(0, 0) = arg(0, 11 + 6 * (i - 1) + 3);
             T_l(1, 0) = arg(0, 11 + 6 * (i - 1) + 4);
             T_l(2, 0) = arg(0, 11 + 6 * (i - 1) + 5);
+            motions.find(motions_indices[i])->second.set_T(T_l);            
+        }
+
+        return rms_error;
+    }
+
+
+    namespace {
+
+        class EpipError_RT {
+        public:
+            EpipError_RT(
+                    Mat_<double> K,
+                    const FeaturesCollection &features,
+                    const MatchesCollection &matches,
+                    const vector<int> &motions_indices)
+                : K_(K), features_(&features), matches_(&matches), step_(1e-4)
+            {
+                num_matches_ = 0;
+                for (MatchesCollection::const_iterator iter = matches_->begin();
+                     iter != matches_->end(); ++iter)
+                    num_matches_ += (int)iter->second->size();
+
+                motions_indices_inv_.assign(*max_element(motions_indices.begin(), motions_indices.end()) + 1, -1);
+                for (size_t i = 0; i < motions_indices.size(); ++i)
+                    motions_indices_inv_[motions_indices[i]] = i;
+            }
+
+            void operator()(const Mat &arg, Mat &err);
+            void Jacobian(const Mat &arg, Mat &jac);
+
+            int dimension() const { return num_matches_; }
+
+        private:
+            const FeaturesCollection *features_;
+            const MatchesCollection *matches_;
+            int num_matches_;
+            vector<int> motions_indices_inv_;
+            Mat_<double> K_;
+
+            const double step_;
+            Mat_<double> err_;
+        };
+
+
+        void EpipError_RT::operator()(const Mat &arg, Mat &err) {
+            Mat_<double> arg_(arg);
+
+            err.create(dimension(), 1, CV_64F);
+            Mat_<double> err_(err);
+
+            Mat_<double> K_inv = K_.inv();
+
+            Mat_<double> rvec_rel(1, 3);
+            rvec_rel(0, 0) = arg_(0, 0);
+            rvec_rel(0, 1) = arg_(0, 1);
+            rvec_rel(0, 2) = arg_(0, 2);
+            Mat R_rel;
+            Rodrigues(rvec_rel, R_rel);
+
+            Mat_<double> T_rel(3, 1);
+            T_rel(0, 0) = arg_(0, 3);
+            T_rel(1, 0) = arg_(0, 4);
+            T_rel(2, 0) = arg_(0, 5);
+
+            Mat_<double> F_rel = K_inv.t() * CrossProductMat(T_rel) * R_rel * K_inv;
+
+            int pos = 0;
+            for (MatchesCollection::const_iterator iter = matches_->begin();
+                 iter != matches_->end(); ++iter)
+            {
+                int from = iter->first.first;
+                int to = iter->first.second;
+
+                const vector<KeyPoint> &kps_from = features_->find(from)->second->keypoints;
+                const vector<KeyPoint> &kps_to = features_->find(to)->second->keypoints;
+
+                if (BothAreLeft(from, to)) {
+                    int from_ = from / 2;
+                    int to_ = to / 2;
+
+                    Mat_<double> rvec_from(1, 3);
+                    if (motions_indices_inv_[from_] > 0) {
+                        rvec_from(0, 0) = arg_(0, 6 + 6 * (motions_indices_inv_[from_] - 1));
+                        rvec_from(0, 1) = arg_(0, 6 + 6 * (motions_indices_inv_[from_] - 1) + 1);
+                        rvec_from(0, 2) = arg_(0, 6 + 6 * (motions_indices_inv_[from_] - 1) + 2);
+                    }
+                    else
+                        rvec_from.setTo(0);
+                    Mat R_from;
+                    Rodrigues(rvec_from, R_from);
+
+                    Mat_<double> rvec_to(1, 3);
+                    if (motions_indices_inv_[to_] > 0) {
+                        rvec_to(0, 0) = arg_(0, 6 + 6 * (motions_indices_inv_[to_] - 1));
+                        rvec_to(0, 1) = arg_(0, 6 + 6 * (motions_indices_inv_[to_] - 1) + 1);
+                        rvec_to(0, 2) = arg_(0, 6 + 6 * (motions_indices_inv_[to_] - 1) + 2);
+                    }
+                    else
+                        rvec_to.setTo(0);
+                    Mat R_to;
+                    Rodrigues(rvec_to, R_to);
+
+                    Mat_<double> T_from(3, 1);
+                    if (motions_indices_inv_[from_] > 0) {
+                        T_from(0, 0) = arg_(0, 6 + 6 * (motions_indices_inv_[from_] - 1) + 3);
+                        T_from(1, 0) = arg_(0, 6 + 6 * (motions_indices_inv_[from_] - 1) + 4);
+                        T_from(2, 0) = arg_(0, 6 + 6 * (motions_indices_inv_[from_] - 1) + 5);
+                    }
+                    else
+                        T_from.setTo(0);
+
+                    Mat_<double> T_to(3, 1);
+                    if (motions_indices_inv_[to_] > 0) {
+                        T_to(0, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 3);
+                        T_to(1, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 4);
+                        T_to(2, 0) = arg_(0, 11 + 6 * (motions_indices_inv_[to_] - 1) + 5);
+                    }
+                    else
+                        T_to.setTo(0);
+
+                    Mat R = R_to * R_from.t();
+                    Mat_<double> F = K_inv.t() * CrossProductMat(R * T_from - T_to) * R * K_inv;
+
+                    const vector<DMatch> &matches = *(iter->second);
+                    for (size_t i = 0; i < matches.size(); ++i) {
+                        const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
+                        const Point2f &p1 = kps_to[matches[i].trainIdx].pt;                       
+                        err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F, p0.x, p0.y));
+                    }
+                }
+                else if (IsLeftRightPair(from, to)) {
+                    const vector<DMatch> &matches = *(iter->second);
+                    for (size_t i = 0; i < matches.size(); ++i) {
+                        const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
+                        const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
+                        err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F_rel, p0.x, p0.y));
+                    }
+                }
+                else {
+                    CV_Error(CV_StsError, "bad matches");
+                }
+            }
+        }
+
+
+        void EpipError_RT::Jacobian(const Mat &arg, Mat &jac) {
+            Mat_<double> arg_(arg.clone());
+
+            jac.create(dimension(), arg_.cols, CV_64F);
+            Mat_<double> jac_(jac);
+            jac_.setTo(0);
+
+            for (int i = 0; i < arg_.cols; ++i) {
+                double val = arg_(0, i);
+
+                arg_(0, i) += step_;
+                Mat tmp = jac_.col(i);
+                (*this)(arg_, tmp);
+
+                arg_(0, i) = val - step_;
+                (*this)(arg_, err_);
+                arg_(0, i) = val;
+
+                for (int j = 0; j < dimension(); ++j)
+                    jac_(j, i) = (jac_(j, i) - err_(j, 0)) / (2 * step_);
+            }
+        }
+
+    } // namespace
+
+
+    double RefineStereoCameraExtrinsics(
+            RigidCamera &cam, AbsoluteMotions &motions,
+            const FeaturesCollection &features, const MatchesCollection &matches)
+    {
+        // Normalize rotations and compute indices
+
+        Mat R_norm = motions.begin()->second.R().clone();
+        Mat T_norm = motions.begin()->second.T().clone();
+
+        vector<int> motions_indices;
+
+        for (AbsoluteMotions::iterator iter = motions.begin(); iter != motions.end(); ++iter) {
+            iter->second.set_T(iter->second.T() - iter->second.R() * R_norm.t() * T_norm);
+            iter->second.set_R(iter->second.R() * R_norm.t());
+            motions_indices.push_back(iter->first);
+        }
+
+        Mat_<double> arg(1, 3/*R*/ + 3/*T*/ + 6 * (int)motions.size());
+
+        Mat_<double> rvec;
+        Rodrigues(cam.R(), rvec);
+        arg(0, 0) = rvec(0, 0);
+        arg(0, 1) = rvec(0, 1);
+        arg(0, 2) = rvec(0, 2);
+
+        Mat_<double> T(cam.T());
+        arg(0, 3) = T(0, 0);
+        arg(0, 4) = T(1, 0);
+        arg(0, 5) = T(2, 0);
+
+        for (size_t i = 1; i < motions_indices.size(); ++i) {
+            Mat_<double> rvec_l;
+            Rodrigues(motions.find(motions_indices[i])->second.R(), rvec_l);
+            arg(0, 6 + 6 * (i - 1)) = rvec_l(0, 0);
+            arg(0, 6 + 6 * (i - 1) + 1) = rvec_l(0, 1);
+            arg(0, 6 + 6 * (i - 1) + 2) = rvec_l(0, 2);
+
+            Mat_<double> T_l = motions.find(motions_indices[i])->second.T();
+            arg(0, 6 + 6 * (i - 1) + 3) = T_l(0, 0);
+            arg(0, 6 + 6 * (i - 1) + 4) = T_l(1, 0);
+            arg(0, 6 + 6 * (i - 1) + 5) = T_l(2, 0);
+        }
+
+        EpipError_RT func(cam.K(), features, matches, motions_indices);
+        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
+
+        rvec(0, 0) = arg(0, 0);
+        rvec(0, 1) = arg(0, 1);
+        rvec(0, 2) = arg(0, 2);
+
+        T(0, 0) = arg(0, 3);
+        T(1, 0) = arg(0, 4);
+        T(2, 0) = arg(0, 5);
+
+        Mat R;
+        Rodrigues(rvec, R);
+        cam = RigidCamera(cam.K(), R, T);
+
+        for (size_t i = 1; i < motions_indices.size(); ++i) {
+            Mat_<double> rvec_l(1, 3);
+            rvec_l(0, 0) = arg(0, 6 + 6 * (i - 1));
+            rvec_l(0, 1) = arg(0, 6 + 6 * (i - 1) + 1);
+            rvec_l(0, 2) = arg(0, 6 + 6 * (i - 1) + 2);
+
+            Mat R_l;
+            Rodrigues(rvec_l, R_l);
+            motions.find(motions_indices[i])->second.set_R(R_l);
+
+            Mat_<double> T_l(3, 1);
+            T_l(0, 0) = arg(0, 6 + 6 * (i - 1) + 3);
+            T_l(1, 0) = arg(0, 6 + 6 * (i - 1) + 4);
+            T_l(2, 0) = arg(0, 6 + 6 * (i - 1) + 5);
             motions.find(motions_indices[i])->second.set_T(T_l);            
         }
 

@@ -460,6 +460,9 @@ int main(int argc, char **argv) {
 
         // Linear autocalibration
 
+        if (!K1_gold.empty())
+            K_init = K1_gold;
+
         if (K_init.empty()) {
             cout << "\nLinear calibrating...\n";
             K_init = CalibRotationalCameraLinearNoSkew(Hs_inf);
@@ -520,8 +523,8 @@ int main(int argc, char **argv) {
         AbsoluteMotions abs_motions;
         CalcAbsoluteMotions(rel_motions, eff_corresp, ref_pair_idx, abs_motions);
 
-        double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
-        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+        double final_rms_error = RefineStereoCameraExtrinsics(P_r_m, abs_motions, features_collection, matches_collection);
+        final_rms_error = RefineStereoCameraExtrinsics(P_r_m, abs_motions, features_collection, matches_collection);
 
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 
@@ -536,7 +539,17 @@ int main(int argc, char **argv) {
         Rodrigues(R_est, rvec_est);
         cout << "rvec_est = " << rvec_est << endl;
 
+        if (!R_gold.empty()) {
+            Mat_<double> rvec_gold;
+            Rodrigues(R_gold, rvec_gold);
+            cout << "rvec_gold = " << rvec_gold << endl;
+        }
+
         cout << "T_est = " << T_est << endl;
+
+        if (!T_gold.empty())
+            cout << "T_gold = " << T_gold / T_gold(0, 0) << endl;        
+
         cout << "K_est = \n" << K_est << endl;
 
         if (!log_file.empty()) {

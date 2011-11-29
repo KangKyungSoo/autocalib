@@ -287,7 +287,7 @@ namespace autocalib {
       */
     double RefineRigidCamera(cv::InputOutputArray K, AbsoluteRotationMats Rs,
                              const FeaturesCollection &features, const MatchesCollection &matches,
-                             int params_to_refine = REFINE_FLAG_ALL);   
+                             int params_to_refine = REFINE_FLAG_ALL);
 
 
     //============================================================================
@@ -351,10 +351,6 @@ namespace autocalib {
 
     /** Refines a stereo camera parameters.
       *
-      * The following notation is used for frames (or cameras) indices: (2*i, 2*i+1) is
-      * the indices pair of two frames in the i'th stereo pair. 2*i is the left frame,
-      * 2*i+1 is the right frame.
-      *
       * \param cam Stereo camera parameters
       * \param motions Absolute motions (R,T) of stereo pairs
       * \param features Frames features
@@ -369,11 +365,21 @@ namespace autocalib {
                               int params_to_refine = REFINE_FLAG_ALL);
 
 
-    /** Refines a stereo camera parameters.
+    /** Refines a stereo camera extrinsic parameters.
       *
-      * The following notation is used for frames (or cameras) indices: (2*i, 2*i+1) is
-      * the indices pair of two frames in the i'th stereo pair. 2*i is the left frame,
-      * 2*i+1 is the right frame.
+      * \param cam Stereo camera parameters
+      * \param motions Absolute motions (R,T) of stereo pairs
+      * \param features Frames features
+      * \param matches Matches between left frames of stereo pairs and between
+                       left and right frames of stereo pairs
+      * \return Epipolar distance error
+      */
+    double RefineStereoCameraExtrinsics(
+            RigidCamera &cam, AbsoluteMotions &motions,
+            const FeaturesCollection &features, const MatchesCollection &matches);
+
+
+    /** Refines a stereo camera parameters.     
       *
       * \param K1 First camera intrinsics
       * \param K2 Second camera intrinsics
