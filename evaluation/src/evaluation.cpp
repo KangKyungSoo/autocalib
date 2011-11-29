@@ -769,7 +769,7 @@ namespace evaluation {
                 glBegin(GL_POINTS);
                 for (size_t i = 0; i < keypoints_->size(); ++i) {
                     const Point2f &pt = (*keypoints_)[i];
-                    glVertex2f(pt.x, pt.y);
+                    glVertex2f(pt.x, image_.rows - pt.y);
                 }
                 glEnd();
             }
@@ -829,7 +829,7 @@ namespace evaluation {
                 int x, y;
                 glfwGetMousePos(&x, &y);
                 ke.keypoints_->push_back(Point2f((float)x / ke.window_size_.width * ke.image_.cols,
-                                                 (1.f - (float)y / ke.window_size_.height) * ke.image_.rows));
+                                                 (float)y / ke.window_size_.height * ke.image_.rows));
             }
         }
     }
@@ -887,7 +887,7 @@ namespace evaluation {
                 glBegin(GL_POINTS);
                 for (size_t i = 0; i < keypoints1_->size(); ++i) {
                     const Point2f &pt = (*keypoints1_)[i];
-                    glVertex2f(pt.x, pt.y);
+                    glVertex2f(pt.x, std::max(image1_.rows, image2_.rows) - pt.y);
                 }
                 glEnd();
             }
@@ -898,7 +898,7 @@ namespace evaluation {
                 glBegin(GL_POINTS);
                 for (size_t i = 0; i < keypoints2_->size(); ++i) {
                     const Point2f &pt = (*keypoints2_)[i];
-                    glVertex2f(image1_.cols + pt.x, pt.y);
+                    glVertex2f(image1_.cols + pt.x, std::max(image1_.rows, image2_.rows) - pt.y);
                 }
                 glEnd();
             }
@@ -909,8 +909,8 @@ namespace evaluation {
                 for (size_t i = 0; i < matches_->size(); ++i) {
                     const Point2f &pt1 = (*keypoints1_)[(*matches_)[i].queryIdx];
                     const Point2f &pt2 = (*keypoints2_)[(*matches_)[i].trainIdx];
-                    glVertex2f(pt1.x, pt1.y);
-                    glVertex2f(image1_.cols + pt2.x, pt2.y);
+                    glVertex2f(pt1.x, std::max(image1_.rows, image2_.rows) - pt1.y);
+                    glVertex2f(image1_.cols + pt2.x, std::max(image1_.rows, image2_.rows) - pt2.y);
                 }
                 glEnd();
             }
@@ -919,10 +919,10 @@ namespace evaluation {
                 glColor3f(1.f, 0.f, 0.f);
                 glBegin(GL_LINES);
                 const Point2f &pt = (*keypoints1_)[prev_keypoint_index_];
-                glVertex2f(pt.x, pt.y);
+                glVertex2f(pt.x, std::max(image1_.rows, image2_.rows) - pt.y);
                 int x, y; glfwGetMousePos(&x, &y);
                 float u, v; ScreenToLocal(x, y, u, v);
-                glVertex2f(u, v);
+                glVertex2f(u, std::max(image1_.rows, image2_.rows) - v);
                 glEnd();
             }
 
@@ -930,10 +930,10 @@ namespace evaluation {
                 glColor3f(1.f, 0.f, 0.f);
                 glBegin(GL_LINES);
                 const Point2f &pt = (*keypoints2_)[prev_keypoint_index_];
-                glVertex2f(pt.x + image1_.cols, pt.y);
+                glVertex2f(pt.x + image1_.cols, std::max(image1_.rows, image2_.rows) - pt.y);
                 int x, y; glfwGetMousePos(&x, &y);
                 float u, v; ScreenToLocal(x, y, u, v);
-                glVertex2f(u, v);
+                glVertex2f(u, std::max(image1_.rows, image2_.rows) - v);
                 glEnd();
             }
 
@@ -982,7 +982,7 @@ namespace evaluation {
 
     void FeaturesMatcher::ScreenToLocal(int x, int y, float &u, float &v) {
         u = (float)x / window_size_.width * (image1_.cols + image2_.cols);
-        v = (1.f - (float)y / window_size_.height) * std::max(image1_.rows, image2_.rows);
+        v = (float)y / window_size_.height * std::max(image1_.rows, image2_.rows);
     }
 
 

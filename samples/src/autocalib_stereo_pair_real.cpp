@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
                 Ptr<vector<Point2f> > keypoints_r = keypoints.find(2 * i + 1)->second;
                 Ptr<vector<DMatch> > matches_lr = new vector<DMatch>();
                 if (load_matches) {
-                    string name = img_names[i].first + "to" + img_names[i].second + ".txt";
+                    string name = img_names[i].first + "_to_" + img_names[i].second + ".txt";
                     ifstream f(name.c_str());
                     if (!f.is_open())
                         throw runtime_error("Can't open " + name);
@@ -194,11 +194,12 @@ int main(int argc, char **argv) {
                     }
                 }
                 else {
+                    the_features_matcher().set_1st_image(left_imgs[i], *keypoints_l);
                     the_features_matcher().set_2nd_image(right_imgs[i], *keypoints_r);
                     the_features_matcher().set_matches_output(matches_lr);
                     the_features_matcher().Run();
                     if (save_matches) {
-                        ofstream f((img_names[i].first + "to" + img_names[i].second + ".txt").c_str());
+                        ofstream f((img_names[i].first + "_to_" + img_names[i].second + ".txt").c_str());
                         for (size_t j = 0; j < matches_lr->size(); ++j) {
                             f << (*matches_lr)[j].queryIdx << " " << (*matches_lr)[j].trainIdx << endl;
                         }
@@ -211,7 +212,7 @@ int main(int argc, char **argv) {
                     the_features_matcher().set_2nd_image(left_imgs[j], *keypoints_r);
                     Ptr<vector<DMatch> > matches_ll = new vector<DMatch>();
                     if (load_matches) {
-                        string name = img_names[i].first + "to" + img_names[j].first + ".txt";
+                        string name = img_names[i].first + "_to_" + img_names[j].first + ".txt";
                         ifstream f(name.c_str());
                         if (!f.is_open())
                             throw runtime_error("Can't open " + name);
@@ -225,9 +226,9 @@ int main(int argc, char **argv) {
                         the_features_matcher().set_matches_output(matches_ll);
                         the_features_matcher().Run();
                         if (save_matches) {
-                            ofstream f((img_names[i].first + "to" + img_names[j].first + ".txt").c_str());
+                            ofstream f((img_names[i].first + "_to_" + img_names[j].first + ".txt").c_str());
                             for (size_t k = 0; k < matches_ll->size(); ++k) {
-                                f << (*matches_lr)[k].queryIdx << " " << (*matches_lr)[k].trainIdx << endl;
+                                f << (*matches_ll)[k].queryIdx << " " << (*matches_ll)[k].trainIdx << endl;
                             }
                         }
                     }
@@ -275,38 +276,38 @@ int main(int argc, char **argv) {
                 cout << "(" << 2 * i << "->" << 2 * i + 1 << ": " << lr_mi.matches.size() << ") ";
                 cout.flush();
 
-                if (show_matches) {
-                    Mat img;
-                    drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
-                                right_imgs[i], features_collection.find(2 * i + 1)->second->keypoints,
-                                lr_mi.matches, img);
-                    Mat img_;
-                    resize(img, img_, Size(), 0.5, 0.5);
-                    imshow("matches", img_);
-                    waitKey();
-                }
-
                 for (int j = i + 1; j < num_frames; ++j) {
                     detail::MatchesInfo ll_mi;
                     (*matcher)(*(features_collection.find(2 * i)->second), *(features_collection.find(2 * j)->second), ll_mi);
                     matches_collection[make_pair(2 * i, 2 * j)] = new vector<DMatch>(ll_mi.matches);
                     cout << "(" << 2 * i << "->" << 2 * j << ": " << ll_mi.matches.size() << ") ";
                     cout.flush();
-
-                    if (show_matches) {
-                        Mat img;
-                        drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
-                                    left_imgs[j], features_collection.find(2 * j)->second->keypoints,
-                                    ll_mi.matches, img);
-                        Mat img_;
-                        resize(img, img_, Size(), 0.5, 0.5);
-                        imshow("matches", img_);
-                        waitKey();
-                    }
                 }
             }
         }
         cout << endl;
+
+        if (show_matches) {
+            for (int i = 0; i < num_frames; ++i) {
+                Mat img;
+                drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
+                            right_imgs[i], features_collection.find(2 * i + 1)->second->keypoints,
+                            *(matches_collection.find(make_pair(2 * i, 2 * i + 1))->second), img);
+                Mat img_;
+                resize(img, img_, Size(), 0.5, 0.5);
+                imshow("matches", img_);
+                waitKey();
+
+                for (int j = i + 1; j < num_frames; ++j) {
+                    drawMatches(left_imgs[i], features_collection.find(2 * i)->second->keypoints, 
+                                left_imgs[j], features_collection.find(2 * j)->second->keypoints,
+                                *(matches_collection.find(make_pair(2 * i, 2 * j))->second), img);
+                    resize(img, img_, Size(), 0.5, 0.5);
+                    imshow("matches", img_);
+                    waitKey();
+                }
+            }
+        }
 
         // Find fundamental matrix and extract camera mat
 
