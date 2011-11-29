@@ -1026,7 +1026,6 @@ namespace evaluation {
                         }
                     }
                     if (keypoint_index != -1) {
-                        //cout << "1st image, keypoint index = " << keypoint_index << endl;
                         if (fm.is_keypoint2_selected_) {
                             fm.matches_->push_back(DMatch(keypoint_index, fm.prev_keypoint_index_, 0));
                             fm.is_keypoint2_selected_ = false;
@@ -1048,7 +1047,6 @@ namespace evaluation {
                         }
                     }
                     if (keypoint_index != -1) {
-                        //cout << "2nd image, keypoint index = " << keypoint_index << endl;
                         if (fm.is_keypoint1_selected_) {
                             fm.matches_->push_back(DMatch(fm.prev_keypoint_index_, keypoint_index, 0));
                             fm.is_keypoint1_selected_ = false;
