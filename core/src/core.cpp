@@ -1234,9 +1234,9 @@ namespace autocalib {
 
     namespace {
 
-        class EpipError_K1_and_K2_StereoCamera {
+        class EpipError_K1_K2_RT {
         public:
-            EpipError_K1_and_K2_StereoCamera(
+            EpipError_K1_K2_RT(
                     const FeaturesCollection &features,
                     const MatchesCollection &matches,
                     const vector<int> &motions_indices,
@@ -1271,7 +1271,7 @@ namespace autocalib {
         };
 
 
-        void EpipError_K1_and_K2_StereoCamera::operator()(const Mat &arg, Mat &err) {
+        void EpipError_K1_K2_RT::operator()(const Mat &arg, Mat &err) {
             Mat_<double> arg_(arg);
 
             err.create(dimension(), 1, CV_64F);
@@ -1386,7 +1386,7 @@ namespace autocalib {
         }
 
 
-        void EpipError_K1_and_K2_StereoCamera::Jacobian(const Mat &arg, Mat &jac) {
+        void EpipError_K1_K2_RT::Jacobian(const Mat &arg, Mat &jac) {
             Mat_<double> arg_(arg.clone());
 
             jac.create(dimension(), arg_.cols, CV_64F);
@@ -1479,7 +1479,7 @@ namespace autocalib {
             arg(0, 16 + 6 * (i - 1) + 5) = T_l(2, 0);
         }
 
-        EpipError_K1_and_K2_StereoCamera func(features, matches, motions_indices, params_to_refine);
+        EpipError_K1_K2_RT func(features, matches, motions_indices, params_to_refine);
         double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K1_(0, 0) = arg(0, 0);
