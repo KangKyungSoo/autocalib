@@ -2757,6 +2757,19 @@ namespace autocalib {
     }
 
 
+    Mat VecFromCrossProductMat(InputArray mat) {
+        CV_Assert(mat.getMat().type() == CV_64F && mat.getMat().size() == Size(3, 3));
+        Mat_<double> mat_ = mat.getMat();
+
+        Mat_<double> vec(3, 1);
+        vec(0, 0) = -mat_(1, 2); 
+        vec(1, 0) = mat_(0, 2);
+        vec(2, 0) = -mat_(0, 1);
+
+        return vec;
+    }
+
+
     Mat CameraCentre(InputArray P) {
         CV_Assert(P.getMat().type() == CV_64F && P.getMat().size() == Size(4, 3));
         SVD svd(P.getMat(), SVD::FULL_UV);
@@ -2781,6 +2794,22 @@ namespace autocalib {
         }
 
         return svd.vt.t() * diag * svd.u.t();
+    }
+
+
+    void DecomposeEssentialMat(InputArray E, InputOutputArray R, InputOutputArray T) {
+        CV_Assert(E.getMat().type() == CV_64F && E.getMat().size() == Size(3, 3));
+        Mat_<double> E_(E.getMat());
+
+        Mat_<double> D = Mat::zeros(3, 3, CV_64F);
+        D(0, 1) = 1; D(1, 0) = -1; D(2, 2) = 1;
+
+        SVD svd(E_, SVD::FULL_UV);
+        Mat_<double> R_ = svd.u * D * svd.vt;
+        Mat_<double> T_ = VecFromCrossProductMat(E_ * R_.t());
+
+        R.getMatRef() = R_;
+        T.getMatRef() = T_;
     }
 
 } // namespace autocalib
