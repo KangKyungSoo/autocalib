@@ -532,19 +532,28 @@ int main(int argc, char **argv) {
         AbsoluteMotions abs_motions;
         CalcAbsoluteMotions(rel_motions, eff_corresp, ref_pair_idx, abs_motions);
 
-        double final_rms_error = 0;//RefineStereoCameraExtrinsics(P_r_m, abs_motions, features_collection, matches_collection);
-        //final_rms_error = RefineStereoCameraExtrinsics(P_r_m, abs_motions, features_collection, matches_collection);
+        double final_rms_error = 0;//RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_ALL);
+        //final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_ALL);
 
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 
         cout << "\nSUMMARY\n";
+
+        Mat R_, T_;
+        Mat E = P_r_m.K().t() * F * P_r_m.K();
+        DecomposeEssentialMat(E, R_, T_);
+        Mat tmp;
+        Rodrigues(R_, tmp);
+        cout << tmp << endl;
+        cout << E << endl;
+        cout << CrossProductMat(T_) * R_ << endl;
+        cout << CrossProductMat(-T_) * R_.t() << endl;
 
         K_est = P_r_m.K();
         R_est = P_r_m.R().t();
         T_est = -P_r_m.R().t() * P_r_m.T();
         T_est /= T_est(0, 0);
 
-        Mat tmp;
         Rodrigues(P_r_m.R(), tmp);
         cout << tmp << " " << T_est << endl;
 

@@ -829,6 +829,14 @@ namespace autocalib {
     cv::Mat CrossProductMat(cv::InputArray vec);
 
 
+    /** Construct the source vector by cross product matrix.
+      *
+      * \param mat Cross product matrix
+      * \return Vector which cross product matrix equals to the given one
+      */
+    cv::Mat VecFromCrossProductMat(cv::InputArray mat);
+
+
     /** Finds the camera centre.
       *
       * \param P Camera matrix
@@ -843,6 +851,18 @@ namespace autocalib {
       * \return Pseudo-inverse
       */
     cv::Mat PseudoInverse(cv::InputArray mat);
+
+
+    /** Decomposes the essential matrix into rotation and translation.
+      * 
+      * See STEREO RIG GEOMETRY DETERMINATION BY FUNDAMENTAL MATRIX DECOMPOSITION   
+      *     Carles Matabosch, Joaquim Salvi and Josep Forest, 2003.
+      *
+      * \param E Essential matrix
+      * \param R First rotation matrix
+      * \param T First translation vector
+      */
+    void DecomposeEssentialMat(cv::InputArray E, cv::OutputArray R, cv::OutputArray T);
 
 } // namespace autocalib
 
