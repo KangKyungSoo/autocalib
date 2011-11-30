@@ -490,9 +490,14 @@ int main(int argc, char **argv) {
             Mat H01_m = Ham.inv() * H01_a * Ham;
             H01_m /= H01_m.at<double>(3, 3);
 
+            cout << H01_m << endl;
             Mat R01 = H01_m(Rect(0, 0, 3, 3));
             Mat T01 = H01_m(Rect(3, 0, 1, 3));
             rel_motions[iter->first] = Motion(R01, T01);           
+
+            Mat rvec01;
+            Rodrigues(R01, rvec01);
+            cout << "rvec01 = " << rvec01 << ", T01 = " << T01 << endl;
 
             RigidCamera rigid_cam = RigidCamera::FromProjectiveMat(Ps_r_a[iter->first] * Ham);
 
@@ -502,6 +507,10 @@ int main(int argc, char **argv) {
 
             total_T += rigid_cam.T();
             total_estimations++;
+
+            Mat tmp;
+            Rodrigues(rigid_cam.R(), tmp);
+            cout << tmp << " " << rigid_cam.T() << endl;
         }
 
         Mat avg_R;
@@ -523,8 +532,8 @@ int main(int argc, char **argv) {
         AbsoluteMotions abs_motions;
         CalcAbsoluteMotions(rel_motions, eff_corresp, ref_pair_idx, abs_motions);
 
-        double final_rms_error = RefineStereoCameraExtrinsics(P_r_m, abs_motions, features_collection, matches_collection);
-        final_rms_error = RefineStereoCameraExtrinsics(P_r_m, abs_motions, features_collection, matches_collection);
+        double final_rms_error = 0;//RefineStereoCameraExtrinsics(P_r_m, abs_motions, features_collection, matches_collection);
+        //final_rms_error = RefineStereoCameraExtrinsics(P_r_m, abs_motions, features_collection, matches_collection);
 
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 
@@ -534,6 +543,10 @@ int main(int argc, char **argv) {
         R_est = P_r_m.R().t();
         T_est = -P_r_m.R().t() * P_r_m.T();
         T_est /= T_est(0, 0);
+
+        Mat tmp;
+        Rodrigues(P_r_m.R(), tmp);
+        cout << tmp << " " << T_est << endl;
 
         Mat_<double> rvec_est;
         Rodrigues(R_est, rvec_est);
