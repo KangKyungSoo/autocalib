@@ -2,6 +2,7 @@
 #define PRECOMP_H_
 
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <cmath>
 #include <complex>

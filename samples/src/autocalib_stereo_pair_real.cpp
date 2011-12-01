@@ -33,7 +33,7 @@ int min_num_matches = 6;
 FeaturesCollection features_collection;
 MatchesCollection matches_collection;
 Mat_<double> K_init;
-double F_est_thresh = 3;
+double F_est_thresh = 5;
 double F_est_conf = 0.99;
 int H_est_num_iters = 100;
 int H_est_subset_size = 10;
@@ -48,6 +48,11 @@ Mat_<double> F_gold;
 
 int main(int argc, char **argv) {
     try {        
+        FeaturesFinderCreator* ffc = static_cast<FeaturesFinderCreator*>(features_finder_creator);
+        dynamic_cast<SurfFeaturesFinderCreator*>(ffc)->hess_thresh = 50.;
+
+        matcher_creator.match_conf = 0.1f;
+
         ParseArgs(argc, argv);
 
         if (!intrinsics_file.empty()) {
@@ -360,6 +365,19 @@ int main(int argc, char **argv) {
                                                         *(features_collection.find(to)->second),
                                                         *matches, F_, F_est_thresh, mask);
 
+            //Mat img;
+            //vector<Point2f> keypoints;
+            //KeyPoint::convert(features_collection.find(from)->second->keypoints, keypoints);
+            //if (IsLeftRightPair(from, to)) {
+            //    img = right_imgs[to / 2].clone();
+            //}
+            //else {
+            //    img = left_imgs[to / 2].clone();
+            //}
+            //DrawEpilines(Mat(keypoints), F_, img);
+            //imshow("epilines", img);
+            //waitKey();
+
             // See "Automatic Panoramic Image Stitching using Invariant Features"
             // by Matthew Brown and David G. Lowe, IJCV 2007 for the explanation
             double conf = num_inliers / (8 + 0.3 * matches->size()) - 1;
@@ -490,14 +508,12 @@ int main(int argc, char **argv) {
             Mat H01_m = Ham.inv() * H01_a * Ham;
             H01_m /= H01_m.at<double>(3, 3);
 
-            cout << H01_m << endl;
             Mat R01 = H01_m(Rect(0, 0, 3, 3));
             Mat T01 = H01_m(Rect(3, 0, 1, 3));
             rel_motions[iter->first] = Motion(R01, T01);           
 
             Mat rvec01;
             Rodrigues(R01, rvec01);
-            cout << "rvec01 = " << rvec01 << ", T01 = " << T01 << endl;
 
             RigidCamera rigid_cam = RigidCamera::FromProjectiveMat(Ps_r_a[iter->first] * Ham);
 
@@ -507,10 +523,6 @@ int main(int argc, char **argv) {
 
             total_T += rigid_cam.T();
             total_estimations++;
-
-            Mat tmp;
-            Rodrigues(rigid_cam.R(), tmp);
-            cout << tmp << " " << rigid_cam.T() << endl;
         }
 
         Mat avg_R;
@@ -532,8 +544,8 @@ int main(int argc, char **argv) {
         AbsoluteMotions abs_motions;
         CalcAbsoluteMotions(rel_motions, eff_corresp, ref_pair_idx, abs_motions);
 
-        double final_rms_error = 0;//RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_ALL);
-        //final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_ALL);
+        double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_ALL);
+        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_ALL);
 
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 
@@ -545,6 +557,7 @@ int main(int argc, char **argv) {
         Mat tmp;
         Rodrigues(R_, tmp);
         cout << tmp << endl;
+        cout << T_ / T_.at<double>(0, 0) << endl;
         cout << E << endl;
         cout << CrossProductMat(T_) * R_ << endl;
         cout << CrossProductMat(-T_) * R_.t() << endl;
