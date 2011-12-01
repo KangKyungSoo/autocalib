@@ -297,6 +297,44 @@ TEST(FindHomographyP3Linear, NoiselessSynthDataset) {
 }
 
 
+TEST(FindHomographyP3Linear, CanFindEuclideanMap) {
+    int num_points = 1000;
+
+    Mat_<double> xyzw1(1, num_points * 4);
+    Mat_<double> xyzw2(1, num_points * 4);
+
+    RNG rng(0);
+    rng.fill(xyzw1, RNG::UNIFORM, -1, 1);
+
+    Mat_<double> rvec(3, 1);
+    rvec(0, 0) = 0.1; rvec(1, 0) = 0.1; rvec(2, 0) = 0.1;
+    Mat_<double> tvec(3, 1);
+    tvec(0, 0) = 0; tvec(1, 0) = 0; tvec(2, 0) = 10;
+    Mat_<double> H = Mat::eye(4, 4, CV_64F);
+    Mat tmp;
+    tmp = H(Rect(0, 0, 3, 3));
+    Mat R;
+    Rodrigues(rvec, R);
+    R.copyTo(tmp);
+    tmp = H(Rect(3, 0, 1, 3));
+    tvec.copyTo(tmp);
+ 
+    for (int i = 0; i < num_points; ++i) {
+        xyzw2(0, 4 * i) = H(0, 0) * xyzw1(0, 4 * i) + H(0, 1) * xyzw1(0, 4 * i + 1) + H(0, 2) * xyzw1(0, 4 * i + 2) + H(0, 3) * xyzw1(0, 4 * i + 3);
+        xyzw2(0, 4 * i + 1) = H(1, 0) * xyzw1(0, 4 * i) + H(1, 1) * xyzw1(0, 4 * i + 1) + H(1, 2) * xyzw1(0, 4 * i + 2) + H(1, 3) * xyzw1(0, 4 * i + 3);
+        xyzw2(0, 4 * i + 2) = H(2, 0) * xyzw1(0, 4 * i) + H(2, 1) * xyzw1(0, 4 * i + 1) + H(2, 2) * xyzw1(0, 4 * i + 2) + H(2, 3) * xyzw1(0, 4 * i + 3);
+        xyzw2(0, 4 * i + 3) = H(3, 0) * xyzw1(0, 4 * i) + H(3, 1) * xyzw1(0, 4 * i + 1) + H(3, 2) * xyzw1(0, 4 * i + 2) + H(3, 3) * xyzw1(0, 4 * i + 3);
+    }
+
+    Mat_<double> H_found = FindHomographyP3Linear(xyzw1, xyzw2);
+    cout << H_found << endl;
+
+    H_found /= H_found(3, 3);
+
+    ASSERT_LT(norm(H, H_found, NORM_INF), 1e-6);
+}
+
+
 TEST(EigenDecompose, CanDecomposeRotationMat) {
     Mat_<double> mat(2, 2);
     mat(0, 0) = 0; mat(0, 1) = -1;
@@ -316,8 +354,12 @@ TEST(EigenDecompose, CanDecomposeRotationMat) {
 
 TEST(CalcPlaneAtInfinity, CanCalcFromEuclideanTransformation) {
     Mat_<double> H = Mat::eye(4, 4, CV_64F);
-    H(0, 0) = 1 / sqrt(2.); H(0, 1) = -1 / sqrt(2.);
-    H(1, 0) = 1 / sqrt(2.); H(1, 1) = 1 / sqrt(2.);
+    Mat_<double> rvec(3, 1);
+    rvec(0, 0) = 0.1; rvec(1, 0) = 0.1; rvec(2, 0) = 0.1;
+    Mat R;
+    Rodrigues(rvec, R);
+    Mat tmp = H(Rect(0, 0, 3, 3));
+    R.copyTo(tmp);
     H(2, 3) = 1;
 
     Mat_<double> pinf = CalcPlaneAtInfinity(H);
