@@ -71,6 +71,49 @@ TEST(CameraMatFromFundamentalMat, CanRun) {
 }
 
 
+//TEST(TriangulationMetricReal, CanTriangulate) {
+//    Mat_<double> xy1, xy2;
+//    FileStorage fs("keypoints.yml", FileStorage::READ);
+//    ASSERT_TRUE(fs.isOpened());
+//    fs["xy1"] >> xy1; fs["xy2"] >> xy2;
+//    fs.release();
+//
+//    fs.open("intrinsics.yml", FileStorage::READ);
+//    ASSERT_TRUE(fs.isOpened());
+//    Mat_<double> K1, K2;
+//    fs["M1"] >> K1; fs["M2"] >> K2;
+//    fs.release();
+//
+//    fs.open("extrinsics.yml", FileStorage::READ);
+//    ASSERT_TRUE(fs.isOpened());
+//    Mat_<double> R, T;
+//    fs["R"] >> R; fs["T"] >> T;
+//    fs.release();
+//
+//    Mat tmp;
+//
+//    Mat_<double> P1 = Mat::zeros(3, 4, CV_64F);
+//    tmp = P1(Rect(0, 0, 3, 3));
+//    K1.copyTo(tmp);
+//
+//    Mat_<double> P2 = Mat::zeros(3, 4, CV_64F);
+//    tmp = P2(Rect(0, 0, 3, 3));
+//    Mat(K2 * R).copyTo(tmp);
+//    tmp = P2(Rect(3, 0, 1, 3));
+//    Mat(K2 * T).copyTo(tmp);
+//
+//    Mat_<double> xyzw;
+//    DltTriangulation dlt;
+//    dlt.triangulate(ProjectiveCamera(P1), ProjectiveCamera(P2), xy1, xy2, xyzw);
+//
+//    for (int i = 0; i < xyzw.cols / 4; ++i) {
+//        cout << xyzw(0, 4 * i) / xyzw(0, 4 * i + 3) << " "
+//             << xyzw(0, 4 * i + 1) / xyzw(0, 4 * i + 3) << " "
+//             << xyzw(0, 4 * i + 2) / xyzw(0, 4 * i + 3) << endl;
+//    }
+//}
+
+
 class TriangulationMetric : public testing::TestWithParam<tr1::tuple<Ptr<ITringulationMethodCreator>,
                                                                      Ptr<IPointCloudSceneCreator> > > { };
 

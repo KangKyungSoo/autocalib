@@ -853,16 +853,26 @@ namespace autocalib {
     cv::Mat PseudoInverse(cv::InputArray mat);
 
 
-    /** Decomposes the essential matrix into rotation and translation.
+    /** Decomposes the essential matrix into rotation and translation. 
+      * The solution isn't unique, see the paper for details.
       * 
       * See STEREO RIG GEOMETRY DETERMINATION BY FUNDAMENTAL MATRIX DECOMPOSITION   
       *     Carles Matabosch, Joaquim Salvi and Josep Forest, 2003.
       *
       * \param E Essential matrix
-      * \param R First rotation matrix
-      * \param T First translation vector
+      * \param R Rotation matrix
+      * \param T Translation vector
       */
     void DecomposeEssentialMat(cv::InputArray E, cv::OutputArray R, cv::OutputArray T);
+
+
+    /** Draws epilines.
+      *
+      * \param points Frist image points
+      * \param F Fundamental matrix
+      * \param image2 Second image
+      */
+    void DrawEpilines(cv::InputArray points, cv::InputArray F, cv::InputOutputArray image2);
 
 } // namespace autocalib
 

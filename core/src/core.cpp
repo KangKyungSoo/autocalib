@@ -1596,10 +1596,11 @@ namespace autocalib {
         Mat epipole;
         SVD::solveZ(F_.t(), epipole);
 
-        Mat P(3, 4, CV_64F);
+        Mat_<double> P(3, 4);
+
         Mat P3x3(P(Rect(0, 0, 3, 3)));
         Mat(CrossProductMat(epipole) * F_).copyTo(P3x3);
-        P3x3 /= norm(P3x3);
+        P3x3 /= norm(P3x3);        
         double max_det = abs(determinant(P3x3));
 
         Mat v(1, 3, CV_64F);
@@ -1964,12 +1965,6 @@ namespace autocalib {
         int num_inliers_max = numeric_limits<int>::min();
         double total_err_min = numeric_limits<double>::max();
 
-//        for (int i = 0; i < num_points; ++i) {
-//            cout << xyzw1_(0, 4 * i) << " " << xyzw1_(0, 4 * i + 1) << " " << xyzw1_(0, 4 * i + 2) << " " << xyzw1_(0, 4 * i + 3) << " " << endl;
-//            cout << xyzw2_(0, 4 * i) << " " << xyzw2_(0, 4 * i + 1) << " " << xyzw2_(0, 4 * i + 2) << " " << xyzw2_(0, 4 * i + 3) << " " << endl;
-//            cin.get();
-//        }
-
         for (int iter = 0; iter < num_iters; ++iter) {
 
             vector<int> subset;
@@ -2232,25 +2227,25 @@ namespace autocalib {
         // Process H
 
         Mat_<double> evals1, evecs1;
-        EigenDecompose(H_.t(), evals1, evecs1);        
+        EigenDecompose(H_.t(), evals1, evecs1);
 
         for (int i = 0; i < 4; ++i)
             for (int j = 0; j < 4; ++j)
                 evecs1.at<complex<double> >(i, j) /= evecs1.at<complex<double> >(i, 3);
 
         int best_evec1 = 0;
-        double minmax_imag1 = numeric_limits<double>::max();
+        double dist1 = numeric_limits<double>::max();
 
-        for (int i = 1; i < 4; ++i) {
-            double max_imag = max(abs(evecs1(i, 1)), abs(evecs1(i, 3)),
-                                  abs(evecs1(i, 5)), abs(evecs1(i, 7)));
-            if (max_imag < minmax_imag1) {
+        for (int i = 0; i < 4; ++i) {
+            double dist = sqr(evals1(0, 2 * i) - 1) + sqr(evals1(0, 2 * i + 1));
+            if (dist < dist1) {
                 best_evec1 = i;
-                minmax_imag1 = max_imag;
+                dist1 = dist;
             }
         }
 
         cout << evecs1 << endl;
+        cout << evals1 << endl;
 
         // Process -H
 
@@ -2262,14 +2257,13 @@ namespace autocalib {
                 evecs2.at<complex<double> >(i, j) /= evecs2.at<complex<double> >(i, 3);
 
         int best_evec2 = 0;
-        double minmax_imag2 = numeric_limits<double>::max();
+        double dist2 = numeric_limits<double>::max();
 
-        for (int i = 1; i < 4; ++i) {
-            double max_imag = max(abs(evecs2(i, 1)), abs(evecs2(i, 3)),
-                                  abs(evecs2(i, 5)), abs(evecs2(i, 7)));
-            if (max_imag < minmax_imag2) {
+        for (int i = 0; i < 4; ++i) {
+            double dist = sqr(evals2(0, 2 * i) - 1) + sqr(evals2(0, 2 * i + 1));
+            if (dist < dist2) {
                 best_evec2 = i;
-                minmax_imag2 = max_imag;
+                dist2 = dist;
             }
         }
 
@@ -2277,7 +2271,7 @@ namespace autocalib {
 
         vector<complex<double> > pinf(4);
 
-        if (minmax_imag1 < minmax_imag2) {
+        if (dist1 < dist2) {
             pinf[0] = evecs1.at<complex<double> >(best_evec1, 0);
             pinf[1] = evecs1.at<complex<double> >(best_evec1, 1);
             pinf[2] = evecs1.at<complex<double> >(best_evec1, 2);
@@ -2360,8 +2354,7 @@ namespace autocalib {
         AUTOCALIB_LOG(
             cout << "F_est = \n" << F 
                  << "\n#matches = " << num_matches
-                 << ", #inliers = " << num_inliers
-                 << ", RMS err = " << CalcRmsEpipolarDistance(xy1, xy2, F) << endl);
+                 << ", #inliers = " << num_inliers << endl);
 
         return F;
     }
@@ -2810,6 +2803,18 @@ namespace autocalib {
 
         R.getMatRef() = R_;
         T.getMatRef() = T_;
+    }
+
+
+    void DrawEpilines(InputArray points, InputArray F, InputOutputArray image2) {
+        Mat& I2(image2.getMatRef());
+        vector<Vec3f> lines;
+        computeCorrespondEpilines(points, 1, F, lines);
+        for (size_t i = 0; i < lines.size(); ++i) {
+            line(I2, Point(0, -lines[i][2] / lines[i][1]), 
+                 Point(I2.cols, -(lines[i][2] + lines[i][0] * I2.cols) / lines[i][1]), 
+                 Scalar::all(255)); 
+        }
     }
 
 } // namespace autocalib
