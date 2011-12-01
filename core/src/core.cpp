@@ -2611,7 +2611,7 @@ namespace autocalib {
             }
 
             if (max_distance < radius) {
-                radius = max_distance;
+                radius = max_distance; 
                 center = *iter;
             }
         }
