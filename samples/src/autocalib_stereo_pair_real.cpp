@@ -36,7 +36,7 @@ Mat_<double> K_init;
 double F_est_thresh = 5;
 double F_est_conf = 0.99;
 int H_est_num_iters = 100;
-int H_est_subset_size = 10;
+int H_est_subset_size = 5;
 double H_est_thresh = 3.;
 double conf_thresh = -1;
 string log_file;
@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
         FeaturesFinderCreator* ffc = static_cast<FeaturesFinderCreator*>(features_finder_creator);
         dynamic_cast<SurfFeaturesFinderCreator*>(ffc)->hess_thresh = 50.;
 
-        matcher_creator.match_conf = 0.1f;
+        matcher_creator.match_conf = 0.2f;
 
         ParseArgs(argc, argv);
 
@@ -352,7 +352,7 @@ int main(int argc, char **argv) {
                 ExtractMatchedKeypoints(*(features_collection.find(from)->second),
                                         *(features_collection.find(to)->second),
                                         *matches, xy1, xy2);
-                F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), FM_RANSAC, F_est_thresh);
+                F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), FM_LMEDS, F_est_thresh);
             }
             else {
                 stringstream msg;
@@ -558,17 +558,11 @@ int main(int argc, char **argv) {
         Rodrigues(R_, tmp);
         cout << tmp << endl;
         cout << T_ / T_.at<double>(0, 0) << endl;
-        cout << E << endl;
-        cout << CrossProductMat(T_) * R_ << endl;
-        cout << CrossProductMat(-T_) * R_.t() << endl;
 
         K_est = P_r_m.K();
         R_est = P_r_m.R().t();
         T_est = -P_r_m.R().t() * P_r_m.T();
         T_est /= T_est(0, 0);
-
-        Rodrigues(P_r_m.R(), tmp);
-        cout << tmp << " " << T_est << endl;
 
         Mat_<double> rvec_est;
         Rodrigues(R_est, rvec_est);
