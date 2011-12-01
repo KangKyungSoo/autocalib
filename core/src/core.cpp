@@ -2334,7 +2334,7 @@ namespace autocalib {
 
             // Find fundamental matrix for debug purposes            
             AUTOCALIB_LOG(
-                Mat F = findFundamentalMat(Mat(xy1_).reshape(2), Mat(xy2_).reshape(2), FM_RANSAC, thresh, conf);
+                Mat F = findFundamentalMat(Mat(xy1_).reshape(2), Mat(xy2_).reshape(2), FM_LMEDS, thresh, conf);
                 cout << "F from " << from << " to " << to << " =\n" << F << endl);
 
             offset += (int)iter->second->size();
@@ -2342,7 +2342,7 @@ namespace autocalib {
 
         vector<uchar> F_mask;
 
-        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_RANSAC, thresh, conf);
+        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh, conf);
         //Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh);
 
         int num_inliers = 0;

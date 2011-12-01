@@ -324,7 +324,7 @@ int main(int argc, char **argv) {
                 ExtractMatchedKeypoints(*(features_collection.find(from)->second),
                                         *(features_collection.find(to)->second),
                                         *matches, xy1, xy2);
-                F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), FM_RANSAC, F_est_thresh);
+                F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), FM_LMEDS, F_est_thresh);
             }
             else {
                 stringstream msg;
