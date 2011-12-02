@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/video/video.hpp>
 #include <core/include/core.h>
 #include <evaluation/include/evaluation.h>
 
@@ -29,6 +30,7 @@ bool save_matches, load_matches;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
 BestOf2NearestMatcherCreator matcher_creator;
 bool show_matches;
+bool opt_flow_matching;
 int min_num_matches = 6;
 FeaturesCollection features_collection;
 MatchesCollection matches_collection;
@@ -258,15 +260,17 @@ int main(int argc, char **argv) {
                 cout << "#features = " << features_collection.find(2 * i)->second->keypoints.size()
                      << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
 
-                t = getTickCount();
-                cout << "Finding features in " << img_names[i].second << "... ";
+                if (!opt_flow_matching) {
+                    t = getTickCount();
+                    cout << "Finding features in " << img_names[i].second << "... ";
 
-                Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
-                (*features_finder)(right_imgs[i], *right_features);
-                features_collection[2 * i + 1] = right_features;
+                    Ptr<detail::ImageFeatures> right_features = new detail::ImageFeatures();
+                    (*features_finder)(right_imgs[i], *right_features);
+                    features_collection[2 * i + 1] = right_features;
 
-                cout << "#features = " << features_collection.find(2 * i + 1)->second->keypoints.size()
-                     << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
+                    cout << "#features = " << features_collection.find(2 * i + 1)->second->keypoints.size()
+                         << ", time = " << (getTickCount() - t) / getTickFrequency() << " sec\n";
+                }
             }
 
             // Match everything
@@ -275,11 +279,41 @@ int main(int argc, char **argv) {
             Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
 
             for (int i = 0; i < num_frames; ++i) {
-                detail::MatchesInfo lr_mi;
-                (*matcher)(*(features_collection.find(2 * i)->second), *(features_collection.find(2 * i + 1)->second), lr_mi);
-                matches_collection[make_pair(2 * i, 2 * i + 1)] = new vector<DMatch>(lr_mi.matches);
-                cout << "(" << 2 * i << "->" << 2 * i + 1 << ": " << lr_mi.matches.size() << ") ";
-                cout.flush();
+                if (!opt_flow_matching) {
+                    detail::MatchesInfo lr_mi;
+                    (*matcher)(*(features_collection.find(2 * i)->second), *(features_collection.find(2 * i + 1)->second), lr_mi);
+                    matches_collection[make_pair(2 * i, 2 * i + 1)] = new vector<DMatch>(lr_mi.matches);
+                    cout << "(" << 2 * i << "->" << 2 * i + 1 << ": " << lr_mi.matches.size() << ") ";
+                    cout.flush();
+                }
+                else {
+                    const detail::ImageFeatures &features_left = *(features_collection.find(2 * i)->second);
+                    vector<Point2f> xy_left;
+                    KeyPoint::convert(features_left.keypoints, xy_left);
+
+                    Mat_<float> xy_right, err_vec;
+                    vector<uchar> matched;
+                    calcOpticalFlowPyrLK(left_imgs[i], right_imgs[i], xy_left, xy_right, matched, err_vec, Size(3, 3), 3);
+
+                    cout << xy_left.size() << " " << xy_right.cols << endl;
+                    cin.get();
+
+                    Ptr<detail::ImageFeatures> features_right = new detail::ImageFeatures();
+                    Ptr<vector<DMatch> > matches = new vector<DMatch>();
+
+                    for (size_t j = 0; j < matched.size(); ++j) {
+                        if (matched[j] && err_vec(0, j) < 5) {
+                            matches->push_back(DMatch(j, features_right->keypoints.size(), 0.f));
+                            features_right->keypoints.push_back(KeyPoint(xy_right(0, 2 * j), xy_right(0, 2 * j + 1), 0.f));
+                        }
+                    }
+
+                    features_collection[2 * i + 1] = features_right;
+                    matches_collection[make_pair(2 * i, 2 * i + 1)] = matches;
+
+                    cout << "(" << 2 * i << "->" << 2 * i + 1 << ": " << matches->size() << ") ";
+                    cout.flush();
+                }
 
                 for (int j = i + 1; j < num_frames; ++j) {
                     detail::MatchesInfo ll_mi;
@@ -288,7 +322,7 @@ int main(int argc, char **argv) {
                     cout << "(" << 2 * i << "->" << 2 * j << ": " << ll_mi.matches.size() << ") ";
                     cout.flush();
                 }
-            }
+            }            
         }
         cout << endl;
 
@@ -664,6 +698,8 @@ void ParseArgs(int argc, char **argv) {
                 matcher_creator.matcher = new BruteForceMatcher<Hamming>();
             else if (string(argv[i + 1]) == "bfm_hamming_lut")
                 matcher_creator.matcher = new BruteForceMatcher<HammingLUT>();
+            else if (string(argv[i + 1]) == "opt_flow")
+                opt_flow_matching = true;
             else
                 throw runtime_error(string("Unknown matcher type: ") + argv[i + 1]);
             i++;

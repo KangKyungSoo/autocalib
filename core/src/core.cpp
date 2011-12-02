@@ -473,13 +473,13 @@ namespace autocalib {
 
         // TODO refactor this
 
-        double rms_error_prev = numeric_limits<double>::max();
-        double rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
+//        double rms_error_prev = numeric_limits<double>::max();
+//        double rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
 
-        while (rms_error < rms_error_prev - 1e-2) {
-            rms_error_prev = rms_error;
-            rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
-        }
+//        while (rms_error < rms_error_prev - 1e-2) {
+//            rms_error_prev = rms_error;
+//            rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
+//        }
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -498,6 +498,8 @@ namespace autocalib {
 
         AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
 
+        Mat tmp = H01_.t();
+        CalcPlaneAtInfinity(tmp);
         Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
         AUTOCALIB_LOG(cout << "Plane-at-infinity = " << p_inf << endl);
 
