@@ -327,8 +327,6 @@ TEST(FindHomographyP3Linear, CanFindEuclideanMap) {
     }
 
     Mat_<double> H_found = FindHomographyP3Linear(xyzw1, xyzw2);
-    cout << H_found << endl;
-
     H_found /= H_found(3, 3);
 
     ASSERT_LT(norm(H, H_found, NORM_INF), 1e-6);
