@@ -456,7 +456,7 @@ namespace autocalib {
         }
 
         int num_features;
-    };
+    };        
 
 
     class BestOf2NearestMatcher : public cv::detail::FeaturesMatcher {
