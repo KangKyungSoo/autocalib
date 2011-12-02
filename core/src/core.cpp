@@ -2229,10 +2229,6 @@ namespace autocalib {
         Mat_<double> evals1, evecs1;
         EigenDecompose(H_.t(), evals1, evecs1);
 
-        for (int i = 0; i < 4; ++i)
-            for (int j = 0; j < 4; ++j)
-                evecs1.at<complex<double> >(i, j) /= evecs1.at<complex<double> >(i, 3);
-
         int best_evec1 = 0;
         double dist1 = numeric_limits<double>::max();
 
@@ -2251,10 +2247,6 @@ namespace autocalib {
 
         Mat_<double> evals2, evecs2;
         EigenDecompose(-H_.t(), evals2, evecs2);
-
-        for (int i = 0; i < 4; ++i)
-            for (int j = 0; j < 4; ++j)
-                evecs2.at<complex<double> >(i, j) /= evecs2.at<complex<double> >(i, 3);
 
         int best_evec2 = 0;
         double dist2 = numeric_limits<double>::max();
