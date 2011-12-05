@@ -8,16 +8,20 @@ using namespace std;
 using namespace cv;
 
 void ConvertRgbToBgr(const Mat &src, Mat &dst);
+void ParseCmdArgs(int argc, char **argv);
+
+int cam_id = 0;
+Mat_<double> K_left, K_right;
+Mat_<double> dist_left, dist_right;
+bool do_undist = false;
 
 int main(int argc, char **argv) {
-    if (argc < 2) {
-        cout << "Usage: autocalib_takeshots <camera_id>\n";
-        return 1;
-    }
     try {
-        int camera_id = atoi(argv[1]);
-        VideoCapture vc(camera_id);
+        ParseCmdArgs(argc, argv);
+
+        VideoCapture vc(cam_id);
         Mat left, right;
+        Mat left_undist, right_undist;
         bool ok = vc.grab();
         int shot_idx = 0;
 
@@ -26,6 +30,14 @@ int main(int argc, char **argv) {
             vc.retrieve(right, 1);
             ConvertRgbToBgr(left, left);
             ConvertRgbToBgr(right, right);
+
+            if (do_undist) {
+                undistort(left, left_undist, K_left, dist_left);
+                undistort(right, right_undist, K_right, dist_right);
+                left = left_undist;
+                right = right_undist;
+            }
+
             imshow("left", left);
             imshow("right", right);
 
@@ -40,6 +52,10 @@ int main(int argc, char **argv) {
                 imwrite(ss.str(), right);
                 cout << "took shot " << ss.str() << endl;
                 shot_idx++;
+            }
+            else if (key == 'd' || key == 'D') {
+                do_undist = !do_undist;
+                cout << "do undistort = " << do_undist << endl;
             }
             else if (key == 27) {
                 break;
@@ -63,4 +79,50 @@ void ConvertRgbToBgr(const Mat &src, Mat &dst) {
     planes_reordered[1] = planes[1];
     planes_reordered[2] = planes[0];
     merge(planes_reordered, dst);
+}
+
+
+void ParseCmdArgs(int argc, char **argv) {
+    for (int i = 1; i < argc; ++i) {
+        if (string(argv[i]) == "--cam-id")
+            cam_id = atoi(argv[++i]);
+        else if (string(argv[i]) == "--K-left") {
+            K_left = Mat::eye(3, 3, CV_64F);
+            K_left(0, 0) = atof(argv[i + 1]);
+            K_left(0, 1) = atof(argv[i + 2]);
+            K_left(0, 2) = atof(argv[i + 3]);
+            K_left(1, 1) = atof(argv[i + 4]);
+            K_left(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--K-right") {
+            K_right = Mat::eye(3, 3, CV_64F);
+            K_right(0, 0) = atof(argv[i + 1]);
+            K_right(0, 1) = atof(argv[i + 2]);
+            K_right(0, 2) = atof(argv[i + 3]);
+            K_right(1, 1) = atof(argv[i + 4]);
+            K_right(1, 2) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--dist-left") {
+            dist_left = Mat::zeros(1, 5, CV_64F);
+            dist_left(0, 0) = atof(argv[i + 1]);
+            dist_left(0, 1) = atof(argv[i + 2]);
+            dist_left(0, 2) = atof(argv[i + 3]);
+            dist_left(0, 3) = atof(argv[i + 4]);
+            dist_left(0, 4) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else if (string(argv[i]) == "--dist-right") {
+            dist_right = Mat::zeros(1, 5, CV_64F);
+            dist_right(0, 0) = atof(argv[i + 1]);
+            dist_right(0, 1) = atof(argv[i + 2]);
+            dist_right(0, 2) = atof(argv[i + 3]);
+            dist_right(0, 3) = atof(argv[i + 4]);
+            dist_right(0, 4) = atof(argv[i + 5]);
+            i += 5;
+        }
+        else
+            throw runtime_error("Can't parse the following flag: " + string(argv[i]));
+    }
 }
