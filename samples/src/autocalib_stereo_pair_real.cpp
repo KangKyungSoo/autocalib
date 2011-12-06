@@ -21,7 +21,6 @@ void AddNoise();
 
 vector<pair<string, string> > img_names;
 vector<Mat> left_imgs, right_imgs;
-bool do_median_blur = true;
 int blur_ksize = 3;
 int num_frames = 0; // Use all source frames
 bool manual_registr;
@@ -98,7 +97,7 @@ int main(int argc, char **argv) {
             right_imgs.push_back(right_img);
         }
 
-        if (do_median_blur) {
+        if (blur_ksize > 0) {
             for (int i = 0; i < num_frames; ++i) {
                 medianBlur(left_imgs[i], left_imgs[i], blur_ksize);
                 medianBlur(right_imgs[i], right_imgs[i], blur_ksize);
@@ -578,8 +577,8 @@ int main(int argc, char **argv) {
         AbsoluteMotions abs_motions;
         CalcAbsoluteMotions(rel_motions, eff_corresp, ref_pair_idx, abs_motions);
 
-        double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_ALL);
-        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_ALL);
+        double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
 
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 
@@ -636,8 +635,6 @@ void ParseArgs(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
         if (string(argv[i]) == "--num-frames")
             num_frames = atoi(argv[i]);
-        else if (string(argv[i]) == "--med-blur")
-            do_median_blur = static_cast<bool>(atoi(argv[++i]));
         else if (string(argv[i]) == "--blur-ksize")
             blur_ksize = atoi(argv[++i]);
         else if (string(argv[i]) == "--manual-registr") 

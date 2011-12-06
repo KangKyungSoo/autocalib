@@ -498,8 +498,6 @@ namespace autocalib {
 
         AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
 
-        Mat tmp = H01_.t();
-        CalcPlaneAtInfinity(tmp);
         Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
         AUTOCALIB_LOG(cout << "Plane-at-infinity = " << p_inf << endl);
 
