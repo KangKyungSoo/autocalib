@@ -467,19 +467,7 @@ namespace autocalib {
         int num_points_common = xyzw0_.cols / 4;
         AUTOCALIB_LOG(cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
         //Mat_<double> H01_ = FindHomographyP3Linear(xyzw0_, xyzw1_);
-        Mat_<double> H01_ = FindHomographyP3Robust(xyzw0_, xyzw1_, P_r_, xy_r1_, num_iters, subset_size, thresh);
-
-        // Refine found homography
-
-        // TODO refactor this
-
-//        double rms_error_prev = numeric_limits<double>::max();
-//        double rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
-
-//        while (rms_error < rms_error_prev - 1e-2) {
-//            rms_error_prev = rms_error;
-//            rms_error = RefineHomographyP3(H01_, xyzw0_, P_l_, P_r_, xy_l1_, xy_r1_);
-//        }
+        Mat_<double> H01_ = FindHomographyP3Robust(xyzw0_, xyzw1_, P_l_, P_r_, xy_l1_, xy_r1_, num_iters, subset_size, thresh);
 
         Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
         for (int i = 0; i < num_points_common; ++i) {
@@ -1937,21 +1925,25 @@ namespace autocalib {
     }
 
 
-    Mat FindHomographyP3Robust(InputArray xyzw1, InputArray xyzw2, InputArray P2, InputArray xy2,
-                               int num_iters, int subset_size, double err_thresh)
+    Mat FindHomographyP3Robust(InputArray xyzw1, InputArray xyzw2, InputArray P1, InputArray P2,
+                               InputArray xy_l2, InputArray xy_r2, int num_iters, int subset_size, double err_thresh)
     {
         CV_Assert(xyzw1.getMat().type() == CV_64F && xyzw1.getMat().rows == 1 && xyzw1.getMat().cols % 4 == 0);
         CV_Assert(xyzw2.getMat().type() == CV_64F && xyzw2.getMat().rows == 1 && xyzw2.getMat().cols % 4 == 0);
         CV_Assert(xyzw1.getMat().cols / 4 == xyzw2.getMat().cols / 4);
-        CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy2.getMat().cols % 2 == 0);
+        CV_Assert(xy_l2.getMat().type() == CV_64F && xy_l2.getMat().rows == 1 && xy_l2.getMat().cols % 2 == 0);
+        CV_Assert(xy_r2.getMat().type() == CV_64F && xy_r2.getMat().rows == 1 && xy_r2.getMat().cols % 2 == 0);
         CV_Assert(P2.getMat().type() == CV_64F && P2.getMat().size() == Size(4, 3));
-        CV_Assert(xy2.getMat().cols / 2 == xyzw2.getMat().cols / 4);
+        CV_Assert(xy_l2.getMat().cols / 2 == xyzw1.getMat().cols / 4);
+        CV_Assert(xy_r2.getMat().cols / 2 == xyzw2.getMat().cols / 4);
         CV_Assert(subset_size >= 5);
 
         Mat_<double> xyzw1_ = xyzw1.getMat();
         Mat_<double> xyzw2_ = xyzw2.getMat();
+        Mat_<double> P1_ = P1.getMat();
         Mat_<double> P2_ = P2.getMat();
-        Mat_<double> xy2_ = xy2.getMat();
+        Mat_<double> xy_l2_ = xy_l2.getMat();
+        Mat_<double> xy_r2_ = xy_r2.getMat();
 
         int num_points = xyzw1_.cols / 4;
         CV_Assert(num_points >= subset_size);
@@ -1959,7 +1951,6 @@ namespace autocalib {
         Mat_<double> xyzw1_subset(1, subset_size * 4);
         Mat_<double> xyzw2_subset(1, subset_size * 4);
         Mat_<double> xyzw1_mapped(1, num_points * 4);
-        Mat_<double> xy2_subset(1, subset_size * 2);
 
         Mat_<double> H_best;
         int num_inliers_max = numeric_limits<int>::min();
@@ -1992,9 +1983,6 @@ namespace autocalib {
                 xyzw2_subset(0, 4 * i + 1) = xyzw2_(0, 4 * subset[i] + 1);
                 xyzw2_subset(0, 4 * i + 2) = xyzw2_(0, 4 * subset[i] + 2);
                 xyzw2_subset(0, 4 * i + 3) = xyzw2_(0, 4 * subset[i] + 3);
-
-                xy2_subset(0, 2 * i) = xy2_(0, 2 * subset[i]);
-                xy2_subset(0, 2 * i + 1) = xy2_(0, 2 * subset[i] + 1);
             }
 
             Mat_<double> H = FindHomographyP3Linear(xyzw1_subset, xyzw2_subset);
@@ -2029,7 +2017,7 @@ namespace autocalib {
                 z = P2_(2, 0) * xyzw1_mapped(0, 4 * i) + P2_(2, 1) * xyzw1_mapped(0, 4 * i + 1) +
                     P2_(2, 2) * xyzw1_mapped(0, 4 * i + 2) + P2_(2, 3) * xyzw1_mapped(0, 4 * i + 3);
 
-                sq_err = sqr(xy2_(0, 2 * i) - x / z) + sqr(xy2_(0, 2 * i + 1) - y / z);
+                sq_err = sqr(xy_r2_(0, 2 * i) - x / z) + sqr(xy_r2_(0, 2 * i + 1) - y / z);
 
                 if (sq_err < sqr(err_thresh)) {
                     total_err += sq_err;
@@ -2078,7 +2066,7 @@ namespace autocalib {
                 z = P2_(2, 0) * xyzw1_mapped(0, 4 * i) + P2_(2, 1) * xyzw1_mapped(0, 4 * i + 1) +
                     P2_(2, 2) * xyzw1_mapped(0, 4 * i + 2) + P2_(2, 3) * xyzw1_mapped(0, 4 * i + 3);
 
-                sq_err = sqr(xy2_(0, 2 * i) - x / z) + sqr(xy2_(0, 2 * i + 1) - y / z);
+                sq_err = sqr(xy_r2_(0, 2 * i) - x / z) + sqr(xy_r2_(0, 2 * i + 1) - y / z);
 
                 if (sq_err < sqr(err_thresh)) {
                     mask(0, i) = 255;
@@ -2087,6 +2075,8 @@ namespace autocalib {
 
             xyzw1_subset.create(1, num_inliers_max * 4);
             xyzw2_subset.create(1, num_inliers_max * 4);
+            Mat_<double> xy_l2_subset(1, num_inliers_max * 2);
+            Mat_<double> xy_r2_subset(1, num_inliers_max * 2);
 
             int j = 0;
             for (int i = 0; i < num_points; ++i) {
@@ -2101,11 +2091,28 @@ namespace autocalib {
                     xyzw2_subset(0, 4 * j + 2) = xyzw2_(0, 4 * i + 2);
                     xyzw2_subset(0, 4 * j + 3) = xyzw2_(0, 4 * i + 3);
 
+                    xy_l2_subset(0, 2 * j) = xy_l2_(0, 2 * i);
+                    xy_l2_subset(0, 2 * j + 1) = xy_l2_(0, 2 * i + 1);
+
+                    xy_r2_subset(0, 2 * j) = xy_r2_(0, 2 * i);
+                    xy_r2_subset(0, 2 * j + 1) = xy_r2_(0, 2 * i + 1);
+
                     j++;
                 }
             }
 
             H_best = FindHomographyP3Linear(xyzw1_subset, xyzw2_subset);
+
+            // Refine found homography
+
+            double rms_error_prev = numeric_limits<double>::max();
+            double rms_error = RefineHomographyP3(H_best, xyzw1_subset, P1_, P2_,
+                                                  xy_l2_subset, xy_r2_subset);
+            while (rms_error < rms_error_prev - 1e-2) {
+                rms_error_prev = rms_error;
+                rms_error = RefineHomographyP3(H_best, xyzw1_subset, P1_, P2_,
+                                               xy_l2_subset, xy_r2_subset);
+            }
         }
 
         return H_best;
