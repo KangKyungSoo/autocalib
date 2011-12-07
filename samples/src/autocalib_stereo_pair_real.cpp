@@ -43,6 +43,7 @@ double conf_thresh = 1;
 string log_file;
 string intrinsics_file;
 Mat_<double> K1_gold, K2_gold;
+Mat_<double> dist1, dist2;
 string extrinsics_file;
 Mat_<double> R_gold, T_gold;
 Mat_<double> F_gold;
@@ -60,6 +61,8 @@ int main(int argc, char **argv) {
             FileStorage fs(intrinsics_file, FileStorage::READ);
             fs["M1"] >> K1_gold;
             fs["M2"] >> K2_gold;
+            fs["D1"] >> dist1;
+            fs["D2"] >> dist2;
         }
 
         if (!extrinsics_file.empty()) {
@@ -88,12 +91,22 @@ int main(int argc, char **argv) {
         for (size_t i = 0; i < img_names.size(); ++i) {
             Mat left_img = imread(img_names[i].first);
             if (left_img.empty())
-                throw runtime_error("Can't open image: " + img_names[i].first);
+                throw runtime_error("Can't open image: " + img_names[i].first);            
+            if (!dist1.empty()) {
+                Mat tmp;
+                undistort(left_img, tmp, K1_gold, dist1);
+                left_img = tmp;
+            }
             left_imgs.push_back(left_img);
 
             Mat right_img = imread(img_names[i].second);
             if (right_img.empty())
                 throw runtime_error("Can't open image: " + img_names[i].second);
+            if (!dist2.empty()) {
+                Mat tmp;
+                undistort(right_img, tmp, K2_gold, dist2);
+                right_img = tmp;
+            }
             right_imgs.push_back(right_img);
         }
 
@@ -376,40 +389,44 @@ int main(int argc, char **argv) {
             int to = iter->first.second;
 
             Ptr<vector<DMatch> > matches = iter->second;
-            Mat F_;
-
-            if (IsLeftRightPair(from, to))
-                F_ = F;
-            else if (BothAreLeft(from, to)) {
-                Mat xy1, xy2;
-                ExtractMatchedKeypoints(*(features_collection.find(from)->second),
-                                        *(features_collection.find(to)->second),
-                                        *matches, xy1, xy2);
-                F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), FM_LMEDS, F_est_thresh);
-            }
-            else {
-                stringstream msg;
-                msg << "from=" << from << ", to=" << to << " - bad matches";
-                throw runtime_error(msg.str());
-            }
-
+            int num_inliers = 0;
             Mat_<uchar> mask;
-            int num_inliers = FindFundamentalMatInliers(*(features_collection.find(from)->second),
-                                                        *(features_collection.find(to)->second),
-                                                        *matches, F_, F_est_thresh, mask);
 
-            //Mat img;
-            //vector<Point2f> keypoints;
-            //KeyPoint::convert(features_collection.find(from)->second->keypoints, keypoints);
-            //if (IsLeftRightPair(from, to)) {
-            //    img = right_imgs[to / 2].clone();
-            //}
-            //else {
-            //    img = left_imgs[to / 2].clone();
-            //}
-            //DrawEpilines(Mat(keypoints), F_, img);
-            //imshow("epilines", img);
-            //waitKey();
+            if (!matches->empty()) {
+                Mat F_;
+
+                if (IsLeftRightPair(from, to))
+                    F_ = F;
+                else if (BothAreLeft(from, to)) {
+                    Mat xy1, xy2;
+                    ExtractMatchedKeypoints(*(features_collection.find(from)->second),
+                                            *(features_collection.find(to)->second),
+                                            *matches, xy1, xy2);
+                    F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), FM_LMEDS, F_est_thresh);
+                }
+                else {
+                    stringstream msg;
+                    msg << "from=" << from << ", to=" << to << " - bad matches";
+                    throw runtime_error(msg.str());
+                }
+
+                num_inliers = FindFundamentalMatInliers(*(features_collection.find(from)->second),
+                                                            *(features_collection.find(to)->second),
+                                                            *matches, F_, F_est_thresh, mask);
+
+                //Mat img;
+                //vector<Point2f> keypoints;
+                //KeyPoint::convert(features_collection.find(from)->second->keypoints, keypoints);
+                //if (IsLeftRightPair(from, to)) {
+                //    img = right_imgs[to / 2].clone();
+                //}
+                //else {
+                //    img = left_imgs[to / 2].clone();
+                //}
+                //DrawEpilines(Mat(keypoints), F_, img);
+                //imshow("epilines", img);
+                //waitKey();
+            }
 
             // See "Automatic Panoramic Image Stitching using Invariant Features"
             // by Matthew Brown and David G. Lowe, IJCV 2007 for the explanation
