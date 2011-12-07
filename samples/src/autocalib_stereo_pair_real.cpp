@@ -39,7 +39,7 @@ double F_est_conf = 0.99;
 int H_est_num_iters = 100;
 int H_est_subset_size = 5;
 double H_est_thresh = 3.;
-double conf_thresh = -1;
+double conf_thresh = 1;
 string log_file;
 string intrinsics_file;
 Mat_<double> K1_gold, K2_gold;
@@ -503,7 +503,7 @@ int main(int argc, char **argv) {
                 // rotations in the linear autocalibration algorithm.
 
                 Hs_inf[make_pair(2 * from, 2 * to)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
-                //Hs_inf[make_pair(2 * i, 2 * i + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+                //Hs_inf[make_pair(2 * from, 2 * from + 1)] = P_r_a_(Rect(0, 0, 3, 3));
             }
         }
 
@@ -579,6 +579,7 @@ int main(int argc, char **argv) {
 
         double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
         final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
+        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
 
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 
@@ -620,7 +621,7 @@ int main(int argc, char **argv) {
               << K_est(0, 0) << ";" << K_est(1, 1) << ";" << K_est(0, 2) << ";" << K_est(1, 2) << ";" << K_est(0, 1) << ";"
               << rvec_est(0, 0) << ";" << rvec_est(0, 1) << ";" << rvec_est(0, 2) << ";"
               << T_est(0, 0) << ";" << T_est(1, 0) << ";" << T_est(2, 0) << ";"
-              << final_rms_error << ";";
+              << final_rms_error << ";" << num_frames << ";";
             f << endl;
         }
     }
