@@ -486,7 +486,7 @@ int main(int argc, char **argv) {
              iter != conf_matches_collection.end(); ++iter)
         {
             if (BothAreLeft(iter->first.first, iter->first.second)) {
-                cout << "\nProcessing match " << iter->first.first << "->" << iter->first.second << endl;
+                cout << "\nPROCESSING MATCH " << iter->first.first << "->" << iter->first.second << endl;
 
                 // Get image indices
                 int from = iter->first.first / 2;
