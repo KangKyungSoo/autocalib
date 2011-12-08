@@ -486,6 +486,7 @@ int main(int argc, char **argv) {
              iter != conf_matches_collection.end(); ++iter)
         {
             if (BothAreLeft(iter->first.first, iter->first.second)) {
+                cout << "\nProcessing match " << iter->first.first << "->" << iter->first.second << endl;
 
                 // Get image indices
                 int from = iter->first.first / 2;
@@ -570,6 +571,8 @@ int main(int argc, char **argv) {
             Mat rvec;
             Rodrigues(rigid_cam.R(), rvec);
             total_rvec += rvec;
+            cout << "(" << iter->first.first << "->" << iter->first.second << "): R=" << rvec
+                 << ", T=" << rigid_cam.T() << endl;
 
             total_T += rigid_cam.T();
             total_estimations++;
@@ -607,8 +610,8 @@ int main(int argc, char **argv) {
         DecomposeEssentialMat(E, R_, T_);
         Mat tmp;
         Rodrigues(R_, tmp);
-        cout << tmp << endl;
-        cout << T_ / T_.at<double>(0, 0) << endl;
+        cout << "R(E) = " << tmp << endl
+             << "T(E) = " << T_ / T_.at<double>(0, 0) << endl;
 
         K_est = P_r_m.K();
         R_est = P_r_m.R().t();

@@ -108,7 +108,6 @@ namespace autocalib {
 
     Mat CalibRotationalCameraLinearNoSkew(const HomographiesP2 &Hs, double *residual_error) {
         int num_Hs = (int)Hs.size();
-        //cout << num_Hs << endl;
         if (num_Hs < 1)
             throw runtime_error("Need at least one homography");
 
@@ -1664,6 +1663,8 @@ namespace autocalib {
             Mat(A.row(2)) /= norm(A.row(2));
             Mat(A.row(3)) /= norm(A.row(3));
 
+            //cout << norm(A) * norm(A.inv()) << endl;
+
             Mat sol;
             SVD::solveZ(A, sol);
             Mat_<double> pt = xyzw_.colRange(4 * i, 4 * (i + 1));
@@ -2672,6 +2673,7 @@ namespace autocalib {
                 }
                 else {
                     iter = rel_motions->find(make_pair(edge.to, edge.from));
+                    CV_Assert(iter != rel_motions->end());
                     R = iter->second.R().t();
                     T = -iter->second.R().t() * iter->second.T();
                 }
