@@ -500,17 +500,6 @@ namespace autocalib {
     cv::Mat CameraMatFromFundamentalMat(cv::InputArray F);
 
 
-    /** Builds the fundamental matrix using two camera matrices.
-      *
-      * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 246.
-      *
-      * \param P1 First camera matrix
-      * \param P2 Second camera matrix
-      * \return Fundamental matrix
-      */
-    cv::Mat FundamentalMatFromCameraMats(cv::InputArray P1, cv::InputArray P2);
-
-
     /** Intersects matches between images in stereo pairs with matches between stereo pairs.
       *
       * The functions does assumption that matches_lr* are injective mappings from left image
@@ -622,9 +611,10 @@ namespace autocalib {
       * \param xy1 First image keypoints
       * \param xy2 Second image keypoints
       * \param F Fundamental matrix, such as p2' * F * p1 = 0
+      * \param mask Inliers mask
       * \return RMS point-to-epipolar line distance
       */
-    double CalcRmsEpipolarDistance(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray F);
+    double CalcRmsEpipolarDistance(cv::InputArray xy1, cv::InputArray xy2, cv::InputArray F, cv::InputArray mask = cv::noArray());
 
 
     /** Finds the 3D projective space homography linearly.

@@ -1613,20 +1613,6 @@ namespace autocalib {
     }
 
 
-    Mat FundamentalMatFromCameraMats(InputArray P1, InputArray P2) {
-        CV_Assert(P1.getMat().type() == CV_64F && P1.getMat().size() == Size(4, 3));
-        CV_Assert(P2.getMat().type() == CV_64F && P2.getMat().size() == Size(4, 3));
-
-        Mat_<double> P1_(P1.getMat());
-        Mat_<double> P2_(P2.getMat());
-
-        Mat P1_inv = PseudoInverse(P1_);
-        Mat e2 = P2_ * CameraCentre(P1_);
-        Mat F = CrossProductMat(e2) * P2_ * P1_inv;
-        return  F;
-    }
-
-
     void DltTriangulation::triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
                                        InputArray xy1, InputArray xy2, InputOutputArray xyzw)
     {
@@ -1800,11 +1786,11 @@ namespace autocalib {
     }
 
 
-    double CalcRmsEpipolarDistance(InputArray xy1, InputArray xy2, InputArray F) {
+    double CalcRmsEpipolarDistance(InputArray xy1, InputArray xy2, InputArray F, InputArray mask) {
         CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
         CV_Assert(xy2.getMat().type() == CV_64F && xy2.getMat().rows == 1 && xy2.getMat().cols % 2 == 0);
         CV_Assert(F.getMat().type() == CV_64F && F.getMat().size() == Size(3, 3));
-        CV_Assert(xy1.getMat().cols / 2 == xy2.getMat().cols / 2);
+        CV_Assert(xy1.getMat().cols / 2 == xy2.getMat().cols / 2);        
 
         Mat_<double> xy1_ = xy1.getMat();
         Mat_<double> xy2_ = xy2.getMat();
@@ -1812,11 +1798,27 @@ namespace autocalib {
         int num_points = xy1_.cols / 2;
 
         double total_err = 0;
-        for (int i = 0; i < num_points; ++i)
-            total_err += SymEpipDist2(xy2_(0, 2 * i), xy2_(0, 2 * i + 1), F_,
-                                      xy1_(0, 2 * i), xy1_(0, 2 * i + 1));
+        int num_measurements = 0;
 
-        return sqrt(total_err / num_points);
+        if (mask.empty()) {
+            for (int i = 0; i < num_points; ++i) {
+                total_err += SymEpipDist2(xy2_(0, 2 * i), xy2_(0, 2 * i + 1), F_,
+                                          xy1_(0, 2 * i), xy1_(0, 2 * i + 1));
+            }
+            num_measurements = num_points;
+        }
+        else {
+            Mat_<uchar> mask_(mask.getMat());
+            for (int i = 0; i < num_points; ++i) {
+                if (mask_(0, i)) {
+                    total_err += SymEpipDist2(xy2_(0, 2 * i), xy2_(0, 2 * i + 1), F_,
+                                              xy1_(0, 2 * i), xy1_(0, 2 * i + 1));
+                    num_measurements++;
+                }
+            }
+        }
+
+        return sqrt(total_err / num_measurements);
     }
 
 
@@ -2326,29 +2328,32 @@ namespace autocalib {
 
             ExtractMatchedKeypoints(f1, f2, *(iter->second), xy1_, xy2_);
 
-            // Find fundamental matrix for debug purposes            
             AUTOCALIB_LOG(
-                Mat F = findFundamentalMat(Mat(xy1_).reshape(2), Mat(xy2_).reshape(2), FM_LMEDS, thresh, conf);
-                cout << "F from " << from << " to " << to << " =\n" << F << endl);
+                Mat mask;
+                Mat F = findFundamentalMat(Mat(xy1_).reshape(2), Mat(xy2_).reshape(2), mask,
+                                           FM_LMEDS, thresh, conf);
+                cout << "F from " << from << " to " << to
+                     << ", RMS err = " << CalcRmsEpipolarDistance(xy1_, xy2_, F, mask)
+                     << ", mat =\n" << F << endl);
 
             offset += (int)iter->second->size();
         }
 
         vector<uchar> F_mask;
 
-        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh, conf);
-        //Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh);
+        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh, conf);;
 
         int num_inliers = 0;
         for (size_t i = 0; i < F_mask.size(); ++i) {
-            if (F_mask[i])
+            if (F_mask[i]) {
                 num_inliers++;
+            }
         }
 
         AUTOCALIB_LOG(
-            cout << "F_est = \n" << F 
-                 << "\n#matches = " << num_matches
-                 << ", #inliers = " << num_inliers << endl);
+            cout << "F_est = \n" << F << endl
+                 << "#matches = " << num_matches << ", #inliers = " << num_inliers
+                 << ", RMS err = " << CalcRmsEpipolarDistance(xy1, xy2, F, F_mask) << endl);
 
         return F;
     }
