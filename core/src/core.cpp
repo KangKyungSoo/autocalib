@@ -1661,7 +1661,7 @@ namespace autocalib {
 
         // Find points
 
-        Mat_<double> A(6, 4);
+        Mat_<double> A(4, 4);
 
         for (int i = 0; i < num_points; ++i) {
             A.setTo(0);
@@ -1670,8 +1670,6 @@ namespace autocalib {
                 A(1, j) = xy1_(0, 2 * i + 1) * P1_(2, j) - P1_(1, j);
                 A(2, j) = xy2_(0, 2 * i) * P2_(2, j) - P2_(0, j);
                 A(3, j) = xy2_(0, 2 * i + 1) * P2_(2, j) - P2_(1, j);
-                A(4, j) = xy1_(0, 2 * i) * P1_(1, j) - xy1_(0, 2 * i + 1) * P1_(0, j);
-                A(5, j) = xy2_(0, 2 * i) * P2_(1, j) - xy2_(0, 2 * i + 1) * P2_(0, j);
             }
 
             // See http://stackoverflow.com/questions/2276445/triangulation-direct-linear-transform
@@ -1679,11 +1677,8 @@ namespace autocalib {
             Mat(A.row(1)) /= norm(A.row(1));
             Mat(A.row(2)) /= norm(A.row(2));
             Mat(A.row(3)) /= norm(A.row(3));
-            Mat(A.row(4)) /= norm(A.row(4));
-            Mat(A.row(5)) /= norm(A.row(5));
 
             Mat sol;
-            SVD svd(A, SVD::FULL_UV);
             SVD::solveZ(A, sol);
             Mat_<double> pt = xyzw_.colRange(4 * i, 4 * (i + 1));
             Mat(sol.t()).copyTo(pt);
