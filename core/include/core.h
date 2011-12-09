@@ -838,7 +838,7 @@ namespace autocalib {
     cv::Mat CameraCentre(cv::InputArray P);
 
 
-    /** Computes the Moore–Penrose pseudo-inverse of a matrix.
+    /** Computes the Moore-Penrose pseudo-inverse of a matrix.
       *
       * \param mat Matrix
       * \return Pseudo-inverse
