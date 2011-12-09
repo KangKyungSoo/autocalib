@@ -413,19 +413,6 @@ int main(int argc, char **argv) {
                 num_inliers = FindFundamentalMatInliers(*(features_collection.find(from)->second),
                                                             *(features_collection.find(to)->second),
                                                             *matches, F_, F_est_thresh, mask);
-
-                //Mat img;
-                //vector<Point2f> keypoints;
-                //KeyPoint::convert(features_collection.find(from)->second->keypoints, keypoints);
-                //if (IsLeftRightPair(from, to)) {
-                //    img = right_imgs[to / 2].clone();
-                //}
-                //else {
-                //    img = left_imgs[to / 2].clone();
-                //}
-                //DrawEpilines(Mat(keypoints), F_, img);
-                //imshow("epilines", img);
-                //waitKey();
             }
 
             // See "Automatic Panoramic Image Stitching using Invariant Features"
