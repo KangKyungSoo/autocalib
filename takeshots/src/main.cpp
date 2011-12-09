@@ -34,12 +34,16 @@ int main(int argc, char **argv) {
             if (do_undist) {
                 undistort(left, left_undist, K_left, dist_left);
                 undistort(right, right_undist, K_right, dist_right);
-                left = left_undist;
-                right = right_undist;
             }
 
-            imshow("left", left);
-            imshow("right", right);
+            if (do_undist) {
+                imshow("left", left_undist);
+                imshow("right", right_undist);
+            }
+            else {
+                imshow("left", left);
+                imshow("right", right);
+            }
 
             int key = waitKey(3);
             if (key == 't' || key == 'T') {
@@ -47,10 +51,22 @@ int main(int argc, char **argv) {
                 ss << "shot_" << shot_idx << "_left.jpg";
                 imwrite(ss.str(), left);
                 cout << "took shot " << ss.str() << endl;
+                if (do_undist) {
+                    ss.str("");
+                    ss << "undist_shot_" << shot_idx << "_left.jpg";
+                    imwrite(ss.str(), left_undist);
+                    cout << "took shot " << ss.str() << endl;
+                }
                 ss.str("");
                 ss << "shot_" << shot_idx << "_right.jpg";
                 imwrite(ss.str(), right);
                 cout << "took shot " << ss.str() << endl;
+                if (do_undist) {
+                    ss.str("");
+                    ss << "undist_shot_" << shot_idx << "_right.jpg";
+                    imwrite(ss.str(), right_undist);
+                    cout << "took shot " << ss.str() << endl;
+                }
                 shot_idx++;
             }
             else if (key == 'd' || key == 'D') {
