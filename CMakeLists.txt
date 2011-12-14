@@ -5,7 +5,6 @@ project(${lib_name})
 
 include(FindEigen.cmake)
 find_package(OpenCV REQUIRED)
-
 set(GLFW_INCLUDE_DIR CACHE PATH "")
 set(GLFW_LIBRARIES CACHE PATH "")
 set(GLUT_INCLUDE_DIR CACHE PATH "")

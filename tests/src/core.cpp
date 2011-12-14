@@ -71,49 +71,6 @@ TEST(CameraMatFromFundamentalMat, CanRun) {
 }
 
 
-//TEST(TriangulationMetricReal, CanTriangulate) {
-//    Mat_<double> xy1, xy2;
-//    FileStorage fs("keypoints.yml", FileStorage::READ);
-//    ASSERT_TRUE(fs.isOpened());
-//    fs["xy1"] >> xy1; fs["xy2"] >> xy2;
-//    fs.release();
-//
-//    fs.open("intrinsics.yml", FileStorage::READ);
-//    ASSERT_TRUE(fs.isOpened());
-//    Mat_<double> K1, K2;
-//    fs["M1"] >> K1; fs["M2"] >> K2;
-//    fs.release();
-//
-//    fs.open("extrinsics.yml", FileStorage::READ);
-//    ASSERT_TRUE(fs.isOpened());
-//    Mat_<double> R, T;
-//    fs["R"] >> R; fs["T"] >> T;
-//    fs.release();
-//
-//    Mat tmp;
-//
-//    Mat_<double> P1 = Mat::zeros(3, 4, CV_64F);
-//    tmp = P1(Rect(0, 0, 3, 3));
-//    K1.copyTo(tmp);
-//
-//    Mat_<double> P2 = Mat::zeros(3, 4, CV_64F);
-//    tmp = P2(Rect(0, 0, 3, 3));
-//    Mat(K2 * R).copyTo(tmp);
-//    tmp = P2(Rect(3, 0, 1, 3));
-//    Mat(K2 * T).copyTo(tmp);
-//
-//    Mat_<double> xyzw;
-//    DltTriangulation dlt;
-//    dlt.triangulate(ProjectiveCamera(P1), ProjectiveCamera(P2), xy1, xy2, xyzw);
-//
-//    for (int i = 0; i < xyzw.cols / 4; ++i) {
-//        cout << xyzw(0, 4 * i) / xyzw(0, 4 * i + 3) << " "
-//             << xyzw(0, 4 * i + 1) / xyzw(0, 4 * i + 3) << " "
-//             << xyzw(0, 4 * i + 2) / xyzw(0, 4 * i + 3) << endl;
-//    }
-//}
-
-
 class TriangulationMetric : public testing::TestWithParam<tr1::tuple<Ptr<ITringulationMethodCreator>,
                                                                      Ptr<IPointCloudSceneCreator> > > { };
 
@@ -144,7 +101,7 @@ TEST_P(TriangulationMetric, CanTriangulate) {
         scene->TakeShot(cameras[i], viewport, *features);
         features_collection[i] = features;
     }
-    
+
     vector<DMatch> matches;
     MatchSyntheticShots(*(features_collection.find(0)->second),
                         *(features_collection.find(1)->second),
@@ -182,6 +139,99 @@ INSTANTIATE_TEST_CASE_P(StdSynthScenes,
                         testing::Combine(
                             testing::Values(new DltTriangulationCreator(), new IterativeTriangulationCreator()),
                             testing::Values(new SphereSceneCreator(), new CubeSceneCreator())));
+
+// Collect information about the RMS error as a function of the distance and the baseline
+/*
+
+class TriangulationMetric : public testing::TestWithParam<tr1::tuple<Ptr<ITringulationMethodCreator>,
+                                                                     Ptr<IPointCloudSceneCreator> > > { };
+
+TEST_P(TriangulationMetric, CanTriangulate) {
+    RNG rng(0);
+    int num_points = 1000;
+    Rect viewport = Rect(0, 0, 640, 480);
+
+    Ptr<ITriangulationMethod> method = tr1::get<0>(GetParam())->Create();
+    Ptr<PointCloudScene> scene = tr1::get<1>(GetParam())->Create(num_points, rng);
+
+    Mat_<double> K = Mat::eye(3, 3, CV_64F);
+    K(0, 0) = K(1, 1) = viewport.width + viewport.height;
+    K(0, 2) = viewport.width * 0.5;
+    K(1, 2) = viewport.height * 0.5;
+
+    vector<RigidCamera> cameras(2);
+    FeaturesCollection features_collection;
+
+    ofstream f("rms_err_of_dist.csv");
+
+    for (double dist = -1; dist > -50; dist -= 1.5) {
+        for (double baseline = 0.01; baseline < 5; baseline += 0.03) {
+            for (int i = 0; i < 2; ++i) {
+                Mat_<double> center = Mat::zeros(3, 1, CV_64F);
+                center(0, 0) = (i * 2 - 1) * baseline; center(2, 0) = dist;//-10;
+                Mat_<double> rvec = Mat::zeros(1, 3, CV_64F);
+                rvec(0, 0) = 0.1; rvec(0, 1) = 0.1; rvec(0, 2) = 0.1;
+                Mat R; Rodrigues(rvec * (i * 2 - 1), R);
+                cameras[i] = RigidCamera::FromLocalToWorld(K, R, center);
+                Ptr<detail::ImageFeatures> features = new detail::ImageFeatures();
+                scene->TakeShot(cameras[i], viewport, *features);
+                features_collection[i] = features;
+            }
+
+            vector<DMatch> matches;
+            MatchSyntheticShots(*(features_collection.find(0)->second),
+                                *(features_collection.find(1)->second),
+                                matches);
+
+            if (matches.size() == 0) {
+                f << dist << " " << baseline * 2 << " NaN\n";
+                continue;
+            }
+
+            RNG rng(0);
+            Mat_<double> xy0(1, matches.size() * 2);
+            Mat_<double> xy1(1, matches.size() * 2);
+            const detail::ImageFeatures &f0 = *(features_collection.find(0)->second);
+            const detail::ImageFeatures &f1 = *(features_collection.find(1)->second);
+            for (size_t i = 0; i < matches.size(); ++i)  {
+                xy0(0, 2 * i) = f0.keypoints[matches[i].queryIdx].pt.x + rng.gaussian(0.5);
+                xy0(0, 2 * i + 1) = f0.keypoints[matches[i].queryIdx].pt.y + rng.gaussian(0.5);
+                xy1(0, 2 * i) = f1.keypoints[matches[i].trainIdx].pt.x + rng.gaussian(0.5);
+                xy1(0, 2 * i + 1) = f1.keypoints[matches[i].trainIdx].pt.y + rng.gaussian(0.5);
+            }
+
+            Mat_<double> xyzw;
+            method->triangulate(cameras[0], cameras[1], xy0, xy1, xyzw);
+
+            double total_err = 0;
+
+            for (size_t i = 0; i < matches.size(); ++i) {
+                int point_idx = f0.descriptors.at<int>(matches[i].queryIdx);
+                Point3d point_gold = scene->localPointAt(point_idx);
+                Point3d point_found(xyzw(0, 4 * i) / xyzw(0, 4 * i + 3),
+                                    xyzw(0, 4 * i + 1) / xyzw(0, 4 * i + 3),
+                                    xyzw(0, 4 * i + 2) / xyzw(0, 4 * i + 3));
+                double err = sqr(point_gold.x - point_found.x) +
+                             sqr(point_gold.y - point_found.y) +
+                             sqr(point_gold.z - point_found.z);
+                total_err += err;
+
+    //            ASSERT_NEAR(point_gold.x, point_found.x, 1e-5);
+    //            ASSERT_NEAR(point_gold.y, point_found.y, 1e-5);
+    //            ASSERT_NEAR(point_gold.z, point_found.z, 1e-5);
+            }
+
+            f << dist << " " << baseline * 2 << " " << sqrt(total_err / matches.size()) << endl;
+        }
+    }
+}
+
+INSTANTIATE_TEST_CASE_P(StdSynthScenes,
+                        TriangulationMetric,
+                        testing::Combine(
+                            testing::Values(Ptr<ITringulationMethodCreator>(new DltTriangulationCreator())),
+                            testing::Values(Ptr<IPointCloudSceneCreator>(new SphereSceneCreator()))));
+*/
 
 
 class TriangulationProjective : public testing::TestWithParam<tr1::tuple<Ptr<ITringulationMethodCreator>,
