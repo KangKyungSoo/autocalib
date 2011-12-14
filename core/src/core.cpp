@@ -900,6 +900,18 @@ namespace autocalib {
             motions_indices.push_back(iter->first);
         }
 
+        // Normalize translations
+
+        double T_mult = -numeric_limits<double>::max();
+        for (AbsoluteMotions::iterator iter = motions.begin(); iter != motions.end(); ++iter) {
+            if (norm(iter->second.T()) > T_mult) {
+                T_mult = norm(iter->second.T());
+            }
+        }
+        for (AbsoluteMotions::iterator iter = motions.begin(); iter != motions.end(); ++iter) {
+            iter->second.set_T(iter->second.T() / T_mult);
+        }
+
         Mat_<double> arg(1, 5/*K*/ + 3/*R*/ + 3/*T*/ + 6 * (int)motions.size());
 
         Mat_<double> K(cam.K());
