@@ -538,6 +538,12 @@ int main(int argc, char **argv) {
 
             Mat R01 = H01_m(Rect(0, 0, 3, 3));
             Mat T01 = H01_m(Rect(3, 0, 1, 3));
+
+            SVD svd(R01, SVD::FULL_UV);
+            R01 = svd.u * svd.vt;
+            if (determinant(R01) < 0)
+                R01 *= -1;
+
             rel_motions[iter->first] = Motion(R01, T01);           
 
             Mat rvec01;
