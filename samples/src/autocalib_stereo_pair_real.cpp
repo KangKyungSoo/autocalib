@@ -92,21 +92,11 @@ int main(int argc, char **argv) {
             Mat left_img = imread(img_names[i].first);
             if (left_img.empty())
                 throw runtime_error("Can't open image: " + img_names[i].first);            
-            if (!dist1.empty()) {
-                Mat tmp;
-                undistort(left_img, tmp, K1_gold, dist1);
-                left_img = tmp;
-            }
             left_imgs.push_back(left_img);
 
             Mat right_img = imread(img_names[i].second);
             if (right_img.empty())
                 throw runtime_error("Can't open image: " + img_names[i].second);
-            if (!dist2.empty()) {
-                Mat tmp;
-                undistort(right_img, tmp, K2_gold, dist2);
-                right_img = tmp;
-            }
             right_imgs.push_back(right_img);
         }
 
