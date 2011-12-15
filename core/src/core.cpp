@@ -887,6 +887,11 @@ namespace autocalib {
                               const FeaturesCollection &features, const MatchesCollection &matches,
                               int params_to_refine)
     {
+        if (motions.size() < 2) {
+            AUTOCALIB_LOG(cout << "Need more shots to refine stereo camera\n";);
+            return numeric_limits<double>::max();
+        }
+
         // Normalize rotations and compute indices
 
         Mat R_norm = motions.begin()->second.R().clone();

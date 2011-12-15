@@ -408,8 +408,8 @@ int main(int argc, char **argv) {
                 }
 
                 num_inliers = FindFundamentalMatInliers(*(features_collection.find(from)->second),
-                                                            *(features_collection.find(to)->second),
-                                                            *matches, F_, F_est_thresh, mask);
+                                                        *(features_collection.find(to)->second),
+                                                        *matches, F_, F_est_thresh, mask);
             }
 
             // See "Automatic Panoramic Image Stitching using Invariant Features"
@@ -427,8 +427,7 @@ int main(int argc, char **argv) {
 
             iter->second = inliers;
 
-            if (conf > conf_thresh)
-                rel_confs[iter->first] = conf;
+            rel_confs[iter->first] = conf;
         }
 
         // Select confident subset
@@ -444,6 +443,7 @@ int main(int argc, char **argv) {
         }
 
         MatchesCollection conf_matches_collection;
+        RelativeConfidences good_rel_confs;
 
         for (MatchesCollection::iterator iter = matches_collection.begin();
              iter != matches_collection.end(); ++iter)
@@ -455,8 +455,10 @@ int main(int argc, char **argv) {
             bool is_conf_ll_pair = BothAreLeft(iter->first.first, iter->first.second)
                                    && rel_confs[iter->first] > conf_thresh;
 
-            if (is_conf_ll_pair || is_conf_lr_pair)
+            if (is_conf_ll_pair || is_conf_lr_pair) {
                 conf_matches_collection[iter->first] = iter->second;
+                good_rel_confs[iter->first] = rel_confs[iter->first];
+            }
         }
 
         // Affine rectification
@@ -577,7 +579,7 @@ int main(int argc, char **argv) {
 
         detail::Graph eff_corresp;
         RelativeConfidences ll_rel_confs;
-        for (RelativeConfidences::iterator iter = rel_confs.begin(); iter != rel_confs.end(); ++iter) {
+        for (RelativeConfidences::iterator iter = good_rel_confs.begin(); iter != good_rel_confs.end(); ++iter) {
             if (BothAreLeft(iter->first.first, iter->first.second)) {
                 ll_rel_confs[make_pair(iter->first.first / 2, iter->first.second / 2)] = iter->second;
             }
