@@ -1584,6 +1584,71 @@ namespace autocalib {
             if (i1 != l1_to_lr1_idx.end() && i2 != l2_to_lr2_idx.end())
                 indices.push_back(make_pair(i1->second, i2->second));
         }
+    }    
+
+
+    void FindAssignment(Mat_<float> cost, vector<pair<int, int> > &pairs) {
+        list<int> rows(cost.rows);
+        list<int> cols(cost.cols);
+
+        int pos = 0;
+        for (list<int>::iterator i = rows.begin(); i != rows.end(); ++i)
+            *i = pos++;
+
+        pos = 0;
+        for (list<int>::iterator j = cols.begin(); j != cols.end(); ++j)
+            *j = pos++;
+
+        pairs.resize(min(cost.rows, cost.cols));
+        for (size_t p = 0; p < pairs.size(); ++p) {
+            list<int>::iterator opt_i = rows.end();
+            list<int>::iterator opt_j = cols.end();
+            float max_val = -numeric_limits<float>::max();
+
+            for (list<int>::iterator i = rows.begin(); i != rows.end(); ++i) {
+                for (list<int>::iterator j = cols.begin(); j != cols.end(); ++j) {
+                    if (cost(*i, *j) > max_val) {
+                        max_val = cost(*i, *j);
+                        opt_i = i;
+                        opt_j = j;
+                    }
+                }
+            }
+
+            pairs[p] = make_pair(*opt_i, *opt_j);
+            rows.erase(opt_i);
+            cols.erase(opt_j);
+        }
+    }
+
+
+    void OptAssignmentMatcher::match(const detail::ImageFeatures &f1, const detail::ImageFeatures &f2,
+                                     detail::MatchesInfo &mi)
+    {
+        CV_Assert(f1.descriptors.type() == CV_32F && f2.descriptors.type() == CV_32F);
+        CV_Assert(f1.descriptors.cols == f2.descriptors.cols);
+
+        L2<float> dist_func;
+        Mat_<float> cost(f1.descriptors.rows, f2.descriptors.rows);
+        for (int i = 0; i < cost.rows; ++i) {
+            for (int j = 0; j < cost.cols; ++j) {
+                const Point2f &xy1 = f1.keypoints[i].pt;
+                const Point2f &xy2 = f2.keypoints[j].pt;
+                cost(i, j) = -(dist_func(f1.descriptors.ptr<float>(i), f2.descriptors.ptr<float>(j),
+                                         f1.descriptors.cols));
+            }
+        }
+
+        vector<pair<int, int> > pairs;
+        FindAssignment(cost, pairs);
+
+        pairs.resize(pairs.size() / 2);
+
+        mi.matches.reserve(pairs.size());
+        for (size_t i = 0; i < pairs.size(); ++i) {
+            mi.matches.push_back(DMatch(pairs[i].first, pairs[i].second,
+                                        -cost(pairs[i].first, pairs[i].second)));
+        }
     }
 
 

@@ -424,11 +424,6 @@ namespace autocalib {
     class FeaturesFinderCreator {
     public:
         virtual ~FeaturesFinderCreator() {}
-
-        /** Creates a features finder.
-          *
-          * \return Pointer to features finder object
-          */
         virtual cv::Ptr<cv::detail::FeaturesFinder> Create() = 0;
     };
 
@@ -456,7 +451,14 @@ namespace autocalib {
         }
 
         int num_features;
-    };        
+    };
+
+
+    class FeaturesMatcherCreator {
+    public:
+        virtual ~FeaturesMatcherCreator() {}
+        virtual cv::Ptr<cv::detail::FeaturesMatcher> Create() = 0;
+    };
 
 
     class BestOf2NearestMatcher : public cv::detail::FeaturesMatcher {
@@ -473,7 +475,7 @@ namespace autocalib {
     };
 
 
-    class BestOf2NearestMatcherCreator {
+    class BestOf2NearestMatcherCreator : public FeaturesMatcherCreator {
     public:
         BestOf2NearestMatcherCreator()
             : matcher(new cv::FlannBasedMatcher()), match_conf(0.65f) {}
@@ -484,6 +486,29 @@ namespace autocalib {
 
         cv::Ptr<cv::DescriptorMatcher> matcher;
         float match_conf;
+    };
+
+
+    /** Finds an assignment using the max-element method.
+      *
+      * \param cost Cost matrix
+      * \param pairs Found pairs
+      */
+    void FindAssignment(cv::Mat_<float> cost, std::vector<std::pair<int, int> > &pairs);
+
+
+    class OptAssignmentMatcher : public cv::detail::FeaturesMatcher {
+    public:
+        virtual void match(const cv::detail::ImageFeatures &f1, const cv::detail::ImageFeatures &f2,
+                           cv::detail::MatchesInfo &mi);
+    };
+
+
+    class OptAssignmentMatcherCreator : public FeaturesMatcherCreator {
+    public:
+        cv::Ptr<cv::detail::FeaturesMatcher> Create() {
+            return new OptAssignmentMatcher();
+        }
     };
 
 

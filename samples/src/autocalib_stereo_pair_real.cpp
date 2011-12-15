@@ -27,9 +27,10 @@ bool manual_registr;
 bool save_keypoints, load_keypoints;
 bool save_matches, load_matches;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
-BestOf2NearestMatcherCreator matcher_creator;
+BestOf2NearestMatcherCreator features_matcher_creator;
 bool show_matches;
 bool opt_flow_matching;
+bool opt_assignment_matching;
 int min_num_matches = 6;
 FeaturesCollection features_collection;
 MatchesCollection matches_collection;
@@ -53,7 +54,7 @@ int main(int argc, char **argv) {
         FeaturesFinderCreator* ffc = static_cast<FeaturesFinderCreator*>(features_finder_creator);
         dynamic_cast<SurfFeaturesFinderCreator*>(ffc)->hess_thresh = 50.;
 
-        matcher_creator.match_conf = 0.2f;
+        features_matcher_creator.match_conf = 0.2f;
 
         ParseArgs(argc, argv);
 
@@ -277,8 +278,14 @@ int main(int argc, char **argv) {
 
             // Match everything
 
-            cout << "\nMatch everything... ";
-            Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
+            cout << "\nMatch everything... ";            
+            Ptr<detail::FeaturesMatcher> matcher;
+            if (opt_assignment_matching) {
+                matcher = OptAssignmentMatcherCreator().Create();
+            }
+            else {
+                matcher = features_matcher_creator.Create();
+            }
 
             for (int i = 0; i < num_frames; ++i) {
                 if (!opt_flow_matching) {
@@ -690,17 +697,19 @@ void ParseArgs(int argc, char **argv) {
         }
         else if (string(argv[i]) == "--matcher") {
             if (string(argv[i + 1]) == "bfm_l1")
-                matcher_creator.matcher = new BruteForceMatcher<L1<float> >();
+                features_matcher_creator.matcher = new BruteForceMatcher<L1<float> >();
             else if (string(argv[i + 1]) == "bfm_l2")
-                matcher_creator.matcher = new BruteForceMatcher<L2<float> >();
+                features_matcher_creator.matcher = new BruteForceMatcher<L2<float> >();
             else if (string(argv[i + 1]) == "flann")
-                matcher_creator.matcher = new FlannBasedMatcher();
+                features_matcher_creator.matcher = new FlannBasedMatcher();
             else if (string(argv[i + 1]) == "bfm_hamming")
-                matcher_creator.matcher = new BruteForceMatcher<Hamming>();
+                features_matcher_creator.matcher = new BruteForceMatcher<Hamming>();
             else if (string(argv[i + 1]) == "bfm_hamming_lut")
-                matcher_creator.matcher = new BruteForceMatcher<HammingLUT>();
+                features_matcher_creator.matcher = new BruteForceMatcher<HammingLUT>();
             else if (string(argv[i + 1]) == "opt_flow")
                 opt_flow_matching = true;
+            else if (string(argv[i + 1]) == "opt_assign")
+                opt_assignment_matching = true;
             else
                 throw runtime_error(string("Unknown matcher type: ") + argv[i + 1]);
             i++;
@@ -708,7 +717,7 @@ void ParseArgs(int argc, char **argv) {
         else if (string(argv[i]) == "--show-matches")
             show_matches = static_cast<bool>(atoi(argv[++i]));
         else if (string(argv[i]) == "--match-conf")
-            matcher_creator.match_conf = static_cast<float>(atof(argv[++i]));
+            features_matcher_creator.match_conf = static_cast<float>(atof(argv[++i]));
         else if (string(argv[i]) == "--min-num-matches")
             min_num_matches = atoi(argv[++i]);
         else if (string(argv[i]) == "--K-init") {
