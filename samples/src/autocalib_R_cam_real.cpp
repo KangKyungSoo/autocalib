@@ -21,7 +21,7 @@ vector<string> img_names;
 vector<Mat> imgs;
 int num_frames = 0; // Use all source frames
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
-BestOf2NearestMatcherCreator matcher_creator;
+BestOf2NearestMatcherCreator features_matcher_creator;
 FeaturesCollection features_collection;
 int min_num_matches = 6;
 double H_est_thresh = 3.;
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
 
         cout << "\nMatching pairs... ";
         MatchesCollection matches_collection;
-        Ptr<detail::FeaturesMatcher> matcher = matcher_creator.Create();
+        Ptr<detail::FeaturesMatcher> matcher = features_matcher_creator.Create();
 
         FeaturesCollection::iterator from_iter = features_collection.begin();
         FeaturesCollection::iterator from_next_iter = from_iter; ++from_next_iter;
@@ -294,21 +294,21 @@ void ParseArgs(int argc, char **argv) {
         }
         else if (string(argv[i]) == "--matcher") {
             if (string(argv[i + 1]) == "bfm_l1")
-                matcher_creator.matcher = new BruteForceMatcher<L1<float> >();
+                features_matcher_creator.matcher = new BruteForceMatcher<L1<float> >();
             else if (string(argv[i + 1]) == "bfm_l2")
-                matcher_creator.matcher = new BruteForceMatcher<L2<float> >();
+                features_matcher_creator.matcher = new BruteForceMatcher<L2<float> >();
             else if (string(argv[i + 1]) == "flann")
-                matcher_creator.matcher = new FlannBasedMatcher();
+                features_matcher_creator.matcher = new FlannBasedMatcher();
             else if (string(argv[i + 1]) == "bfm_hamming")
-                matcher_creator.matcher = new BruteForceMatcher<Hamming>();
+                features_matcher_creator.matcher = new BruteForceMatcher<Hamming>();
             else if (string(argv[i + 1]) == "bfm_hamming_lut")
-                matcher_creator.matcher = new BruteForceMatcher<HammingLUT>();
+                features_matcher_creator.matcher = new BruteForceMatcher<HammingLUT>();
             else
                 throw runtime_error(string("Unknown matcher type: ") + argv[i + 1]);
             i++;
         }
         else if (string(argv[i]) == "--match-conf")
-            matcher_creator.match_conf = static_cast<float>(atof(argv[++i]));
+            features_matcher_creator.match_conf = static_cast<float>(atof(argv[++i]));
         else if (string(argv[i]) == "--min-num-matches")
             min_num_matches = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-thresh")
