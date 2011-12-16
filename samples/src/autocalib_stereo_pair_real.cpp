@@ -564,7 +564,7 @@ int main(int argc, char **argv) {
             Rodrigues(rigid_cam.R(), rvec);
             total_rvec += rvec;
             cout << "(" << iter->first.first << "->" << iter->first.second << "): R=" << rvec
-                 << ", T=" << rigid_cam.T() << endl;
+                 << ", T=" << rigid_cam.T() / rigid_cam.T().at<double>(0, 0) << endl;
 
             total_T += rigid_cam.T();
             total_estimations++;
@@ -574,8 +574,6 @@ int main(int argc, char **argv) {
         Rodrigues(total_rvec / total_estimations, avg_R);
 
         Mat avg_T = total_T / total_estimations;
-
-        RigidCamera P_r_m(K_init, avg_R.clone(), avg_T.clone());
 
         detail::Graph eff_corresp;
         RelativeConfidences ll_rel_confs;
@@ -589,10 +587,25 @@ int main(int argc, char **argv) {
         AbsoluteMotions abs_motions;
         CalcAbsoluteMotions(rel_motions, eff_corresp, ref_pair_idx, abs_motions);
 
+        Mat_<double> K_norm = K_init.inv();
+        for (FeaturesCollection::iterator iter = features_collection.begin(); iter != features_collection.end(); ++iter) {
+            detail::ImageFeatures &f = *(iter->second);
+            for (size_t i = 0; i < f.keypoints.size(); ++i) {
+                Point2f &kp = f.keypoints[i].pt;
+                double x = K_norm(0, 0) * kp.x + K_norm(0, 1) * kp.y + K_norm(0, 2);
+                double y = K_norm(1, 1) * kp.y + K_norm(1, 2);
+                kp.x = static_cast<float>(x);
+                kp.y = static_cast<float>(y);
+            }
+        }
+
+        RigidCamera P_r_m(Mat::eye(3, 3, CV_64F), avg_R.clone(), avg_T.clone());
+
         double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
         final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
         final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_SKEW);
 
+        P_r_m = RigidCamera(K_init * P_r_m.K(), P_r_m.R(), P_r_m.T());
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
 
         cout << "\nSUMMARY\n";
