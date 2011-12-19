@@ -72,6 +72,7 @@ int main(int argc, char **argv) {
             fs["T"] >> T_gold;
         }
 
+
         if (!intrinsics_file.empty() && !extrinsics_file.empty()) {
             F_gold = K2_gold.inv().t() * CrossProductMat(T_gold) * R_gold * K1_gold.inv();
             F_gold /= F_gold(2, 2);
@@ -93,11 +94,21 @@ int main(int argc, char **argv) {
             Mat left_img = imread(img_names[i].first);
             if (left_img.empty())
                 throw runtime_error("Can't open image: " + img_names[i].first);            
+            if (!dist1.empty()) {
+                Mat tmp;
+                undistort(left_img, tmp, K1_gold, dist1, K1_gold);
+                left_img = tmp;
+            }
             left_imgs.push_back(left_img);
 
             Mat right_img = imread(img_names[i].second);
             if (right_img.empty())
                 throw runtime_error("Can't open image: " + img_names[i].second);
+            if (!dist2.empty()) {
+                Mat tmp;
+                undistort(right_img, tmp, K2_gold, dist2, K2_gold);
+                right_img = tmp;
+            }
             right_imgs.push_back(right_img);
         }
 
@@ -392,8 +403,9 @@ int main(int argc, char **argv) {
             if (!matches->empty()) {
                 Mat F_;
 
-                if (IsLeftRightPair(from, to))
+                if (IsLeftRightPair(from, to)) {
                     F_ = F;
+                }
                 else if (BothAreLeft(from, to)) {
                     Mat xy1, xy2;
                     ExtractMatchedKeypoints(*(features_collection.find(from)->second),
