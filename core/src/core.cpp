@@ -298,8 +298,8 @@ namespace autocalib {
             jac_.setTo(0);
 
             // Maps argument index to the respective intrinsic parameter
-            static const int flags_tbl[] = {REFINE_FLAG_FX, REFINE_FLAG_SKEW, REFINE_FLAG_PPX,
-                                            REFINE_FLAG_FY, REFINE_FLAG_PPY};
+            static const int flags_tbl[] = {REFINE_FLAG_K_FX, REFINE_FLAG_K_SKEW, REFINE_FLAG_K_PPX,
+                                            REFINE_FLAG_K_FY, REFINE_FLAG_K_PPY};
 
             for (int i = 0; i < arg_.cols; ++i) {
                 if (i > 4 || (params_to_refine_ & flags_tbl[i])) {
@@ -634,8 +634,8 @@ namespace autocalib {
             jac_.setTo(0);
 
             // Maps argument index to the respective intrinsic parameter
-            static const int flags_tbl[] = {REFINE_FLAG_FX, REFINE_FLAG_SKEW, REFINE_FLAG_PPX,
-                                            REFINE_FLAG_FY, REFINE_FLAG_PPY};
+            static const int flags_tbl[] = {REFINE_FLAG_K_FX, REFINE_FLAG_K_SKEW, REFINE_FLAG_K_PPX,
+                                            REFINE_FLAG_K_FY, REFINE_FLAG_K_PPY};
 
             for (int i = 0; i < arg_.cols; ++i) {
                 if (i > 4 || (params_to_refine_ & flags_tbl[i])) {
@@ -859,8 +859,8 @@ namespace autocalib {
             jac_.setTo(0);
 
             // Maps argument index to the respective intrinsic parameter
-            static const int flags_tbl[] = {REFINE_FLAG_FX, REFINE_FLAG_SKEW, REFINE_FLAG_PPX,
-                                            REFINE_FLAG_FY, REFINE_FLAG_PPY};
+            static const int flags_tbl[] = {REFINE_FLAG_K_FX, REFINE_FLAG_K_SKEW, REFINE_FLAG_K_PPX,
+                                            REFINE_FLAG_K_FY, REFINE_FLAG_K_PPY};
 
             for (int i = 0; i < arg_.cols; ++i) {
                 if (i > 4 || (params_to_refine_ & flags_tbl[i])) {
@@ -1398,8 +1398,8 @@ namespace autocalib {
             jac_.setTo(0);
 
             // Maps argument index to the respective intrinsic parameter
-            static const int flags_tbl[] = {REFINE_FLAG_FX, REFINE_FLAG_SKEW, REFINE_FLAG_PPX,
-                                            REFINE_FLAG_FY, REFINE_FLAG_PPY};
+            static const int flags_tbl[] = {REFINE_FLAG_K_FX, REFINE_FLAG_K_SKEW, REFINE_FLAG_K_PPX,
+                                            REFINE_FLAG_K_FY, REFINE_FLAG_K_PPY};
 
             for (int i = 0; i < arg_.cols; ++i) {
                 if (i > 4 || (params_to_refine_ & flags_tbl[i])) {

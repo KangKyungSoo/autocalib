@@ -266,12 +266,12 @@ namespace autocalib {
 
     /** Rigid camera refinement method flags. */
     enum RefineFlag {
-        REFINE_FLAG_FX = 1,
-        REFINE_FLAG_FY = 2,
-        REFINE_FLAG_PPX = 4,
-        REFINE_FLAG_PPY = 8,
-        REFINE_FLAG_SKEW = 16,
-        REFINE_FLAG_ALL = 31
+        REFINE_FLAG_K_FX = 1,
+        REFINE_FLAG_K_FY = 2,
+        REFINE_FLAG_K_PPX = 4,
+        REFINE_FLAG_K_PPY = 8,
+        REFINE_FLAG_K_SKEW = 16,
+        REFINE_FLAG_K_ALL = 31
     };
 
 
@@ -287,7 +287,7 @@ namespace autocalib {
       */
     double RefineRigidCamera(cv::InputOutputArray K, AbsoluteRotationMats Rs,
                              const FeaturesCollection &features, const MatchesCollection &matches,
-                             int params_to_refine = REFINE_FLAG_ALL);
+                             int params_to_refine = REFINE_FLAG_K_ALL);
 
 
     //============================================================================
@@ -346,7 +346,7 @@ namespace autocalib {
       * \see RefineFlag
       */
     double RefineStereoCamera(RigidCamera &cam, const FeaturesCollection &features,
-                              const MatchesCollection &matches, int params_to_refine = REFINE_FLAG_ALL);
+                              const MatchesCollection &matches, int params_to_refine = REFINE_FLAG_K_ALL);
 
 
     /** Refines a stereo camera parameters.
@@ -362,7 +362,7 @@ namespace autocalib {
       */
     double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions &motions,
                               const FeaturesCollection &features, const MatchesCollection &matches,
-                              int params_to_refine = REFINE_FLAG_ALL);
+                              int params_to_refine = REFINE_FLAG_K_ALL);
 
 
     /** Refines a stereo camera extrinsic parameters.
@@ -395,7 +395,7 @@ namespace autocalib {
       */
     double RefineStereoCamera(cv::InputOutputArray K1, cv::InputOutputArray K2, cv::InputOutputArray R, cv::InputOutputArray T,
                               AbsoluteMotions &motions, const FeaturesCollection &features, const MatchesCollection &matches,
-                              int params_to_refine = REFINE_FLAG_ALL);
+                              int params_to_refine = REFINE_FLAG_K_ALL);
 
 
     //============================================================================

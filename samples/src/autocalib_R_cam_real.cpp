@@ -226,7 +226,7 @@ int main(int argc, char **argv) {
         else {
             K_refined(0, 1) = 0;
             final_reproj_error = RefineRigidCamera(K_refined, Rs, features_collection, eff_matches_collection,
-                                                   ~REFINE_FLAG_SKEW);
+                                                   ~REFINE_FLAG_K_SKEW);
         }
         cout << "K_refined =\n" << K_refined << endl;
 

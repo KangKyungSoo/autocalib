@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
         else {
             K_refined(0, 1) = 0;
             RefineRigidCamera(K_refined, Rs, features_collection, matches_collection,
-                              REFINE_FLAG_ALL & ~REFINE_FLAG_SKEW);
+                              REFINE_FLAG_K_ALL & ~REFINE_FLAG_K_SKEW);
         }
         cout << "K_refined =\n" << K_refined << endl;
 
