@@ -86,10 +86,10 @@ void ParseCmdArgs(int argc, char **argv) {
         else {
             img_names.push_back(argv[i]);
         }
-        CV_Assert(img_names.size() % 2 == 0);
-        CV_Assert(!K_left.empty());
-        CV_Assert(!K_right.empty());
-        CV_Assert(!dist_left.empty());
-        CV_Assert(!dist_right.empty());
     }
+    CV_Assert(img_names.size() % 2 == 0);
+    CV_Assert(!K_left.empty());
+    CV_Assert(!K_right.empty());
+    CV_Assert(!dist_left.empty());
+    CV_Assert(!dist_right.empty());
 }
