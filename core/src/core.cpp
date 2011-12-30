@@ -1962,6 +1962,8 @@ namespace autocalib {
         A.setTo(0);
 
         /*
+        Here is the Maxima script for coefficients estimation:
+        
         x: matrix([x0], [x1], [x2], [x3]);
         y: matrix([y0], [y1], [y2], [y3]);
         H: matrix([h00,h01,h02,h03], [h10,h11,h12,h13],
