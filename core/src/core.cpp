@@ -525,22 +525,23 @@ namespace autocalib {
     }
 
 
+    double SymEpipDist2(double x1, double y1, const Mat F12, double x2, double y2) {
+        CV_Assert(F12.type() == CV_64F && F12.size() == Size(3, 3));
+        Mat_<double> F12_(F12);
+
+        double x2_ = F12_(0, 0) * x2 + F12_(0, 1) * y2 + F12_(0, 2);
+        double y2_ = F12_(1, 0) * x2 + F12_(1, 1) * y2 + F12_(1, 2);
+        double z2_ = F12_(2, 0) * x2 + F12_(2, 1) * y2 + F12_(2, 2);
+
+        double x1_ = F12_(0, 0) * x1 + F12_(1, 0) * y1 + F12_(2, 0);
+        double y1_ = F12_(0, 1) * x1 + F12_(1, 1) * y1 + F12_(2, 1);
+
+        return sqr(x1 * x2_ + y1 * y2_ + z2_) * (1 / (x1_ * x1_ + y1_ * y1_) +
+                                                 1 / (x2_ * x2_ + y2_ * y2_));
+    }
+
+
     namespace {   
-
-        // See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 287
-        inline
-        double SymEpipDist2(double x1, double y1, const Mat_<double> F12, double x2, double y2) {
-            double x2_ = F12(0, 0) * x2 + F12(0, 1) * y2 + F12(0, 2);
-            double y2_ = F12(1, 0) * x2 + F12(1, 1) * y2 + F12(1, 2);
-            double z2_ = F12(2, 0) * x2 + F12(2, 1) * y2 + F12(2, 2);
-
-            double x1_ = F12(0, 0) * x1 + F12(1, 0) * y1 + F12(2, 0);
-            double y1_ = F12(0, 1) * x1 + F12(1, 1) * y1 + F12(2, 1);
-
-            return sqr(x1 * x2_ + y1 * y2_ + z2_) * (1 / (x1_ * x1_ + y1_ * y1_) +
-                                                     1 / (x2_ * x2_ + y2_ * y2_));
-        }
-
 
         class EpipError_KRT_RelativeOnly {
         public:
@@ -2426,7 +2427,7 @@ namespace autocalib {
 
         vector<uchar> F_mask;
 
-        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh, conf);;
+        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh, conf);
 
         int num_inliers = 0;
         for (size_t i = 0; i < F_mask.size(); ++i) {
