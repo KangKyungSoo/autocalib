@@ -403,10 +403,10 @@ namespace autocalib {
         DltTriangulation triang;
 
         Mat_<double> xyzw0_;
-        triang.triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l0_, xy_r0_, xyzw0_);
+        triang.Triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l0_, xy_r0_, xyzw0_);
 
         Mat_<double> xyzw1_;
-        triang.triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l1_, xy_r1_, xyzw1_);
+        triang.Triangulate(ProjectiveCamera(P_l_), ProjectiveCamera(P_r_), xy_l1_, xy_r1_, xyzw1_);
 
         AUTOCALIB_LOG(
             cout << "\nDLT reprojection RMS errors (l0 r0 l1 r1) = ("
@@ -1694,7 +1694,7 @@ namespace autocalib {
     }
 
 
-    void DltTriangulation::triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
+    void DltTriangulation::Triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
                                        InputArray xy1, InputArray xy2, InputOutputArray xyzw)
     {
         CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);
@@ -1755,7 +1755,7 @@ namespace autocalib {
     }
 
 
-    void IterativeTriangulation::triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
+    void IterativeTriangulation::Triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
                                              InputArray xy1, InputArray xy2, InputOutputArray xyzw)
     {
         CV_Assert(xy1.getMat().type() == CV_64F && xy1.getMat().rows == 1 && xy1.getMat().cols % 2 == 0);

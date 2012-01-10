@@ -555,7 +555,7 @@ namespace autocalib {
           * \param xy2 Second image keypoints
           * \param xyzw 3D projective space points
           */
-        virtual void triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2, 
+        virtual void Triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
                                  cv::InputArray xy1, cv::InputArray xy2, 
                                  cv::InputOutputArray xyzw) = 0;
     };
@@ -574,7 +574,7 @@ namespace autocalib {
       */
     class DltTriangulation : public ITriangulationMethod {
     public:
-        virtual void triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2, 
+        virtual void Triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
                                  cv::InputArray xy1, cv::InputArray xy2, cv::InputOutputArray xyzw);
     };
 
@@ -595,7 +595,7 @@ namespace autocalib {
     public:
         IterativeTriangulation() { set_num_iters(2); }
 
-        virtual void triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
+        virtual void Triangulate(const IProjectiveCamera &P1, const IProjectiveCamera &P2,
                                  cv::InputArray xy1, cv::InputArray xy2, cv::InputOutputArray xyzw);
 
         int num_iters() const { return num_iters_; }
