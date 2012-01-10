@@ -21,6 +21,7 @@ void AddNoise();
 
 vector<pair<string, string> > img_names;
 vector<Mat> left_imgs, right_imgs;
+Size work_size(0, 0);
 int blur_ksize = 3;
 int num_frames = 0; // Use all source frames
 bool manual_registr;
@@ -62,8 +63,8 @@ int main(int argc, char **argv) {
             FileStorage fs(intrinsics_file, FileStorage::READ);
             fs["M1"] >> K1_gold;
             fs["M2"] >> K2_gold;
-            fs["D1"] >> dist1;
-            fs["D2"] >> dist2;
+            //fs["D1"] >> dist1;
+            //fs["D2"] >> dist2;
         }
 
         if (!extrinsics_file.empty()) {
@@ -117,6 +118,29 @@ int main(int argc, char **argv) {
                 medianBlur(left_imgs[i], left_imgs[i], blur_ksize);
                 medianBlur(right_imgs[i], right_imgs[i], blur_ksize);
             }
+        }
+
+        if (!K1_gold.empty() && work_size.width > 0 && work_size.height > 0) {
+            K1_gold(0,0) *= work_size.width / (double)left_imgs[0].cols;
+            K1_gold(0,1) *= work_size.width / (double)left_imgs[0].cols;
+            K1_gold(0,2) *= work_size.width / (double)left_imgs[0].cols;
+            K1_gold(1,1) *= work_size.height / (double)left_imgs[0].rows;
+            K1_gold(1,2) *= work_size.height / (double)left_imgs[0].rows;
+        }
+
+        if (!K2_gold.empty() && work_size.width > 0 && work_size.height > 0) {
+            K2_gold(0,0) *= work_size.width / (double)right_imgs[0].cols;
+            K2_gold(0,1) *= work_size.width / (double)right_imgs[0].cols;
+            K2_gold(0,2) *= work_size.width / (double)right_imgs[0].cols;
+            K2_gold(1,1) *= work_size.height / (double)right_imgs[0].rows;
+            K2_gold(1,2) *= work_size.height / (double)right_imgs[0].rows;
+        }
+
+        if (work_size.width > 0 && work_size.height > 0) {
+            for (size_t i = 0; i < left_imgs.size(); ++i)
+                resize(left_imgs[i], left_imgs[i], work_size);
+            for (size_t i = 0; i < right_imgs.size(); ++i)
+                resize(right_imgs[i], right_imgs[i], work_size);
         }
 
         if (manual_registr) {
@@ -374,10 +398,11 @@ int main(int argc, char **argv) {
 
         Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh, F_est_conf);
 
+
         if (!F_gold.empty()) {
             cout << "F_gold = \n" << F_gold << endl;
             F = F_gold;
-        }
+        }                        
 
         cout << "F_final = \n" << F << endl;
 
@@ -527,8 +552,17 @@ int main(int argc, char **argv) {
 
         // Linear autocalibration
 
-        if (!K1_gold.empty())
-            K_init = K1_gold;
+        if (K_init.empty()) {
+            if (!K1_gold.empty())
+                K_init = K1_gold;
+        }
+        else {
+            K_init(0,0) *= work_size.width / (double)left_imgs[0].cols;
+            K_init(0,1) *= work_size.width / (double)left_imgs[0].cols;
+            K_init(0,2) *= work_size.width / (double)left_imgs[0].cols;
+            K_init(1,1) *= work_size.height / (double)left_imgs[0].rows;
+            K_init(1,2) *= work_size.height / (double)left_imgs[0].rows;
+        }
 
         if (K_init.empty()) {
             cout << "\nLinear calibrating...\n";
@@ -774,6 +808,11 @@ void ParseArgs(int argc, char **argv) {
             intrinsics_file = argv[++i];
         else if (string(argv[i]) == "--extrinsics-file")
             extrinsics_file = argv[++i];
+        else if (string(argv[i]) == "--work-size") {
+            work_size.width = atoi(argv[i + 1]);
+            work_size.height = atoi(argv[i + 2]);
+            i += 2;
+        }
         else {
             if (i < argc - 1) {
                 img_names.push_back(make_pair(argv[i], argv[i + 1]));
