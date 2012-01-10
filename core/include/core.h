@@ -35,6 +35,7 @@ namespace autocalib {
     typedef std::map<std::pair<int, int>, Motion> RelativeMotions;
     typedef std::map<int, Motion> AbsoluteMotions;
 
+
     //============================================================================
     // Cameras and motions
 
@@ -298,10 +299,12 @@ namespace autocalib {
         return index1 / 2 == index2 / 2 && index2 == index1 + 1;
     }
 
+
     /** \return true if both frame are left frames of different stereo pairs, false otherwise */
     inline bool BothAreLeft(int index1, int index2) {
         return index1 % 2 == 0 && index2 % 2 == 0 && index1 != index2;
     }
+
 
     /** Performs affine rectification of the stereo pair by two image pairs.
       *
