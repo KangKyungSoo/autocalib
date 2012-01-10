@@ -338,6 +338,13 @@ namespace autocalib {
             cv::OutputArray Hpa, cv::OutputArray H01, cv::OutputArray xyzw0, cv::OutputArray xyzw1);
 
 
+    /** Computes the symmetric point-to-epipolar distance.
+      *
+      * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 287
+      */
+    double SymEpipDist2(double x1, double y1, const cv::Mat F12, double x2, double y2);
+
+
     /** Refines a stereo camera parameters.
       *
       * \param cam Stereo camera parameters
