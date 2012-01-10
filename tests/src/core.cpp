@@ -119,7 +119,7 @@ TEST_P(TriangulationMetric, CanTriangulate) {
     }
 
     Mat_<double> xyzw;
-    method->triangulate(cameras[0], cameras[1], xy0, xy1, xyzw);
+    method->Triangulate(cameras[0], cameras[1], xy0, xy1, xyzw);
 
     for (size_t i = 0; i < matches.size(); ++i) {
         int point_idx = f0.descriptors.at<int>(matches[i].queryIdx);
@@ -291,7 +291,7 @@ TEST_P(TriangulationProjective, CanTriangulate) {
     Mat_<double> P1 = cameras[1].P() * H_inv;
 
     Mat_<double> xyzw;
-    method->triangulate(ProjectiveCamera(P0), ProjectiveCamera(P1), xy0, xy1, xyzw);
+    method->Triangulate(ProjectiveCamera(P0), ProjectiveCamera(P1), xy0, xy1, xyzw);
 
     for (size_t i = 0; i < matches.size(); ++i) {
         double x0 = P0(0, 0) * xyzw(0, 4 * i) + P0(0, 1) * xyzw(0, 4 * i + 1) + P0(0, 2) * xyzw(0, 4 * i + 2) + P0(0, 3) * xyzw(0, 4 * i + 3);
