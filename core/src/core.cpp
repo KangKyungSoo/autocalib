@@ -478,11 +478,6 @@ namespace autocalib {
             xyzw0_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
         }
 
-        AUTOCALIB_LOG(
-            cout << "Reprojection RMS error after mapping (l1 r1) = ("
-                 << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw0_mapped) << " "
-                 << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw0_mapped) << ")\n");
-
         // Finding plane-at-infinity
 
         AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
@@ -731,13 +726,19 @@ namespace autocalib {
                 num_matches_ = 0;
                 for (MatchesCollection::const_iterator iter = matches_->begin(); iter != matches_->end(); ++iter) {
                     if ((BothAreLeft(iter->first.first, iter->first.second) &&
-                         motions_indices_inv_[iter->first.first / 2] != -1 &&
-                         motions_indices_inv_[iter->first.second / 2] != -1) ||
+                         iter->first.first / 2 < motions_indices_inv_.size() && motions_indices_inv_[iter->first.first / 2] != -1 &&
+                         iter->first.second / 2 < motions_indices_inv_.size() && motions_indices_inv_[iter->first.second / 2] != -1) ||
                         IsLeftRightPair(iter->first.first, iter->first.second))
                     {
                         num_matches_ += (int)iter->second->size();
                     }
                 }
+
+                /*cout << "motions_indices_inv_=";
+                for (size_t i = 0; i < motions_indices_inv_.size(); ++i) {
+                    cout << motions_indices_inv_[i] << " ";
+                }
+                cout << endl;*/
             }
 
             void operator()(const Mat &arg, Mat &err);
@@ -795,8 +796,8 @@ namespace autocalib {
                 const vector<KeyPoint> &kps_to = features_->find(to)->second->keypoints;
 
                 if (BothAreLeft(iter->first.first, iter->first.second) &&
-                    motions_indices_inv_[iter->first.first / 2] != -1 &&
-                    motions_indices_inv_[iter->first.second / 2] != -1)
+                    iter->first.first / 2 < motions_indices_inv_.size() && motions_indices_inv_[iter->first.first / 2] != -1 &&
+                    iter->first.second / 2 < motions_indices_inv_.size() && motions_indices_inv_[iter->first.second / 2] != -1)
                 {
                     int from_ = from / 2;
                     int to_ = to / 2;
@@ -843,6 +844,16 @@ namespace autocalib {
 
                     Mat R = R_to * R_from.t();
                     Mat_<double> F = K_inv.t() * CrossProductMat(R * T_from - T_to) * R * K_inv;
+
+                    /*cout << "F=\n" << F << endl;
+                    cout << "T_from=" << T_from << endl;
+                    cout << "T_to=" << T_to << endl;
+                    cout << "R=\n" << R << endl;
+                    cout << "K_inv=\n" << K_inv << endl;
+                    cout << "from=" << from_ << endl;
+                    cout << "to=" << to_ << endl;
+                    cout << "motions_indices_inv_[from_]=" << motions_indices_inv_[from_] << endl;
+                    cout << "motions_indices_inv_[to_]=" << motions_indices_inv_[to_] << endl;*/
 
                     const vector<DMatch> &matches = *(iter->second);
                     for (size_t i = 0; i < matches.size(); ++i) {
@@ -964,7 +975,7 @@ namespace autocalib {
         }
 
         EpipError_KRT func(features, matches, motions_indices, params_to_refine);
-        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
+        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY | MinimizeOpts::VERBOSE_ITER);
 
         K(0, 0) = arg(0, 0);
         K(0, 1) = arg(0, 1);
@@ -1663,7 +1674,7 @@ namespace autocalib {
                 rms_error_prev = rms_error;
                 rms_error = RefineHomographyP3(H_best, xyzw1_subset, P1_, P2_,
                                                xy_l2_subset, xy_r2_subset);
-            }
+            }           
         }
 
         return H_best;
@@ -1905,7 +1916,6 @@ namespace autocalib {
             }
         }               
 
-        /*
 //        // LG
 //        F.at<double>(0,0) = 3.986473601818789e-08; F.at<double>(0,1) = 6.602851233549095e-07; F.at<double>(0,2) = -0.002991174892137116;
 //        F.at<double>(1,0) = 4.811157302611858e-07; F.at<double>(1,1) = -1.95654052520802e-08; F.at<double>(1,2) = -0.07187888327790695;
@@ -1925,7 +1935,7 @@ namespace autocalib {
 
         cout << "correct matches rate = " << (double)accumulate(F_mask.begin(), F_mask.end(), (int)0) / num_matches << endl;
 
-        ofstream f("epip_dists.csv");
+        /*ofstream f("epip_dists.csv");
         for (int i = 0; i < num_matches; ++i) {
             if (F_mask[i]) {
                 double dist = SymEpipDist2(xy2(0,2*i), xy2(0,2*i+1), F, xy1(0,2*i), xy1(0,2*i+1));
@@ -1934,7 +1944,6 @@ namespace autocalib {
         }
         cout << "Log has been written\n";
         f.close();*/
-
 
         AUTOCALIB_LOG(
             cout << "F_est = \n" << F << endl
