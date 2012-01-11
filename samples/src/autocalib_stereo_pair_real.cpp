@@ -1,4 +1,5 @@
 #pragma warning(disable: 4800)
+#include <numeric>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -415,6 +416,8 @@ int main(int argc, char **argv) {
         cout << "\nRemoving outliers...\n";
 
         RelativeConfidences rel_confs;
+        /*ofstream ff("epip_dist_ll.csv");
+        ff.close();*/
 
         for (MatchesCollection::iterator iter = matches_collection.begin();
              iter != matches_collection.end(); ++iter)
@@ -437,7 +440,20 @@ int main(int argc, char **argv) {
                     ExtractMatchedKeypoints(*(features_collection.find(from)->second),
                                             *(features_collection.find(to)->second),
                                             *matches, xy1, xy2);
-                    F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), FM_LMEDS, F_est_thresh);
+
+                    vector<uchar> mask;
+                    F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), mask, FM_LMEDS, F_est_thresh);
+
+                    /*cout << "Inliers rate = " << accumulate(mask.begin(), mask.end(), 0) / (double)mask.size() << endl;
+
+                    ofstream f("epip_dist_ll.csv", ios_base::app);
+                    for (size_t i = 0; i < mask.size(); ++i) {
+                        if (mask[i]) {
+                            double dist = SymEpipDist2(xy2.at<double>(0,2*i), xy2.at<double>(0,2*i+1), F_, xy1.at<double>(0,2*i), xy1.at<double>(0,2*i+1));
+                            f << dist << endl;
+                        }
+                    }
+                    f.close();*/
                 }
                 else {
                     stringstream msg;
@@ -611,7 +627,9 @@ int main(int argc, char **argv) {
             Rodrigues(rigid_cam.R(), rvec);
             total_rvec += rvec;
             cout << "(" << iter->first.first << "->" << iter->first.second << "): R=" << rvec
-                 << ", T=" << rigid_cam.T() / rigid_cam.T().at<double>(0, 0) << endl;
+                 << ", T=" << rigid_cam.T() / rigid_cam.T().at<double>(0, 0)
+                 << ", conf=" << good_rel_confs.find(make_pair(iter->first.first * 2, iter->first.second * 2))->second
+                 << endl;
 
             total_T += rigid_cam.T();
             total_estimations++;
