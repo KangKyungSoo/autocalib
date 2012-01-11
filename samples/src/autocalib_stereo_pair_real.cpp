@@ -77,7 +77,8 @@ int main(int argc, char **argv) {
         if (!intrinsics_file.empty() && !extrinsics_file.empty()) {
             F_gold = K2_gold.inv().t() * CrossProductMat(T_gold) * R_gold * K1_gold.inv();
             F_gold /= F_gold(2, 2);
-        }
+            //F_gold = F_gold.t();
+        }        
 
         srand(0);
 
