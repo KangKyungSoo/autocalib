@@ -375,39 +375,6 @@ namespace autocalib {
                               int params_to_refine = REFINE_FLAG_K_ALL);
 
 
-    /** Refines a stereo camera extrinsic parameters.
-      *
-      * \param cam Stereo camera parameters
-      * \param motions Absolute motions (R,T) of stereo pairs
-      * \param features Frames features
-      * \param matches Matches between left frames of stereo pairs and between
-                       left and right frames of stereo pairs
-      * \return Epipolar distance error
-      */
-    double RefineStereoCameraExtrinsics(
-            RigidCamera &cam, AbsoluteMotions &motions,
-            const FeaturesCollection &features, const MatchesCollection &matches);
-
-
-    /** Refines a stereo camera parameters.     
-      *
-      * \param K1 First camera intrinsics
-      * \param K2 Second camera intrinsics
-      * \param R Relative rotation
-      * \param T Relative translation
-      * \param motions Absolute motions (R,T) of stereo pairs
-      * \param features Frames features
-      * \param matches Matches between left frames of stereo pairs and between
-                       left and right frames of stereo pairs
-      * \param params_to_refine Flags indicating parameters which should be refined
-      * \return Epipolar distance error
-      * \see RefineFlag
-      */
-    double RefineStereoCamera(cv::InputOutputArray K1, cv::InputOutputArray K2, cv::InputOutputArray R, cv::InputOutputArray T,
-                              AbsoluteMotions &motions, const FeaturesCollection &features, const MatchesCollection &matches,
-                              int params_to_refine = REFINE_FLAG_K_ALL);
-
-
     //============================================================================
     // Features related stuff
 
