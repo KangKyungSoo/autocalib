@@ -1926,24 +1926,24 @@ namespace autocalib {
 //        F.at<double>(0,0) = 3.88282751677788e-08; F.at<double>(0,1) = 2.780377384002014e-06; F.at<double>(0,2) = -0.004340036157430071;
 //        F.at<double>(1,0) = -1.780134295282759e-06; F.at<double>(1,1) = -1.637907298160002e-08; F.at<double>(1,2) = -0.059311608562445;
 //        F.at<double>(2,0) =  0.00356186811304326; F.at<double>(2,1) = 0.058101309922466498; F.at<double>(2,2) = 1;
-//        F = F.t();
+////        F = F.t();
 
 //        // VIDERE
 //        F.at<double>(0,0) = 1.710555819988658e-08; F.at<double>(0,1) = 2.67473898876673e-06; F.at<double>(0,2) = -9.387558747623493e-05;
 //        F.at<double>(1,0) = -6.380714812478129e-06; F.at<double>(1,1) = 8.301323183225562e-06; F.at<double>(1,2) = -0.07420686530277591;
 //        F.at<double>(2,0) = 0.0007617349831429047; F.at<double>(2,1) = 0.07139472222142398; F.at<double>(2,2) = 1;
 
-        cout << "correct matches rate = " << (double)accumulate(F_mask.begin(), F_mask.end(), (int)0) / num_matches << endl;
+//        cout << "correct matches rate = " << (double)accumulate(F_mask.begin(), F_mask.end(), (int)0) / num_matches << endl;
 
-        /*ofstream f("epip_dists.csv");
-        for (int i = 0; i < num_matches; ++i) {
-            if (F_mask[i]) {
-                double dist = SymEpipDist2(xy2(0,2*i), xy2(0,2*i+1), F, xy1(0,2*i), xy1(0,2*i+1));
-                f << dist << endl;
-            }
-        }
-        cout << "Log has been written\n";
-        f.close();*/
+//        ofstream f("epip_dists.csv");
+//        for (int i = 0; i < num_matches; ++i) {
+//            if (F_mask[i]) {
+//                double dist = SymEpipDist2(xy2(0,2*i), xy2(0,2*i+1), F, xy1(0,2*i), xy1(0,2*i+1));
+//                f << dist << endl;
+//            }
+//        }
+//        cout << "Log has been written\n";
+//        f.close();
 
         AUTOCALIB_LOG(
             cout << "F_est = \n" << F << endl
