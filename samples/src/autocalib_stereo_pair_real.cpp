@@ -400,7 +400,6 @@ int main(int argc, char **argv) {
 
         Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh, F_est_conf);
 
-
         if (!F_gold.empty()) {
             cout << "F_gold = \n" << F_gold << endl;
             F = F_gold;
@@ -416,8 +415,8 @@ int main(int argc, char **argv) {
         cout << "\nRemoving outliers...\n";
 
         RelativeConfidences rel_confs;
-        /*ofstream ff("epip_dist_ll.csv");
-        ff.close();*/
+//        ofstream ff("epip_dist_ll.csv");
+//        ff.close();
 
         for (MatchesCollection::iterator iter = matches_collection.begin();
              iter != matches_collection.end(); ++iter)
@@ -444,16 +443,16 @@ int main(int argc, char **argv) {
                     vector<uchar> mask;
                     F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), mask, FM_LMEDS, F_est_thresh);
 
-                    /*cout << "Inliers rate = " << accumulate(mask.begin(), mask.end(), 0) / (double)mask.size() << endl;
+//                    cout << "Inliers rate = " << accumulate(mask.begin(), mask.end(), 0) / (double)mask.size() << endl;
 
-                    ofstream f("epip_dist_ll.csv", ios_base::app);
-                    for (size_t i = 0; i < mask.size(); ++i) {
-                        if (mask[i]) {
-                            double dist = SymEpipDist2(xy2.at<double>(0,2*i), xy2.at<double>(0,2*i+1), F_, xy1.at<double>(0,2*i), xy1.at<double>(0,2*i+1));
-                            f << dist << endl;
-                        }
-                    }
-                    f.close();*/
+//                    ofstream f("epip_dist_ll.csv", ios_base::app);
+//                    for (size_t i = 0; i < mask.size(); ++i) {
+//                        if (mask[i]) {
+//                            double dist = SymEpipDist2(xy2.at<double>(0,2*i), xy2.at<double>(0,2*i+1), F_, xy1.at<double>(0,2*i), xy1.at<double>(0,2*i+1));
+//                            f << dist << endl;
+//                        }
+//                    }
+//                    f.close();
                 }
                 else {
                     stringstream msg;
@@ -573,7 +572,7 @@ int main(int argc, char **argv) {
             if (!K1_gold.empty())
                 K_init = K1_gold;
         }
-        else {
+        else if (work_size.width != 0 && work_size.height != 0) {
             K_init(0,0) *= work_size.width / (double)left_imgs[0].cols;
             K_init(0,1) *= work_size.width / (double)left_imgs[0].cols;
             K_init(0,2) *= work_size.width / (double)left_imgs[0].cols;
