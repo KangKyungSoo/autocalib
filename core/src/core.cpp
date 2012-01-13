@@ -975,7 +975,7 @@ namespace autocalib {
         }
 
         EpipError_KRT func(features, matches, motions_indices, params_to_refine);
-        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY | MinimizeOpts::VERBOSE_ITER);
+        double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
         K(0, 0) = arg(0, 0);
         K(0, 1) = arg(0, 1);
