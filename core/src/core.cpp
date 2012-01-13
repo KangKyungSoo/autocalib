@@ -1865,7 +1865,7 @@ namespace autocalib {
 
 
     Mat FindFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
-                                    double thresh, double conf)
+                                    int method, double thresh, double conf)
     {
         int num_matches = 0;
         for (MatchesCollection::const_iterator iter = matches.begin(); iter != matches.end(); ++iter) {
@@ -1896,7 +1896,7 @@ namespace autocalib {
             AUTOCALIB_LOG(
                 Mat mask;
                 Mat F = findFundamentalMat(Mat(xy1_).reshape(2), Mat(xy2_).reshape(2), mask,
-                                           FM_LMEDS, thresh, conf);
+                                           method, thresh, conf);
                 cout << "F from " << from << " to " << to
                      << ", RMS err = " << CalcRmsEpipolarDistance(xy1_, xy2_, F, mask)
                      << ", mat =\n" << F << endl);
@@ -1906,7 +1906,7 @@ namespace autocalib {
 
         vector<uchar> F_mask;
 
-        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, FM_LMEDS, thresh, conf);
+        Mat F = findFundamentalMat(Mat(xy1).reshape(2), Mat(xy2).reshape(2), F_mask, method, thresh, conf);
         //F = F.t();
 
         int num_inliers = 0;
