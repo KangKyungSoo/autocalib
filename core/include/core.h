@@ -10,6 +10,7 @@
 #include <cmath>
 #include <iostream>
 #include <opencv2/core/core.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/stitching/detail/matchers.hpp>
 #include <opencv2/stitching/detail/util.hpp>
@@ -678,10 +679,11 @@ namespace autocalib {
       * \param matches Matches in (2*i, 2*i+1) or reversed format, other are ignored
       * \param thresh Error threshold
       * \param conf Confidence
+      * \param method Estimation method (CV_FM_RANSAC, CV_FM_LMEDS, ...)
       * \return Fundamental matrix
       */
     cv::Mat FindFundamentalMatFromPairs(const FeaturesCollection &features, const MatchesCollection &matches,
-                                        double thresh = 3., double conf = 0.99);
+                                        int method = CV_FM_LMEDS, double thresh = 3., double conf = 0.99);
 
 
     /** Finds inliers for the given fundamental matrix.

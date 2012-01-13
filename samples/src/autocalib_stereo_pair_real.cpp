@@ -29,6 +29,7 @@ bool manual_registr;
 bool save_keypoints, load_keypoints;
 bool save_matches, load_matches;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
+double match_conf = 0.2;
 BestOf2NearestMatcherCreator features_matcher_creator;
 bool show_matches;
 bool opt_flow_matching;
@@ -37,6 +38,7 @@ int min_num_matches = 6;
 FeaturesCollection features_collection;
 MatchesCollection matches_collection;
 Mat_<double> K_init;
+int F_est_method = CV_FM_LMEDS;
 double F_est_thresh = 5;
 double F_est_conf = 0.99;
 int H_est_num_iters = 100;
@@ -56,7 +58,7 @@ int main(int argc, char **argv) {
         FeaturesFinderCreator* ffc = static_cast<FeaturesFinderCreator*>(features_finder_creator);
         dynamic_cast<SurfFeaturesFinderCreator*>(ffc)->hess_thresh = 50.;
 
-        features_matcher_creator.match_conf = 0.2f;
+        features_matcher_creator.match_conf = (float)match_conf;
 
         ParseArgs(argc, argv);
 
@@ -398,7 +400,8 @@ int main(int argc, char **argv) {
 
         cout << "\nFinding F...\n";
 
-        Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection, F_est_thresh, F_est_conf);
+        Mat_<double> F = FindFundamentalMatFromPairs(features_collection, matches_collection,
+                                                     F_est_method, F_est_thresh, F_est_conf);
 
         if (!F_gold.empty()) {
             cout << "F_gold = \n" << F_gold << endl;
@@ -441,7 +444,7 @@ int main(int argc, char **argv) {
                                             *matches, xy1, xy2);
 
                     vector<uchar> mask;
-                    F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), mask, FM_LMEDS, F_est_thresh);
+                    F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), mask, F_est_method, F_est_thresh);
 
 //                    cout << "Inliers rate = " << accumulate(mask.begin(), mask.end(), 0) / (double)mask.size() << endl;
 
@@ -607,7 +610,7 @@ int main(int argc, char **argv) {
                 // rotations in the linear autocalibration algorithm.
 
                 Hs_inf[make_pair(2 * from, 2 * to)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
-                Hs_inf[make_pair(2 * from, 2 * from + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+                //Hs_inf[make_pair(2 * from, 2 * from + 1)] = P_r_a_(Rect(0, 0, 3, 3));
             }
         }
 
@@ -757,7 +760,8 @@ int main(int argc, char **argv) {
               << K_est(0, 0) << ";" << K_est(1, 1) << ";" << K_est(0, 2) << ";" << K_est(1, 2) << ";" << K_est(0, 1) << ";"
               << rvec_est(0, 0) << ";" << rvec_est(0, 1) << ";" << rvec_est(0, 2) << ";"
               << T_est(0, 0) << ";" << T_est(1, 0) << ";" << T_est(2, 0) << ";"
-              << final_rms_error << ";" << num_frames << ";";
+              << final_rms_error << ";" << num_frames << ";"
+              << F_est_method << ";" << F_est_thresh << ";" << H_est_thresh << ";" << match_conf << ";";
             f << endl;
         }
     }
@@ -842,8 +846,10 @@ void ParseArgs(int argc, char **argv) {
         }
         else if (string(argv[i]) == "--show-matches")
             show_matches = static_cast<bool>(atoi(argv[++i]));
-        else if (string(argv[i]) == "--match-conf")
-            features_matcher_creator.match_conf = static_cast<float>(atof(argv[++i]));
+        else if (string(argv[i]) == "--match-conf") {
+            match_conf = atof(argv[++i]);
+            features_matcher_creator.match_conf = static_cast<float>(match_conf);
+        }
         else if (string(argv[i]) == "--min-num-matches")
             min_num_matches = atoi(argv[++i]);
         else if (string(argv[i]) == "--K-init") {
@@ -859,6 +865,15 @@ void ParseArgs(int argc, char **argv) {
             F_est_thresh = atof(argv[++i]);
         else if (string(argv[i]) == "--F-est-conf")
             F_est_conf = atof(argv[++i]);
+        else if (string(argv[i]) == "--F-est-method") {
+            if (string(argv[i + 1]) == "lmeds")
+                F_est_method = CV_FM_LMEDS;
+            else if (string(argv[i + 1]) == "ransac")
+                F_est_method = CV_FM_RANSAC;
+            else
+                throw runtime_error("unknown F estimation mode");
+            i++;
+        }
         else if (string(argv[i]) == "--H-est-num-iters")
             H_est_num_iters = atoi(argv[++i]);
         else if (string(argv[i]) == "--H-est-subset-size")
