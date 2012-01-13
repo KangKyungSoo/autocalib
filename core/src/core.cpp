@@ -845,16 +845,6 @@ namespace autocalib {
                     Mat R = R_to * R_from.t();
                     Mat_<double> F = K_inv.t() * CrossProductMat(R * T_from - T_to) * R * K_inv;
 
-                    /*cout << "F=\n" << F << endl;
-                    cout << "T_from=" << T_from << endl;
-                    cout << "T_to=" << T_to << endl;
-                    cout << "R=\n" << R << endl;
-                    cout << "K_inv=\n" << K_inv << endl;
-                    cout << "from=" << from_ << endl;
-                    cout << "to=" << to_ << endl;
-                    cout << "motions_indices_inv_[from_]=" << motions_indices_inv_[from_] << endl;
-                    cout << "motions_indices_inv_[to_]=" << motions_indices_inv_[to_] << endl;*/
-
                     const vector<DMatch> &matches = *(iter->second);
                     for (size_t i = 0; i < matches.size(); ++i) {
                         const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
