@@ -1725,6 +1725,7 @@ void HomographyP3ReprojError::operator ()(const Mat &arg, Mat &err) {
     }
 }
 
+
 void HomographyP3ReprojError::Jacobian(const Mat &arg, Mat &jac) {
     Mat_<double> arg_(arg.clone());
 
