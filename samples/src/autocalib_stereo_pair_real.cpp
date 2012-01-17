@@ -697,6 +697,11 @@ int main(int argc, char **argv) {
 
         cout << "K_est = \n" << K_est << endl;
 
+        FileStorage extrinsics_file("autocalib_camera_params.yml", FileStorage::WRITE);
+        extrinsics_file << "rvec_est" << rvec_est
+                        << "T_est" << T_est
+                        << "K_est" << K_est;
+
         if (!log_file.empty()) {
             ofstream f(log_file.c_str(), ios_base::app);
             f << K_init(0, 0) << ";" << K_init(1, 1) << ";" << K_init(0, 2) << ";" << K_init(1, 2) << ";" << K_init(0, 1) << ";"
