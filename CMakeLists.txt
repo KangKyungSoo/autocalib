@@ -18,5 +18,5 @@ add_subdirectory(samples)
 add_subdirectory(evaluation)
 add_subdirectory(jps2jpg)
 add_subdirectory(takeshots)
-add_subdirectory(undistort
-)
+add_subdirectory(undistort)
+add_subdirectory(crossvalidate)
