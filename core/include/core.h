@@ -862,15 +862,6 @@ namespace autocalib {
       */
     void DecomposeEssentialMat(cv::InputArray E, cv::OutputArray R, cv::OutputArray T);
 
-
-    /** Draws epilines.
-      *
-      * \param points Frist image points
-      * \param F Fundamental matrix
-      * \param image2 Second image
-      */
-    void DrawEpilines(cv::InputArray points, cv::InputArray F, cv::InputOutputArray image2);
-
 } // namespace autocalib
 
 #include "core_inl.h"
