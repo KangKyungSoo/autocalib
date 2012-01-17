@@ -421,8 +421,6 @@ int main(int argc, char **argv) {
         cout << "\nRemoving outliers...\n";
 
         RelativeConfidences rel_confs;
-//        ofstream ff("epip_dist_ll.csv");
-//        ff.close();
 
         for (MatchesCollection::iterator iter = matches_collection.begin();
              iter != matches_collection.end(); ++iter)
@@ -448,17 +446,6 @@ int main(int argc, char **argv) {
 
                     vector<uchar> mask;
                     F_ = findFundamentalMat(xy1.reshape(2), xy2.reshape(2), mask, F_est_method, F_est_thresh);
-
-//                    cout << "Inliers rate = " << accumulate(mask.begin(), mask.end(), 0) / (double)mask.size() << endl;
-
-//                    ofstream f("epip_dist_ll.csv", ios_base::app);
-//                    for (size_t i = 0; i < mask.size(); ++i) {
-//                        if (mask[i]) {
-//                            double dist = SymEpipDist2(xy2.at<double>(0,2*i), xy2.at<double>(0,2*i+1), F_, xy1.at<double>(0,2*i), xy1.at<double>(0,2*i+1));
-//                            f << dist << endl;
-//                        }
-//                    }
-//                    f.close();
                 }
                 else {
                     stringstream msg;
@@ -469,53 +456,6 @@ int main(int argc, char **argv) {
                 num_inliers = FindFundamentalMatInliers(*(features_collection.find(from)->second),
                                                         *(features_collection.find(to)->second),
                                                         *matches, F_, F_est_thresh, mask);
-
-//                // Draw matches and epilines
-
-//                Mat_<double> xy1, xy2;
-//                ExtractMatchedKeypoints(*(features_collection.find(from)->second),
-//                                        *(features_collection.find(to)->second),
-//                                        *matches, xy1, xy2);
-
-//                Mat img1 = right_imgs[from/2].clone();
-//                Mat img2 = right_imgs[to/2].clone();
-
-//                Mat xy1f;
-//                xy1.convertTo(xy1f, CV_32F);
-//                xy1f = xy1f.reshape(2);
-
-//                Mat xy2f;
-//                xy2.convertTo(xy2f, CV_32F);
-//                xy2f = xy2f.reshape(2);
-
-//                vector<Vec3f> lines1;
-//                computeCorrespondEpilines(xy2f, 2, F_, lines1);
-
-//                vector<Vec3f> lines2;
-//                computeCorrespondEpilines(xy1f, 1, F_, lines2);
-
-//                for (size_t i = 0; i < matches->size(); ++i) {
-//                    if (mask(0, i)) {
-//                        Scalar color((uchar)theRNG(), (uchar)theRNG(), (uchar)theRNG());
-
-//                        circle(img1, Point(xy1(0,2*i), xy1(0,2*i+1)), 2, color, 2);
-//                        circle(img2, Point(xy2(0,2*i), xy2(0,2*i+1)), 2, color, 2);
-
-//                        line(img1, Point(0, -lines1[i][2]/lines1[i][1]),
-//                             Point(img1.cols, -(lines1[i][2] + lines1[i][0]*img1.cols) / lines1[i][1]),
-//                             color);
-//                        line(img2, Point(0, -lines2[i][2]/lines2[i][1]),
-//                             Point(img2.cols, -(lines2[i][2] + lines2[i][0]*img2.cols) / lines2[i][1]),
-//                             color);
-
-////                        cout << "epip dist=" << SymEpipDist2(xy2(0,2*i), xy2(0,2*i+1), F_, xy1(0,2*i), xy1(0,2*i+1))
-////                             << " " << SymEpipDist2(xy1(0,2*i), xy1(0,2*i+1), F_.t(), xy2(0,2*i), xy2(0,2*i+1)) << endl;
-
-////                            imshow("img1", img1);
-////                            imshow("img2", img2);
-////                            waitKey();
-//                    }
-//                }
             }
 
             // See "Automatic Panoramic Image Stitching using Invariant Features"
