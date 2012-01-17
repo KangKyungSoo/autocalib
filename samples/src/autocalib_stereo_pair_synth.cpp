@@ -468,7 +468,8 @@ int main(int argc, char **argv) {
             AbsoluteMotions abs_motions;
             CalcAbsoluteMotions(rel_motions, eff_corresp, 0, abs_motions);
 
-            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_K_SKEW);
+            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection,
+                                                 matches_collection, ~REFINE_FLAG_K_SKEW);
 
             cout << "\nK_refined = \n" << P_r_m.K() << endl;
         }

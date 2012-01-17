@@ -371,12 +371,14 @@ double RefineStereoCamera(RigidCamera &cam, const FeaturesCollection &features,
   * \param matches Matches between left frames of stereo pairs and between
                    left and right frames of stereo pairs
   * \param params_to_refine Flags indicating parameters which should be refined
+  * \param rel_conf Matches relative confidences
   * \return Epipolar distance error
   * \see RefineFlag
   */
 double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions &motions,
                           const FeaturesCollection &features, const MatchesCollection &matches,
-                          int params_to_refine = REFINE_FLAG_K_ALL);
+                          int params_to_refine = REFINE_FLAG_K_ALL,
+                          const RelativeConfidences &rel_confs = RelativeConfidences());
 
 
 //============================================================================

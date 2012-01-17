@@ -714,10 +714,12 @@ public:
     EpipError_KRT(
             const FeaturesCollection &features,
             const MatchesCollection &matches,
+            const RelativeConfidences &rel_confs,
             const vector<int> &motions_indices,
             int params_to_refine)
         : features_(&features),
           matches_(&matches),
+          rel_confs_(&rel_confs),
           step_(1e-4),
           params_to_refine_(params_to_refine)
     {
@@ -745,6 +747,7 @@ public:
 private:
     const FeaturesCollection *features_;
     const MatchesCollection *matches_;
+    const RelativeConfidences *rel_confs_;
     int num_matches_;
     vector<int> motions_indices_inv_;
     int params_to_refine_;
@@ -790,6 +793,13 @@ void EpipError_KRT::operator()(const Mat &arg, Mat &err) {
 
         const vector<KeyPoint> &kps_from = features_->find(from)->second->keypoints;
         const vector<KeyPoint> &kps_to = features_->find(to)->second->keypoints;
+
+        double conf = 1;
+        if (!rel_confs_->empty()) {
+            RelativeConfidences::const_iterator conf_iter = rel_confs_->find(iter->first);
+            CV_Assert(conf_iter != rel_confs_->end());
+            conf = std::max(0., conf_iter->second);
+        }
 
         if (BothAreLeft(iter->first.first, iter->first.second) &&
             iter->first.first / 2 < motions_indices_inv_.size() && motions_indices_inv_[iter->first.first / 2] != -1 &&
@@ -845,7 +855,7 @@ void EpipError_KRT::operator()(const Mat &arg, Mat &err) {
             for (size_t i = 0; i < matches.size(); ++i) {
                 const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
                 const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
-                err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F, p0.x, p0.y));
+                err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F, p0.x, p0.y)) * conf;
             }
         }
         else if (IsLeftRightPair(from, to)) {
@@ -853,7 +863,7 @@ void EpipError_KRT::operator()(const Mat &arg, Mat &err) {
             for (size_t i = 0; i < matches.size(); ++i) {
                 const Point2f &p0 = kps_from[matches[i].queryIdx].pt;
                 const Point2f &p1 = kps_to[matches[i].trainIdx].pt;
-                err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F_rel, p0.x, p0.y));
+                err_(pos++, 0) = sqrt(SymEpipDist2(p1.x, p1.y, F_rel, p0.x, p0.y)) * conf;
             }
         }
     }
@@ -895,7 +905,7 @@ void EpipError_KRT::Jacobian(const Mat &arg, Mat &jac) {
 
 double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions &motions,
                           const FeaturesCollection &features, const MatchesCollection &matches,
-                          int params_to_refine)
+                          int params_to_refine, const RelativeConfidences &rel_confs)
 {
     if (motions.size() < 2) {
         AUTOCALIB_LOG(cout << "Need more shots to refine stereo camera\n";);
@@ -960,7 +970,7 @@ double RefineStereoCamera(RigidCamera &cam, AbsoluteMotions &motions,
         arg(0, 11 + 6 * (i - 1) + 5) = T_l(2, 0);
     }
 
-    EpipError_KRT func(features, matches, motions_indices, params_to_refine);
+    EpipError_KRT func(features, matches, rel_confs, motions_indices, params_to_refine);
     double rms_error = MinimizeLevMarq(func, arg, MinimizeOpts::VERBOSE_SUMMARY);
 
     K(0, 0) = arg(0, 0);
