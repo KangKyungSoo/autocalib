@@ -2390,16 +2390,4 @@ namespace autocalib {
         T.getMatRef() = T_;
     }
 
-
-    void DrawEpilines(InputArray points, InputArray F, InputOutputArray image2) {
-        Mat& I2(image2.getMatRef());
-        vector<Vec3f> lines;
-        computeCorrespondEpilines(points, 1, F, lines);
-        for (size_t i = 0; i < lines.size(); ++i) {
-            line(I2, Point(0, -lines[i][2] / lines[i][1]), 
-                 Point(I2.cols, -(lines[i][2] + lines[i][0] * I2.cols) / lines[i][1]), 
-                 Scalar::all(255)); 
-        }
-    }
-
 } // namespace autocalib
