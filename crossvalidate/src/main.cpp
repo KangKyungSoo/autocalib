@@ -84,9 +84,10 @@ void RunOpencvApp(const vector<string> &image_names) {
     for (size_t i = 0; i < image_names.size(); ++i)
         image_list_file << image_names[i] << endl;
     image_list_file << "</images></opencv_storage>";
+    image_list_file.close();
 
     stringstream cmd;
-    cmd << app_name << " -w 6 -h 9 image_list.xml\n";
+    cmd << app_name << " image_list.xml " << app_args;
     CV_Assert(system(cmd.str().c_str()));
 
     FileStorage extrinsics_file("extrinsics.yml", FileStorage::READ);
@@ -105,5 +106,22 @@ void RunOpencvApp(const vector<string> &image_names) {
 
 
 void RunAutocalibApp(const vector<string> &image_names) {
+    stringstream cmd;
+    cmd << app_name << " ";
+    for (size_t i = 0; i < image_names.size(); ++i)
+        cmd << image_names[i] << " ";
+    CV_Assert(system(cmd.str().c_str()));
 
+    FileStorage extrinsics_file("autocalib_camera_params.yml", FileStorage::READ);
+    CV_Assert(extrinsics_file.isOpened());
+
+    Mat_<double> T;
+    extrinsics_file["T_est"] >> T;
+    T /= T(0, 0);
+
+    ofstream autocalib_log_file("autocalib_log.csv", ios_base::app);
+    autocalib_log_file << T(0, 0) << ";" << T(0, 1) << ";" << T(0, 2) << ";";
+    for (size_t i = 0; i < image_names.size(); ++i)
+        autocalib_log_file << image_names[i] << " ";
+    autocalib_log_file << endl;
 }
