@@ -73,6 +73,9 @@ int main(int argc, char **argv) {
         if (!extrinsics_file.empty()) {
             FileStorage fs(extrinsics_file, FileStorage::READ);
             fs["R"] >> R_gold;
+            Mat rvec;
+            Rodrigues(R_gold, rvec);
+            cout << "rvec_gold = " << rvec << endl;
             fs["T"] >> T_gold;
         }
 
@@ -715,9 +718,9 @@ int main(int argc, char **argv) {
 
         RigidCamera P_r_m(K_norm * K_init, avg_R.clone(), avg_T.clone());
 
-        double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_K_SKEW);
-        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_K_SKEW);
-        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_K_SKEW);
+        double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection/*, ~REFINE_FLAG_K_SKEW*/);
+        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection/*, ~REFINE_FLAG_K_SKEW*/);
+        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection/*, ~REFINE_FLAG_K_SKEW*/);
 
         P_r_m = RigidCamera(K_norm.inv() * P_r_m.K(), P_r_m.R(), P_r_m.T());
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
