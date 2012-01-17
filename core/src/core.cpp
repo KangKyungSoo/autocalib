@@ -876,7 +876,7 @@ namespace autocalib {
                                             REFINE_FLAG_K_FY, REFINE_FLAG_K_PPY};
 
             for (int i = 0; i < arg_.cols; ++i) {
-                if (i > 4 || (params_to_refine_ & flags_tbl[i])) {
+                if (/*(i < 5 || i > 10) && (*/i > 4 || (params_to_refine_ & flags_tbl[i])/*)*/) {
                     double val = arg_(0, i);
 
                     arg_(0, i) += step_;
