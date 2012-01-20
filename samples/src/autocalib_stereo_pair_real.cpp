@@ -657,14 +657,29 @@ int main(int argc, char **argv) {
         }
 
         RigidCamera P_r_m(K_norm * K_init, avg_R.clone(), avg_T.clone());
+        double final_rms_error = 0;
+        RNG rng(0);
 
-        double final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, REFINE_FLAG_K_ALL/*, rel_confs*/);
-        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, REFINE_FLAG_K_ALL/*, rel_confs*/);
-        final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, REFINE_FLAG_K_ALL/*, rel_confs*/);
+        for (int i = 0; i < 2; ++i) {
+            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
+            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
+            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
+            P_r_m = RigidCamera(K_norm.inv() * P_r_m.K(), P_r_m.R(), P_r_m.T());
 
-        P_r_m = RigidCamera(K_norm.inv() * P_r_m.K(), P_r_m.R(), P_r_m.T());
+            if (abs(P_r_m.K().at<double>(0, 1)) < 20) {
+                break;
+            }
+            else {
+                Mat_<double> K_init_new = K_init.clone();
+                K_init_new(0, 0) *= rng.uniform(0.9, 1.1);
+                K_init_new(0, 2) *= rng.uniform(0.9, 1.1);
+                K_init_new(1, 1) *= rng.uniform(0.9, 1.1);
+                K_init_new(1, 2) *= rng.uniform(0.9, 1.1);
+                P_r_m = RigidCamera(K_norm * K_init_new, P_r_m.R(), P_r_m.T());
+            }
+        }
+
         cout << "\nK_refined = \n" << P_r_m.K() << endl;
-
         cout << "\nSUMMARY\n";
 
         Mat R_, T_;
