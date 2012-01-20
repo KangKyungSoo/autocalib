@@ -18,6 +18,7 @@ enum AppType {
     APP_TYPE_AUTOCALIB
 };
 AppType app_type = APP_TYPE_UNKNOWN;
+string log_file;
 
 
 void ParseArgs(int argc, char **argv);
@@ -109,14 +110,14 @@ void RunOpencvApp(const vector<string> &image_names) {
     Mat_<double> K;
     intrinsics_file["M1"] >> K;
 
-    ofstream log_file("opencv_log.csv", ios_base::app);
-    log_file << T(0, 0) << ";" << T(0, 1) << ";" << T(0, 2) << ";"
-             << rvec(0, 0) << ";" << rvec(1, 0) << ";" << rvec(2, 0) << ";"
-             << K(0, 0) << ";" << K(1, 1) << ";" << K(0, 2) << ";" << K(1, 2) << ";" << K(0, 1) << ";";
+    ofstream log(log_file.empty() ? "opencv_log.csv" : log_file.c_str(), ios_base::app);
+    log << T(0, 0) << ";" << T(0, 1) << ";" << T(0, 2) << ";"
+        << rvec(0, 0) << ";" << rvec(1, 0) << ";" << rvec(2, 0) << ";"
+        << K(0, 0) << ";" << K(1, 1) << ";" << K(0, 2) << ";" << K(1, 2) << ";" << K(0, 1) << ";";
 
     for (size_t i = 0; i < image_names.size(); ++i)
-        log_file << image_names[i] << " ";
-    log_file << endl;
+        log << image_names[i] << " ";
+    log << endl;
 }
 
 
@@ -142,12 +143,12 @@ void RunAutocalibApp(const vector<string> &image_names) {
     Mat_<double> K;
     params_file["K_est"] >> K;
 
-    ofstream log_file("autocalib_log.csv", ios_base::app);
-    log_file << T(0, 0) << ";" << T(0, 1) << ";" << T(0, 2) << ";"
-             << rvec(0, 0) << ";" << rvec(1, 0) << ";" << rvec(2, 0) << ";"
-             << K(0, 0) << ";" << K(1, 1) << ";" << K(0, 2) << ";" << K(1, 2) << ";" << K(0, 1) << ";";
+    ofstream log(log_file.empty() ? "autocalib_log.csv" : log_file.c_str(), ios_base::app);
+    log << T(0, 0) << ";" << T(0, 1) << ";" << T(0, 2) << ";"
+        << rvec(0, 0) << ";" << rvec(1, 0) << ";" << rvec(2, 0) << ";"
+        << K(0, 0) << ";" << K(1, 1) << ";" << K(0, 2) << ";" << K(1, 2) << ";" << K(0, 1) << ";";
 
     for (size_t i = 0; i < image_names.size(); ++i)
-        log_file << image_names[i] << " ";
-    log_file << endl;
+        log << image_names[i] << " ";
+    log << endl;
 }

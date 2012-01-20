@@ -54,7 +54,9 @@ Mat_<double> R_gold, T_gold;
 Mat_<double> F_gold;
 
 int main(int argc, char **argv) {
-    try {        
+    try {
+        int64 app_start = getTickCount();
+
         FeaturesFinderCreator* ffc = static_cast<FeaturesFinderCreator*>(features_finder_creator);
         dynamic_cast<SurfFeaturesFinderCreator*>(ffc)->hess_thresh = 50.;
 
@@ -724,7 +726,8 @@ int main(int argc, char **argv) {
               << rvec_est(0, 0) << ";" << rvec_est(0, 1) << ";" << rvec_est(0, 2) << ";"
               << T_est(0, 0) << ";" << T_est(1, 0) << ";" << T_est(2, 0) << ";"
               << final_rms_error << ";" << num_frames << ";"
-              << F_est_method << ";" << F_est_thresh << ";" << H_est_thresh << ";" << match_conf << ";";
+              << F_est_method << ";" << F_est_thresh << ";" << H_est_thresh << ";" << match_conf << ";"
+              << (getTickCount() - app_start) / (getTickFrequency() * 60) << ";";
             f << endl;
         }
     }
