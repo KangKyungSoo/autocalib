@@ -376,7 +376,7 @@ double RefineRigidCamera(InputOutputArray K, AbsoluteRotationMats Rs,
 }
 
 
-void AffineRectifyStereoCameraByTwoShots(
+bool AffineRectifyStereoCameraByTwoShots(
         InputOutputArray P_l, InputOutputArray P_r,
         InputOutputArray xy_l0, InputOutputArray xy_r0, InputOutputArray xy_l1, InputOutputArray xy_r1,
         const Ptr<vector<DMatch> > &matches_lr0, const Ptr<vector<DMatch> > &matches_lr1, const Ptr<vector<DMatch> > &matches_ll,
@@ -421,7 +421,7 @@ void AffineRectifyStereoCameraByTwoShots(
     // Leave only common part of point clouds
 
     vector<pair<int, int> > lr0_lr1_indices;
-    Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);
+    Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);   
 
     Mat_<double> xy_l0_buf(1, lr0_lr1_indices.size() * 2);
     Mat_<double> xy_r0_buf(1, lr0_lr1_indices.size() * 2);
@@ -467,8 +467,10 @@ void AffineRectifyStereoCameraByTwoShots(
     // Find homography mapping the 1st cloud to the 2nd one
 
     int num_points_common = xyzw0_.cols / 4;
-    AUTOCALIB_LOG(cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");
-    //Mat_<double> H01_ = FindHomographyP3Linear(xyzw0_, xyzw1_);
+    if (num_points_common < subset_size)
+        return false;
+
+    AUTOCALIB_LOG(cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");       
     Mat_<double> H01_ = FindHomographyP3Robust(xyzw0_, xyzw1_, P_l_, P_r_, xy_l1_, xy_r1_, num_iters, subset_size, thresh);
 
     Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
@@ -520,6 +522,8 @@ void AffineRectifyStereoCameraByTwoShots(
     H01.getMatRef() = H01_;
     xyzw0.getMatRef() = xyzw0_;
     xyzw1.getMatRef() = xyzw1_;
+
+    return true;
 }
 
 

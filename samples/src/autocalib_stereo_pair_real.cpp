@@ -475,7 +475,7 @@ int main(int argc, char **argv) {
 
             iter->second = inliers;
 
-            rel_confs[iter->first] = num_inliers >= H_est_subset_size ? conf : -1;
+            rel_confs[iter->first] = conf;
         }
 
         // Select confident subset
@@ -541,21 +541,24 @@ int main(int argc, char **argv) {
                 Mat_<double> P_l_a_ = P_l.clone();
                 Mat_<double> P_r_a_ = P_r.clone();
 
-                AffineRectifyStereoCameraByTwoShots(P_l_a_, P_r_a_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
-                                                    H_est_num_iters, H_est_subset_size, H_est_thresh,
-                                                    Hpa, H01_a, xyzw0_a, xyzw1_a);
+                bool ok = AffineRectifyStereoCameraByTwoShots(
+                            P_l_a_, P_r_a_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
+                            H_est_num_iters, H_est_subset_size, H_est_thresh,
+                            Hpa, H01_a, xyzw0_a, xyzw1_a);
 
-                Hs_01_a[make_pair(from, to)] = H01_a;
+                if (ok) {
+                    Hs_01_a[make_pair(from, to)] = H01_a;
 
-                Ps_l_a[make_pair(from, to)] = P_l_a_;
-                Ps_r_a[make_pair(from, to)] = P_r_a_;
+                    Ps_l_a[make_pair(from, to)] = P_l_a_;
+                    Ps_r_a[make_pair(from, to)] = P_r_a_;
 
-                // Stereo pair relative rotation can be very close to the identity matrix. That
-                // can lead to numerical instability in K estimation process, so we avoid using those
-                // rotations in the linear autocalibration algorithm.
+                    // Stereo pair relative rotation can be very close to the identity matrix. That
+                    // can lead to numerical instability in K estimation process, so we avoid using those
+                    // rotations in the linear autocalibration algorithm.
 
-                Hs_inf[make_pair(2 * from, 2 * to)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
-                //Hs_inf[make_pair(2 * from, 2 * from + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+                    Hs_inf[make_pair(2 * from, 2 * to)] = Mat(P_l_a_ * H01_a.inv())(Rect(0, 0, 3, 3));
+                    //Hs_inf[make_pair(2 * from, 2 * from + 1)] = P_r_a_(Rect(0, 0, 3, 3));
+                }
             }
         }
 
@@ -631,19 +634,23 @@ int main(int argc, char **argv) {
 
         Mat avg_R;
         Rodrigues(total_rvec / total_estimations, avg_R);
-
         Mat avg_T = total_T / total_estimations;
 
         detail::Graph eff_corresp;
         RelativeConfidences ll_rel_confs;
+
         for (RelativeConfidences::iterator iter = good_rel_confs.begin(); iter != good_rel_confs.end(); ++iter) {
             if (BothAreLeft(iter->first.first, iter->first.second)) {
-                ll_rel_confs[make_pair(iter->first.first / 2, iter->first.second / 2)] = iter->second;
+                int from = iter->first.first / 2;
+                int to = iter->first.second / 2;
+                if (Hs_01_a.find(make_pair(from, to)) != Hs_01_a.end())
+                    ll_rel_confs[make_pair(from, to)] = iter->second;
             }
         }
-        int ref_pair_idx = ExtractEfficientCorrespondences(num_frames, ll_rel_confs, eff_corresp);
 
         AbsoluteMotions abs_motions;
+
+        int ref_pair_idx = ExtractEfficientCorrespondences(num_frames, ll_rel_confs, eff_corresp);
         CalcAbsoluteMotions(rel_motions, eff_corresp, ref_pair_idx, abs_motions);
 
         Mat_<double> K_norm = K_init.inv();
@@ -660,8 +667,8 @@ int main(int argc, char **argv) {
 
         RigidCamera P_r_m(K_norm * K_init, avg_R.clone(), avg_T.clone());
         double final_rms_error = 0;
-        RNG rng(0);
 
+        RNG rng(0);
         for (int i = 0; i < 2; ++i) {
             final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
             final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);

@@ -331,8 +331,9 @@ inline bool BothAreLeft(int index1, int index2) {
   * \param thresh Error threshold of H estimation
   * \param xyzw0 First pair point cloud
   * \param xyzw1 Second pair point cloud
+  * \return true if it succeded, false otherwise
   */
-void AffineRectifyStereoCameraByTwoShots(
+bool AffineRectifyStereoCameraByTwoShots(
         cv::InputOutputArray P_l, cv::InputOutputArray P_r,
         cv::InputOutputArray xy_l0, cv::InputOutputArray xy_r0,
         cv::InputOutputArray xy_l1, cv::InputOutputArray xy_r1,
