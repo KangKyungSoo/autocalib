@@ -475,8 +475,8 @@ int main(int argc, char **argv) {
 
             iter->second = inliers;
 
-            rel_confs[iter->first] = conf;
-        }                
+            rel_confs[iter->first] = num_inliers >= H_est_subset_size ? conf : -1;
+        }
 
         // Select confident subset
 
