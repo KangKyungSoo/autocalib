@@ -9,6 +9,6 @@ Use the following command "doxygen doxygen_config.txt" to build HTML documentati
 Build & Dependencies
 --------------------
 
-Use CMake utility. Project depends on OpenCV, Eigen3, GLFW, GLUT, and GTest libraries.
+Use CMake utility. Project depends on OpenCV, Eigen3, GLFW, GLUT, GTest, LAPACK (optional, but highly recommended) and BLAS (optional, but highly recommended) libraries. 
 
 
