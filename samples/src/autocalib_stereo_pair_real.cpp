@@ -52,6 +52,7 @@ Mat_<double> dist1, dist2;
 string extrinsics_file;
 Mat_<double> R_gold, T_gold;
 Mat_<double> F_gold;
+bool weighted_ba;
 
 int main(int argc, char **argv) {
     try {
@@ -666,24 +667,32 @@ int main(int argc, char **argv) {
         }
 
         RigidCamera P_r_m(K_norm * K_init, avg_R.clone(), avg_T.clone());
-        double final_rms_error = 0;
+        double final_rms_error = 0;       
 
         RNG rng(0);
-        for (int i = 0; i < 2; ++i) {
-            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
-            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
-            final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
+        int num_iters = 3;
+        for (int i = 0; i < num_iters; ++i) {
+            if (weighted_ba) {
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, REFINE_FLAG_K_ALL, rel_confs);
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, REFINE_FLAG_K_ALL, rel_confs);
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, REFINE_FLAG_K_ALL, rel_confs);
+            }
+            else {
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
+            }
             P_r_m = RigidCamera(K_norm.inv() * P_r_m.K(), P_r_m.R(), P_r_m.T());
 
             if (abs(P_r_m.K().at<double>(0, 1)) < 20) {
                 break;
             }
-            else {
+            else if (i < num_iters - 1) {
                 Mat_<double> K_init_new = K_init.clone();
-                K_init_new(0, 0) *= rng.uniform(0.9, 1.1);
-                K_init_new(0, 2) *= rng.uniform(0.9, 1.1);
-                K_init_new(1, 1) *= rng.uniform(0.9, 1.1);
-                K_init_new(1, 2) *= rng.uniform(0.9, 1.1);
+                K_init_new(0, 0) *= rng.uniform(0.8, 1.2);
+                K_init_new(0, 2) *= rng.uniform(0.8, 1.2);
+                K_init_new(1, 1) *= rng.uniform(0.8, 1.2);
+                K_init_new(1, 2) *= rng.uniform(0.8, 1.2);
                 P_r_m = RigidCamera(K_norm * K_init_new, P_r_m.R(), P_r_m.T());
             }
         }
@@ -866,6 +875,8 @@ void ParseArgs(int argc, char **argv) {
             work_size.height = atoi(argv[i + 2]);
             i += 2;
         }
+        else if (string(argv[i]) == "--weighted-ba")
+            weighted_ba = static_cast<bool>(atoi(argv[++i]));
         else {
             if (i < argc - 1) {
                 img_names.push_back(make_pair(argv[i], argv[i + 1]));
