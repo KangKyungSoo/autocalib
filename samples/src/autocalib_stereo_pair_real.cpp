@@ -693,6 +693,7 @@ int main(int argc, char **argv) {
                 K_init_new(0, 2) *= rng.uniform(0.8, 1.2);
                 K_init_new(1, 1) *= rng.uniform(0.8, 1.2);
                 K_init_new(1, 2) *= rng.uniform(0.8, 1.2);
+                cout << "K_init_new = \n" << K_init_new << endl;
                 P_r_m = RigidCamera(K_norm * K_init_new, P_r_m.R(), P_r_m.T());
             }
         }
@@ -730,10 +731,8 @@ int main(int argc, char **argv) {
 
         cout << "K_est = \n" << K_est << endl;
 
-        FileStorage extrinsics_file("autocalib_camera_params.yml", FileStorage::WRITE);
-        extrinsics_file << "rvec_est" << rvec_est
-                        << "T_est" << T_est
-                        << "K_est" << K_est;
+        FileStorage camera_params_file("autocalib_camera_params.yml", FileStorage::WRITE);
+        camera_params_file << "rvec_est" << rvec_est << "T_est" << T_est << "K_est" << K_est;
 
         if (!log_file.empty()) {
             ofstream f(log_file.c_str(), ios_base::app);
