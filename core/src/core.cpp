@@ -483,8 +483,6 @@ void AffineRectify(
     Mat_<double> xyzw0_(xyzw0.getMat());
     Mat_<double> xyzw1_(xyzw1.getMat());
 
-    AUTOCALIB_LOG(cout << "\nAffine rectification...\n");
-
     Mat_<double> Hpa = Mat::eye(4, 4, CV_64F);
     Hpa(3,0) = -pinf_(0,0); Hpa(3,1) = -pinf_(1,0); Hpa(3,2) = -pinf_(2,0);
 
@@ -538,6 +536,7 @@ bool AffineRectifyStereoCameraByTwoShots(
     Mat_<double> pinf = CalcPlaneAtInfinity(H01_);
     AUTOCALIB_LOG(cout << "Plane-at-infinity = " << pinf << endl);
 
+    AUTOCALIB_LOG(cout << "\nAffine rectification...\n");
     AffineRectify(pinf, P_l, P_r, H01_, num_points_common, xyzw0_, xyzw1_);
 
     H01.getMatRef() = H01_;
