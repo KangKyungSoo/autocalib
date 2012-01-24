@@ -310,6 +310,47 @@ inline bool BothAreLeft(int index1, int index2) {
 }
 
 
+/** Reconstructs point clouds in the P3 space.
+  *
+  * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 496.
+  * When the function finishes, keypoint arrays will contain images of points shared amongst the both pairs.
+  *
+  * \param P_l Left camera projective matrix (the same for both pairs)
+  * \param P_r Right camera projective matrix (the same for both pairs)
+  * \param xy_l0 First pair left image keypoints
+  * \param xy_r0 First pair right image keypoints
+  * \param xy_l1 Second pair left image keypoints
+  * \param xy_r1 Second pair right image keypoints
+  * \param matches_lr0 Matches between left and right images of the first pair
+  * \param matches_lr1 Matches between left and right images of the second pair
+  * \param matches_ll Matches between left images of two pairs
+  * \return Two point clouds: i'th point of the 1st cloud corresponds to the i'th point of the 2nd cloud.
+            Number of points are the same.
+  */
+std::pair<cv::Mat, cv::Mat> ReconstructPointClouds(
+    cv::InputOutputArray P_l, cv::InputOutputArray P_r,
+    cv::InputOutputArray xy_l0, cv::InputOutputArray xy_r0,
+    cv::InputOutputArray xy_l1, cv::InputOutputArray xy_r1,
+    const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0,
+    const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1,
+    const cv::Ptr<std::vector<cv::DMatch> > &matches_ll);
+
+
+/** Upgrades a projective point cloud to the affine one.
+  *
+  * \param pinf Plane-at-infinity
+  * \param xyzw Point cloud
+  */
+void UpgradeProjectiveToAffine(cv::InputArray pinf, cv::InputOutputArray xyzw);
+
+
+// TODO add docs
+void AffineRectify(
+        cv::InputArray pinf,
+        cv::InputOutputArray P_l, cv::InputOutputArray P_r, cv::InputOutputArray H01,
+        int num_points, cv::InputOutputArray xyzw0, cv::InputOutputArray xyzw1);
+
+
 /** Performs affine rectification of the stereo pair by two image pairs.
   *
   * See details in Hartey R., Zisserman A., "Multiple View Geometry", 2nd ed., p. 496.
@@ -324,7 +365,6 @@ inline bool BothAreLeft(int index1, int index2) {
   * \param matches_lr0 Matches between left and right images of the first pair
   * \param matches_lr1 Matches between left and right images of the second pair
   * \param matches_ll Matches between left images of two pairs
-  * \param Hpa Homography upgrading projective reconstruction into affine one
   * \param H01 Homography mapping the first pair point cloud into the second pair point cloud
   * \param num_iters Number of iterations for H estimation
   * \param subset_size Subset size for H estimation
@@ -340,7 +380,7 @@ bool AffineRectifyStereoCameraByTwoShots(
         const cv::Ptr<std::vector<cv::DMatch> > &matches_lr0, const cv::Ptr<std::vector<cv::DMatch> > &matches_lr1,
         const cv::Ptr<std::vector<cv::DMatch> > &matches_ll,
         int num_iters, int subset_size, double thresh,
-        cv::OutputArray Hpa, cv::OutputArray H01, cv::OutputArray xyzw0, cv::OutputArray xyzw1);
+        cv::OutputArray H01, cv::OutputArray xyzw0, cv::OutputArray xyzw1);
 
 
 /** Computes the symmetric point-to-epipolar distance.

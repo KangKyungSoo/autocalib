@@ -379,14 +379,14 @@ int main(int argc, char **argv) {
                 ExtractMatchedKeypoints(*(features_collection.find(2 * j)->second),
                                         *(features_collection.find(2 * j + 1)->second), *matches_lr1, xy_l1, xy_r1);
 
-                Mat_<double> Hpa, H01_a;
+                Mat_<double> H01_a;
                 Mat_<double> xyzw0_a, xyzw1_a;
                 Mat_<double> P_l_a_ = P_l.clone();
                 Mat_<double> P_r_a_ = P_r.clone();
 
                 AffineRectifyStereoCameraByTwoShots(P_l_a_, P_r_a_, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll,
                                                     H_est_num_iters, H_est_subset_size, H_est_thresh,
-                                                    Hpa, H01_a, xyzw0_a, xyzw1_a);
+                                                    H01_a, xyzw0_a, xyzw1_a);
 
                 Hs_01_a[make_pair(i, j)] = H01_a;
 

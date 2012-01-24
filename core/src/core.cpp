@@ -376,12 +376,10 @@ double RefineRigidCamera(InputOutputArray K, AbsoluteRotationMats Rs,
 }
 
 
-bool AffineRectifyStereoCameraByTwoShots(
+pair<Mat, Mat> ReconstructPointClouds(
         InputOutputArray P_l, InputOutputArray P_r,
         InputOutputArray xy_l0, InputOutputArray xy_r0, InputOutputArray xy_l1, InputOutputArray xy_r1,
-        const Ptr<vector<DMatch> > &matches_lr0, const Ptr<vector<DMatch> > &matches_lr1, const Ptr<vector<DMatch> > &matches_ll,
-        int num_iters, int subset_size, double thresh,
-        OutputArray Hpa, OutputArray H01, OutputArray xyzw0, OutputArray xyzw1)
+        const Ptr<vector<DMatch> > &matches_lr0, const Ptr<vector<DMatch> > &matches_lr1, const Ptr<vector<DMatch> > &matches_ll)
 {
     CV_Assert(P_l.getMat().type() == CV_64F && P_l.getMat().size() == Size(4, 3));
     CV_Assert(P_r.getMat().type() == CV_64F && P_r.getMat().size() == Size(4, 3));
@@ -421,7 +419,7 @@ bool AffineRectifyStereoCameraByTwoShots(
     // Leave only common part of point clouds
 
     vector<pair<int, int> > lr0_lr1_indices;
-    Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);   
+    Intersect(*matches_lr0, *matches_lr1, *matches_ll, lr0_lr1_indices);
 
     Mat_<double> xy_l0_buf(1, lr0_lr1_indices.size() * 2);
     Mat_<double> xy_r0_buf(1, lr0_lr1_indices.size() * 2);
@@ -457,68 +455,91 @@ bool AffineRectifyStereoCameraByTwoShots(
         xyzw1_buf(0, 4 * i + 3) = xyzw1_(0, 4 * i1 + 3);
     }
 
-    xy_l0_ = xy_l0_buf;
-    xy_r0_ = xy_r0_buf;
-    xy_l1_ = xy_l1_buf;
-    xy_r1_ = xy_r1_buf;
-    xyzw0_ = xyzw0_buf;
-    xyzw1_ = xyzw1_buf;
+    xy_l0.getMatRef() = xy_l0_buf;
+    xy_r0.getMatRef() = xy_r0_buf;
+    xy_l1.getMatRef() = xy_l1_buf;
+    xy_r1.getMatRef() = xy_r1_buf;
 
-    // Find homography mapping the 1st cloud to the 2nd one
+    return make_pair(xyzw0_buf, xyzw1_buf);
+}
 
-    int num_points_common = xyzw0_.cols / 4;
-    if (num_points_common < subset_size)
-        return false;
 
-    AUTOCALIB_LOG(cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");       
-    Mat_<double> H01_ = FindHomographyP3Robust(xyzw0_, xyzw1_, P_l_, P_r_, xy_l1_, xy_r1_, num_iters, subset_size, thresh);
+void AffineRectify(
+        cv::InputArray pinf,
+        cv::InputOutputArray P_l, cv::InputOutputArray P_r, cv::InputOutputArray H01,
+        int num_points, cv::InputOutputArray xyzw0, cv::InputOutputArray xyzw1)
+{
+    CV_Assert(pinf.getMat().type() == CV_64F && pinf.getMat().size() == Size(1,4));
+    CV_Assert(P_l.getMat().type() == CV_64F && P_l.getMat().size() == Size(4,3));
+    CV_Assert(P_r.getMat().type() == CV_64F && P_r.getMat().size() == Size(4,3));
+    CV_Assert(H01.getMat().type() == CV_64F && H01.getMat().size() == Size(4,4));
+    CV_Assert(xyzw0.getMat().type() == CV_64F && xyzw0.getMat().size().area() == num_points*4);
+    CV_Assert(xyzw1.getMat().type() == CV_64F && xyzw1.getMat().size().area() == num_points*4);
 
-    Mat_<double> xyzw0_mapped(xyzw0_.size(), xyzw0_.type());
-    for (int i = 0; i < num_points_common; ++i) {
-        xyzw0_mapped(0, 4 * i) = H01_(0, 0) * xyzw0_(0, 4 * i) + H01_(0, 1) * xyzw0_(0, 4 * i + 1) + H01_(0, 2) * xyzw0_(0, 4 * i + 2) + H01_(0, 3) * xyzw0_(0, 4 * i + 3);
-        xyzw0_mapped(0, 4 * i + 1) = H01_(1, 0) * xyzw0_(0, 4 * i) + H01_(1, 1) * xyzw0_(0, 4 * i + 1) + H01_(1, 2) * xyzw0_(0, 4 * i + 2) + H01_(1, 3) * xyzw0_(0, 4 * i + 3);
-        xyzw0_mapped(0, 4 * i + 2) = H01_(2, 0) * xyzw0_(0, 4 * i) + H01_(2, 1) * xyzw0_(0, 4 * i + 1) + H01_(2, 2) * xyzw0_(0, 4 * i + 2) + H01_(2, 3) * xyzw0_(0, 4 * i + 3);
-        xyzw0_mapped(0, 4 * i + 3) = H01_(3, 0) * xyzw0_(0, 4 * i) + H01_(3, 1) * xyzw0_(0, 4 * i + 1) + H01_(3, 2) * xyzw0_(0, 4 * i + 2) + H01_(3, 3) * xyzw0_(0, 4 * i + 3);
-    }
-
-    // Finding plane-at-infinity
-
-    AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");
-
-    Mat_<double> p_inf = CalcPlaneAtInfinity(H01_);
-    AUTOCALIB_LOG(cout << "Plane-at-infinity = " << p_inf << endl);
-
-    // Affine rectification
+    Mat_<double> pinf_(pinf.getMat());
+    Mat_<double> P_l_(P_l.getMat());
+    Mat_<double> P_r_(P_r.getMat());
+    Mat_<double> H01_(H01.getMat());
+    Mat_<double> xyzw0_(xyzw0.getMat());
+    Mat_<double> xyzw1_(xyzw1.getMat());
 
     AUTOCALIB_LOG(cout << "\nAffine rectification...\n");
 
-    Mat_<double> Hpa_ = Mat::eye(4, 4, CV_64F);
-    Hpa_(3, 0) = -p_inf(0, 0); Hpa_(3, 1) = -p_inf(1, 0); Hpa_(3, 2) = -p_inf(2, 0);
+    Mat_<double> Hpa = Mat::eye(4, 4, CV_64F);
+    Hpa(3,0) = -pinf_(0,0); Hpa(3,1) = -pinf_(1,0); Hpa(3,2) = -pinf_(2,0);
 
-    H01_ = Hpa_.inv() * H01_ * Hpa_;
+    H01_ = Hpa.inv() * H01_ * Hpa;
 
-    P_l_ = P_l_ * Hpa_;
-    P_r_ = P_r_ * Hpa_;
+    P_l_ = P_l_ * Hpa;
+    P_r_ = P_r_ * Hpa;
 
-    xyzw0_ = Hpa_.inv() * xyzw0_.reshape(num_points_common).t();
-    xyzw1_ = Hpa_.inv() * xyzw1_.reshape(num_points_common).t();
+    xyzw0_ = Hpa.inv() * xyzw0_.reshape(num_points).t();
+    xyzw1_ = Hpa.inv() * xyzw1_.reshape(num_points).t();
     xyzw0_ = Mat(xyzw0_.t()).reshape(0, 1);
     xyzw1_ = Mat(xyzw1_.t()).reshape(0, 1);
 
-    AUTOCALIB_LOG(
-        cout << "Reprojection RMS error after affine rectification (l0 r0 l1 r1) = ("
-             << CalcRmsReprojectionError(xy_l0_, P_l_, xyzw0_) << " "
-             << CalcRmsReprojectionError(xy_r0_, P_r_, xyzw0_) << " "
-             << CalcRmsReprojectionError(xy_l1_, P_l_, xyzw1_) << " "
-             << CalcRmsReprojectionError(xy_r1_, P_r_, xyzw1_) << ")\n");
-
     P_l.getMatRef() = P_l_;
     P_r.getMatRef() = P_r_;
-    xy_l0.getMatRef() = xy_l0_;
-    xy_r0.getMatRef() = xy_r0_;
-    xy_l1.getMatRef() = xy_l1_;
-    xy_r1.getMatRef() = xy_r1_;
-    Hpa.getMatRef() = Hpa_;
+    H01.getMatRef() = H01_;
+    xyzw0.getMatRef() = xyzw0_;
+    xyzw1.getMatRef() = xyzw1_;
+}
+
+
+bool AffineRectifyStereoCameraByTwoShots(
+        InputOutputArray P_l, InputOutputArray P_r,
+        InputOutputArray xy_l0, InputOutputArray xy_r0, InputOutputArray xy_l1, InputOutputArray xy_r1,
+        const Ptr<vector<DMatch> > &matches_lr0, const Ptr<vector<DMatch> > &matches_lr1, const Ptr<vector<DMatch> > &matches_ll,
+        int num_iters, int subset_size, double thresh,
+        OutputArray H01, OutputArray xyzw0, OutputArray xyzw1)
+{
+    CV_Assert(P_l.getMat().type() == CV_64F && P_l.getMat().size() == Size(4, 3));
+    CV_Assert(P_r.getMat().type() == CV_64F && P_r.getMat().size() == Size(4, 3));
+    CV_Assert(xy_l0.getMat().type() == CV_64F && xy_l0.getMat().rows == 1 && xy_l0.getMat().cols % 2 == 0);
+    CV_Assert(xy_r0.getMat().type() == CV_64F && xy_r0.getMat().rows == 1 && xy_r0.getMat().cols % 2 == 0);
+    CV_Assert(xy_l0.getMat().cols / 2 == xy_r0.getMat().cols / 2);
+    CV_Assert(xy_l1.getMat().type() == CV_64F && xy_l1.getMat().rows == 1 && xy_l1.getMat().cols % 2 == 0);
+    CV_Assert(xy_r1.getMat().type() == CV_64F && xy_r1.getMat().rows == 1 && xy_r1.getMat().cols % 2 == 0);
+    CV_Assert(xy_l1.getMat().cols / 2 == xy_r1.getMat().cols / 2);
+
+    pair<Mat, Mat> clouds = ReconstructPointClouds(P_l, P_r, xy_l0, xy_r0, xy_l1, xy_r1, matches_lr0, matches_lr1, matches_ll);
+    Mat_<double> xyzw0_ = clouds.first, xyzw1_ = clouds.second;
+
+    int num_points_common = xyzw0_.cols / 4;
+
+    if (num_points_common < subset_size) {
+        return false;
+    }
+
+    AUTOCALIB_LOG(cout << "\nFinding H01 using " << num_points_common << " common points (point)...\n");       
+    Mat_<double> H01_ = FindHomographyP3Robust(xyzw0_, xyzw1_, P_l, P_r, xy_l1, xy_r1, num_iters, subset_size, thresh);
+
+    AUTOCALIB_LOG(cout << "\nFinding plane-at-infinity...\n");    
+    Mat_<double> pinf = CalcPlaneAtInfinity(H01_);
+    AUTOCALIB_LOG(cout << "Plane-at-infinity = " << pinf << endl);
+
+    AffineRectify(pinf, P_l, P_r, H01_, num_points_common, xyzw0_, xyzw1_);
+
     H01.getMatRef() = H01_;
     xyzw0.getMatRef() = xyzw0_;
     xyzw1.getMatRef() = xyzw1_;
