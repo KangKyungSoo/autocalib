@@ -12,7 +12,7 @@ set(GLUT_LIBRARIES CACHE PATH "")
 
 include_directories("." ${EIGEN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR} ${GLUT_INCLUDE_DIR})
 
-add_subdirectory(3rdparty/levmar-2.6)
+#add_subdirectory(3rdparty/levmar-2.6)
 add_subdirectory(core)
 add_subdirectory(tests)
 add_subdirectory(samples)
