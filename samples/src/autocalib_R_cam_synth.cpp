@@ -27,7 +27,7 @@ bool lin_est_skew = false;
 bool refine_skew = false;
 int seed = 0; // No seed
 Mat_<double> camera_center;
-double max_angle = 0.1;
+double max_angle = 0.05;
 bool create_images = false;
 double H_est_thresh = 3;
 double noise_stddev = -1; // No noise
@@ -64,10 +64,10 @@ int main(int argc, char **argv) {
             rvec = Mat::zeros(3, 1, CV_64F);
             rng.fill(rvec, RNG::UNIFORM, -1, 1);
             Rodrigues(rvec, R);
-            scene_->set_R(R);
+            //scene_->set_R(R);
             T = Mat::zeros(3, 1, CV_64F);
             rng.fill(T, RNG::UNIFORM, -2, 2);
-            scene_->set_T(T);
+            //scene_->set_T(T);
 
             scene = static_cast<ISyntheticScene*>(scene_);
             scene_.addref();
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
 
             Mat T_noise = Mat::zeros(3, 1, CV_64F);
             if (noise_transl > 0)
-                rng.fill(T_noise, RNG::NORMAL, 0, noise_transl);
+                rng.fill(T_noise, RNG::UNIFORM, -noise_transl, noise_transl);
 
             Rodrigues(rvec, R);
             cameras[i] = RigidCamera::FromLocalToWorld(K_gold, R, camera_center + T_noise);
@@ -207,13 +207,14 @@ int main(int argc, char **argv) {
         }
 
         int64 calib_start_time = getTickCount();
+        double lin_calib_err = 0;
 
         if (K_init.empty()) {
             cout << "\nLinear calibrating...\n";
             if (lin_est_skew)
-                K_init = CalibRotationalCameraLinear(Hs);
+                K_init = CalibRotationalCameraLinear(Hs, &lin_calib_err);
             else
-                K_init = CalibRotationalCameraLinearNoSkew(Hs);
+                K_init = CalibRotationalCameraLinearNoSkew(Hs, &lin_calib_err);
             cout << "Linear calibration result'll be used as K_init\n";
         }
         cout << "K_init =\n" << K_init << endl;
@@ -233,12 +234,14 @@ int main(int argc, char **argv) {
             Rs[i] = K_init.inv() * Hs_from_0[i - 1] * K_init;
 
         Mat_<double> K_refined = K_init.clone();
+        double refine_err = 0;
+
         if (refine_skew)
-            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection);
+            refine_err = RefineRigidCamera(K_refined, Rs, features_collection, matches_collection);
         else {
             K_refined(0, 1) = 0;
-            RefineRigidCamera(K_refined, Rs, features_collection, matches_collection,
-                              ~REFINE_FLAG_K_SKEW);
+            refine_err = RefineRigidCamera(K_refined, Rs, features_collection, matches_collection,
+                                           ~REFINE_FLAG_K_SKEW);
         }
         cout << "K_refined =\n" << K_refined << endl;
 
@@ -255,12 +258,21 @@ int main(int argc, char **argv) {
             ofstream f(log_file.c_str(), ios_base::app);
             if (!f.is_open())
                 throw runtime_error("Can't open log file: " + log_file);
-            f << num_points << " " << num_frames << " " << noise_stddev << " ";
-            f << K_init(0, 0) << " " << K_init(1, 1) << " " << K_init(0, 2) << " " << K_init(1, 2) << " " << K_init(0, 1) << " ";
-            f << K_refined(0, 0) << " " << K_refined(1, 1) << " " << K_refined(0, 2) << " " << K_refined(1, 2) << " " << K_refined(0, 1) << " ";
-            f << K_gold(0, 0) << " " << K_gold(1, 1) << " " << K_gold(0, 2) << " " << K_gold(1, 2) << " " << K_gold(0, 1) << " ";
-            f << fixed << setprecision(3) << calib_time / getTickFrequency() << " ";
-            f << endl;
+            f << K_gold(0,0) << " " << K_gold(1,1) << " " << K_gold(0,2) << " " << K_gold(1,2) << " " << K_gold(0,1) << " "
+              << K_init(0,0) << " " << K_init(1,1) << " " << K_init(0,2) << " " << K_init(1,2) << " " << K_init(0,1) << " "
+              << fixed << setprecision(6) << lin_calib_err << " "
+              << K_refined(0,0) << " " << K_refined(1,1) << " " << K_refined(0,2) << " " << K_refined(1,2) << " " << K_refined(0,1) << " "
+              << fixed << setprecision(6) << refine_err << " "
+              << num_points << " " << num_frames << " "
+              << fixed << setprecision(3) << noise_stddev << " "
+              << fixed << setprecision(3) << noise_transl << " "
+              << fixed << setprecision(3) << max_angle << " "
+              << fixed << setprecision(3) << camera_center(0,0) << " "
+              << fixed << setprecision(3) << camera_center(1,0) << " "
+              << fixed << setprecision(3) << camera_center(2,0) << " "
+              << lin_est_skew << " " << refine_skew << " "
+              << fixed << setprecision(3) << calib_time / getTickFrequency() << " "
+              << endl;
         }
     }
     catch (const exception &e) {
