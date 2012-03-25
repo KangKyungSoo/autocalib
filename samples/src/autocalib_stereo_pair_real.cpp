@@ -29,7 +29,7 @@ bool manual_registr;
 bool save_keypoints, load_keypoints;
 bool save_matches, load_matches;
 Ptr<FeaturesFinderCreator> features_finder_creator = new SurfFeaturesFinderCreator();
-double match_conf = 0.2;
+double match_conf = 0.20;
 BestOf2NearestMatcherCreator features_matcher_creator;
 bool show_matches;
 bool opt_flow_matching;
@@ -44,7 +44,7 @@ double F_est_conf = 0.99;
 int H_est_num_iters = 100;
 int H_est_subset_size = 5;
 double H_est_thresh = 3.;
-double conf_thresh = 1;
+double conf_thresh = 1.19;
 string log_file;
 string intrinsics_file;
 Mat_<double> K1_gold, K2_gold;
@@ -677,9 +677,9 @@ int main(int argc, char **argv) {
                 final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, REFINE_FLAG_K_ALL, rel_confs);
             }
             else {
-                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
-                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
-                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection);
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_K_SKEW);
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_K_SKEW);
+                final_rms_error = RefineStereoCamera(P_r_m, abs_motions, features_collection, matches_collection, ~REFINE_FLAG_K_SKEW);
             }
             P_r_m = RigidCamera(K_norm.inv() * P_r_m.K(), P_r_m.R(), P_r_m.T());
 
